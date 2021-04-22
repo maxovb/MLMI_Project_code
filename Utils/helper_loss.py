@@ -15,6 +15,9 @@ def gaussian_logpdf(target, mean, std, reduction=None):
     dist = Normal(loc=mean, scale=std)
     logp = dist.log_prob(target)
 
+    # number of dimensions
+    num_dim = len(logp.shape)
+
     if not reduction:
         return logp
     elif reduction == 'sum':
@@ -22,6 +25,6 @@ def gaussian_logpdf(target, mean, std, reduction=None):
     elif reduction == 'mean':
         return torch.mean(logp)
     elif reduction == 'batched_mean':
-        return torch.mean(torch.sum(logp, 1))
+        return torch.mean(torch.sum(logp, list(range(1,num_dim))))
     else:
         raise RuntimeError(f'Unknown reduction "{reduction}".')

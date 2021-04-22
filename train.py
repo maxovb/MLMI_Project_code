@@ -58,7 +58,7 @@ if __name__ == "__main__":
     load = False
     save = True
     if load:
-        epoch_start = 200 # which epoch to start from
+        epoch_start = 300 # which epoch to start from
     else:
         epoch_start = 0
     save_freq = 50 # epoch frequency of saving checkpoints
