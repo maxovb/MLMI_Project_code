@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torchsummary import summary
 from Utils.helper_loss import gaussian_logpdf
 
@@ -63,7 +64,7 @@ class OnTheGridConvCNPEncoder(nn.Module):
     def __init__(self,num_input_channels,num_of_filters,kernel_size_first_convolution):
         super(OnTheGridConvCNPEncoder, self).__init__()
         self.num_input_channels = num_input_channels
-        self.depthwise_sep_conv = DepthwiseSeparableConv2D(num_input_channels,num_of_filters,kernel_size_first_convolution)
+        self.depthwise_sep_conv = DepthwiseSeparableConv2D(num_input_channels,num_of_filters,kernel_size_first_convolution,enforce_positivity=True)
 
     def forward(self,mask,context_image):
         """Forward pass through the on-the-grid ConvCNP
@@ -83,7 +84,7 @@ class OnTheGridConvCNPEncoder(nn.Module):
         numerator = self.depthwise_sep_conv(context_image)
 
         # dived the signal by the density
-        signal = numerator / torch.clamp(density, min=1e-5)
+        signal = numerator / torch.clamp(density, min=1e-3)
 
         return torch.cat([density,signal],dim=1)
 
@@ -184,11 +185,16 @@ class DepthwiseSeparableConv2D(nn.Module):
         num_of_filters (int): size of the channel channel dimension of the output
         kernel_size (int): size of the kernel
     """
-    def __init__(self,num_input_channels,num_of_filters,kernel_size):
+    def __init__(self,num_input_channels,num_of_filters,kernel_size,enforce_positivity=False):
         super(DepthwiseSeparableConv2D,self).__init__()
         padding = kernel_size//2
-        self.depthwise = nn.Conv2d(num_input_channels, num_input_channels, kernel_size=kernel_size,padding=padding,groups=num_input_channels)
-        self.pointwise = nn.Conv2d(num_input_channels, num_of_filters, kernel_size=1)
+
+        if enforce_positivity:
+            self.depthwise = make_abs_conv(nn.Conv2d)(num_input_channels, num_input_channels, kernel_size=kernel_size,padding=padding,groups=num_input_channels)
+            self.pointwise = make_abs_conv(nn.Conv2d)(num_input_channels, num_of_filters, kernel_size=1)
+        else:
+            self.depthwise = nn.Conv2d(num_input_channels, num_input_channels, kernel_size=kernel_size,padding=padding,groups=num_input_channels)
+            self.pointwise = nn.Conv2d(num_input_channels, num_of_filters, kernel_size=1)
 
     def forward(self,input):
         """ Forward pass through the depthwise separable 2D convolution
@@ -201,6 +207,23 @@ class DepthwiseSeparableConv2D(nn.Module):
         x = self.depthwise(input)
         x = self.pointwise(x)
         return x
+
+def make_abs_conv(Conv):
+    """Make a convolution have only positive parameters. (copied from https://github.com/YannDubs/Neural-Process-Family.git)"""
+
+    class AbsConv(Conv):
+        def forward(self, input):
+            return F.conv2d(
+                input,
+                self.weight.abs(),
+                self.bias,
+                self.stride,
+                self.padding,
+                self.dilation,
+                self.groups,
+            )
+
+    return AbsConv
 
 if __name__ == "__main__":
     model = OnTheGridConvCNP(num_input_channels=1,num_output_channels=2,num_of_filters=128,kernel_size_first_convolution=9,kernel_size_CNN=5,num_residual_blocks=4,num_convolutions_per_block=1,num_dense_layers=5, num_units_dense_layer=64)

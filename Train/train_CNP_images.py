@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm
 from Utils.data_processor import image_processor
 
-def train_CNP(train_data,model,epochs, model_save_dir, loss_dir_txt, min_context_points=2,max_percentage_context = 0.33, convolutional=False, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0):
+def train_CNP(train_data,model,epochs, model_save_dir, loss_dir_txt, min_context_points=2,max_percentage_context = 0.33, convolutional=False, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
 
     # pre-allocate memory to store the losses
@@ -16,17 +16,18 @@ def train_CNP(train_data,model,epochs, model_save_dir, loss_dir_txt, min_context
                            weight_decay=weight_decay)
 
     for i in range(epochs):
-        print("Epoch:", i)
+        print("Epoch:", i+epoch_start+1)
         model.train()
         losses = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
             num_context_points = np.random.randint(min_context_points,int(img_height * img_width * max_percentage_context))
             if convolutional:
-                mask, context_img = image_processor(data,num_context_points,convolutional)
+                mask, context_img = image_processor(data,num_context_points,convolutional,device)
+                data = data.to(device)
                 loss = model.train_step(mask,context_img,data, opt)
             else:
-                x_context, y_context, x_target, y_target = image_processor(data,num_context_points,convolutional)
+                x_context, y_context, x_target, y_target = image_processor(data,num_context_points,convolutional,device)
                 loss = model.train_step(x_context,y_context,x_target, y_target, opt)
             # store the loss
             losses.append(loss)

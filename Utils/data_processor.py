@@ -1,13 +1,14 @@
 import numpy as np
 import torch
 
-def image_processor(data,num_context_points,convolutional=False):
+def image_processor(data,num_context_points,convolutional=False,device=torch.device('cpu')):
     """ Process the image to generate the context and target points
 
     Args:
         data: batch of input images
         context points (int): number of context points to extract
         convolutional (bool): if the model is a ConvCNP or not
+        device (torch.device): device to load the tensors on, i.e. CPU or GPU
     Returns:
         if convolutional == False:
             x_context (tensor): x values of the context points (batch,num_context,input_dim_x)
@@ -47,12 +48,15 @@ def image_processor(data,num_context_points,convolutional=False):
         x_context = x_target[np.arange(batch_size).reshape(-1, 1),context_indices,:]
         y_context = y_target[np.arange(batch_size).reshape(-1, 1),context_indices,:]
 
-        return torch.from_numpy(x_context).type(torch.float), y_context, torch.from_numpy(x_target).type(torch.float), y_target
+        return torch.from_numpy(x_context).type(torch.float).to(device), y_context.to(device), torch.from_numpy(x_target).type(torch.float).to(device), y_target.to(device)
 
     else:
+        # move image to GPU if available
+        data = data.to(device)
+
         # calculate the percentage of context points:
         percentage_context_points = num_context_points/(img_height*img_width)
-        mask = torch.rand((batch_size, 1, img_height, img_width)) < percentage_context_points
+        mask = torch.rand((batch_size, 1, img_height, img_width), device = device) < percentage_context_points
         mask = mask.type(torch.float)
 
 
