@@ -49,6 +49,12 @@ class CNP(nn.Module):
 
         return obj.item() # report the loss as a float
 
+    @property
+    def num_params(self):
+        """Number of parameters."""
+        return np.sum([torch.tensor(param.shape).prod()
+                       for param in self.parameters()])
+
 class Encoder(nn.Module):
     """Encoder used for standard CNP model.
 

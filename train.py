@@ -48,7 +48,7 @@ def plot_loss(loss_dir_txt,loss_dir_plot):
 
 
 if __name__ == "__main__":
-    # use GPU if available
+    # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     load = False
     save = True
     if load:
-        epoch_start = 50 # which epoch to start from
+        epoch_start = 200 # which epoch to start from
     else:
         epoch_start = 0
     save_freq = 50 # epoch frequency of saving checkpoints
@@ -66,6 +66,7 @@ if __name__ == "__main__":
     # parameters
     batch_size = 64
     epochs = 200
+    learning_rate = 1e-4
 
     # create the models
     model, convolutional = create_model(model_name)
@@ -96,13 +97,13 @@ if __name__ == "__main__":
         assert nbr_losses == epoch_start, "The number of lines in the loss file does not correspond to the number of epochs"
 
         # load the model
-        model.load_state_dict(torch.load(load_dir))
+        model.load_state_dict(torch.load(load_dir,map_location=device))
     else:
         # if train from scratch, check if a loss file already exists
         assert not(os.path.isfile(loss_dir_txt)), "The corresponding loss file already exists, please remove it to train from scratch: " + loss_dir_txt
 
     if train:
-        avg_loss_per_epoch = train_CNP(train_data, model, epochs, model_save_dir, loss_dir_txt, convolutional=convolutional, save_freq=save_freq, epoch_start=epoch_start, device=device)
+        avg_loss_per_epoch = train_CNP(train_data, model, epochs, model_save_dir, loss_dir_txt, convolutional=convolutional, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
         plot_loss(loss_dir_txt,loss_dir_plot)
 
     if save:

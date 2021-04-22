@@ -53,6 +53,12 @@ class OnTheGridConvCNP(nn.Module):
 
         return obj.item() # report the loss as a float
 
+    @property
+    def num_params(self):
+        """Number of parameters."""
+        return np.sum([torch.tensor(param.shape).prod()
+                       for param in self.parameters()])
+
 class OnTheGridConvCNPEncoder(nn.Module):
     """Encoder for the on-the-grid version of the Convolutional Conditional Neural Process.
 
@@ -83,7 +89,7 @@ class OnTheGridConvCNPEncoder(nn.Module):
         density = self.depthwise_sep_conv(mask)
         numerator = self.depthwise_sep_conv(context_image)
 
-        # dived the signal by the density
+        # divide the signal by the density
         signal = numerator / torch.clamp(density, min=1e-3)
 
         return torch.cat([density,signal],dim=1)
