@@ -138,12 +138,93 @@ class Decoder(nn.Module):
         std = 0.01 + 0.99 * nn.functional.softplus(std)
         return mean,std
 
+class CNPClassifier(nn.Module):
+    """ Modify a CNP to replace the decoder with a classification head
+    Args:
+        model (nn.module): original CNP
+        classification_head_layer_widths (list of int): list with the dimensionality of the layers (first entry is the size of the representation)
+    """
+    def __init__(self,model,classification_head_layer_widths):
+        super(CNPClassifier,self).__init__()
+        self.encoder = model.encoder
+        l = len(classification_head_layer_widths)
+        h = nn.ModuleList([])  # store the hidden layers as a list
+        for i in range(0, l - 1):
+            h.append(nn.Linear(classification_head_layer_widths[i], classification_head_layer_widths[i + 1]))
+            if i != l - 2:  # no ReLU for the last layer
+                h.append(nn.ReLU())
+        self.classification_head = nn.Sequential(*h)
+        self.final_activation = nn.Softmax(dim=-1)
+
+    def forward(self,x_context,y_context):
+        """ Forward pass through the Classification CNP
+
+        Args:
+            x_context (tensor): x values of the context points (batch,num_context,input_dim_x)
+            y_context (tensor): y values of the context points (batch,num_context,input_dim_y)
+
+        Returns:
+            tensor: classification score for the different output classes (batch,num_classes)
+            tensor: probability mass for the different output classes (batch,num_classes)
+        """
+        r = self.encoder(x_context,y_context)
+        r = torch.squeeze(r,dim=1)
+        output_score = self.classification_head(r)
+        output_logit = self.final_activation(output_score)
+        return output_score, output_logit
+
+    def loss(self,output_score,target_label):
+        criterion = nn.CrossEntropyLoss()
+        return criterion(output_score,target_label)
+
+    def train_step(self,x_context,y_context,target_label,opt):
+        output_score, _ = self.forward(x_context,y_context)
+        obj = self.loss(output_score,target_label)
+
+        # Optimization
+        obj.backward()
+        opt.step()
+        opt.zero_grad()
+
+        return obj.item() # report the loss as a float
+
+    def evaluate_accuracy(self,x_context,y_context, target_label):
+        # compute the logits
+        output_score, output_logit = self.forward(x_context, y_context)
+
+        # get the predictions
+        _, predicted = torch.max(output_logit,dim=1)
+
+        # get the total number of labels
+        total = target_label.size(0)
+
+        # compute the accuracy
+        accuracy = ((predicted == target_label).sum())/total
+
+        return accuracy.item(), total
+
+    @property
+    def num_params(self):
+        """Number of parameters."""
+        return np.sum([torch.tensor(param.shape).prod()
+                       for param in self.parameters()])
+
 if __name__ == "__main__":
+    # CNP
     encoder_layer_widths = [3,128,128,128]
-    decoder_layer_widths = [1,128,128,128,2]
+    decoder_layer_widths = [2,128,128,128,2]
     model = CNP(encoder_layer_widths,decoder_layer_widths)
+    summary(model, [(10, 2), (10, 1), (100, 2)])
+
+    # Classfication CNP
+    classification_head_layer_widths = [128,64,64,10]
+    classification_model = CNPClassifier(model,classification_head_layer_widths)
+    # freeze the encoder
+    for param in classification_model.encoder.parameters():
+        param.requires_grad = False
+    summary(classification_model, [(784, 2), (784, 1)])
+
     print("done!")
-    summary(model,[(10,1),(10,1),(100,1)])
 
 
 

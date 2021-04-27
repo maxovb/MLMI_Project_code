@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 from torchsummary import summary
-from Train.train_CNP_images import train_CNP
+from Train.train_CNP_images import train_CNP_unsup
 from CNPs.create_model import  create_model
 
 def load_data(batch_size=64):
@@ -52,13 +52,13 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "ConvCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
 
     train = True
-    load = False
+    load = True
     save = True
     if load:
-        epoch_start = 200 # which epoch to start from
+        epoch_start = 300 # which epoch to start from
     else:
         epoch_start = 0
     save_freq = 50 # epoch frequency of saving checkpoints
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         assert not(os.path.isfile(loss_dir_txt)), "The corresponding loss file already exists, please remove it to train from scratch: " + loss_dir_txt
 
     if train:
-        avg_loss_per_epoch = train_CNP(train_data, model, epochs, model_save_dir, loss_dir_txt, convolutional=convolutional, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
+        avg_loss_per_epoch = train_CNP_unsup(train_data, model, epochs, model_save_dir, loss_dir_txt, convolutional=convolutional, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
         plot_loss(loss_dir_txt,loss_dir_plot)
 
     if save:

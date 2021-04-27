@@ -65,3 +65,32 @@ def image_processor(data,num_context_points,convolutional=False,device=torch.dev
 
         return mask, image_context
 
+def format_context_points_image(x_context,y_context,img_height,img_width):
+    """ Convert the context data to an RGB image with blue pixels for non-context pixels
+
+    Args:
+        x_context (tensor): x-value of the context pixels (batch,num_context,2)
+        y_context (tensor): y-value of the context pixels (batch,num_context,num_channels)
+        img_height (int): number of vertical pixels in the image
+        img_width (int): number of horizontal pixels in the image
+    Returns:
+        array: context image (batch,img_height,img_width,3)
+    """
+    x_context = x_context.detach().cpu().numpy()
+    y_context = y_context.detach().cpu().numpy()
+    x_context = (x_context * [img_height,img_width]).astype(np.int32)
+    y_context = (y_context * 255).astype(np.int32)
+
+    batch_size = x_context.shape[0]
+
+    image = np.zeros((batch_size,img_height,img_width, 3), dtype=np.int32)
+    image[:, :, 2] = 255 # initialize non-context pixels to blue
+
+    for i in range(batch_size):
+        for x, y in zip(x_context[i][0], y_context[i][0]):
+            if len(y) == 1:
+                y = [y,y,y]
+            image[i,x[0], x[1]] = y
+
+    return image
+
