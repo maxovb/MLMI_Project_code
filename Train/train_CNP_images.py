@@ -3,12 +3,15 @@ import numpy as np
 from tqdm import tqdm
 from Utils.data_processor import image_processor, format_context_points_image
 
-def train_CNP_unsup(train_data,model,epochs, model_save_dir, loss_dir_txt, min_context_points=2,max_percentage_context = 0.33, convolutional=False, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
+def train_CNP_unsup(train_data,model,epochs, model_save_dir, loss_dir_txt, min_context_points=2,max_percentage_context = None, convolutional=False, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
 
     # pre-allocate memory to store the losses
     avg_loss_per_epoch = []
     loss_to_write = []
+
+    # define the sampling threshold if max_percentage_context is None
+    threshold = 1/3
 
     # define the optimizer
     opt = torch.optim.Adam(model.parameters(),
@@ -21,7 +24,16 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, loss_dir_txt, min_c
         losses = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
-            num_context_points = np.random.randint(min_context_points,int(img_height * img_width * max_percentage_context))
+            # either select nbr of context pts bwtn 2 and max_percentage_context, or uniformly between 2 and 1/3 with probability
+            if max_percentage_context:
+                num_context_points = np.random.randint(min_context_points,int(img_height * img_width * max_percentage_context))
+            else:
+                s = np.random.rand()
+                if s < 1/2:
+                    num_context_points = np.random.randint(min_context_points,int(img_height * img_width * threshold))
+                else:
+                    num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
+
             if convolutional:
                 mask, context_img = image_processor(data,num_context_points,convolutional,device)
                 data = data.to(device)
