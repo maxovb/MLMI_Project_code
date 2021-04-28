@@ -55,7 +55,7 @@ if __name__ == "__main__":
     model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
 
     train = True
-    load = True
+    load = False
     save = True
     if load:
         epoch_start = 300 # which epoch to start from

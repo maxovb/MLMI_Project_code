@@ -69,10 +69,11 @@ def load_supervised_data(batch_size=64,num_training_samples=100):
 def test_model_accuracy(model,test_data,convolutional,num_context_points):
     sum, total = 0,0
     for i,(data,target) in enumerate(test_data):
+        target = target.to(device)
         if convolutional:
             mask, context_img = image_processor(data, num_context_points, convolutional, device)
             data = data.to(device)
-            batch_accuracy, batch_size = model.evaluate_accuracy(x_context,y_context,target)
+            batch_accuracy, batch_size = model.evaluate_accuracy(mask,context_img,target)
         else:
             x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
                                                                        device)
@@ -119,12 +120,13 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "ConvCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    print(model_name)
 
     # for continued supervised training
     train = False
-    load = False
-    save = False
+    load = True
+    save = True
     evaluate = True
     if load:
         epoch_start = 100 # which epoch to start from
@@ -133,12 +135,12 @@ if __name__ == "__main__":
     save_freq = 20 # epoch frequency of saving checkpoints
 
     # parameters from the model to load
-    epoch_unsup = 100 # unsupervised model to load intially
+    epoch_unsup = 200 # unsupervised model to load intially
     freeze_weights = True # freeze the weights of the part taken from the unsupervised model
 
     # training parameters
     num_training_samples = [100,600,1000,3000]
-    batch_size = 8
+    batch_size = 4
     epochs = 200
     learning_rate = 1e-3
 
@@ -146,19 +148,21 @@ if __name__ == "__main__":
         # load the supervised set
         train_data, validation_data, test_data, img_height, img_width = load_supervised_data(batch_size, num_samples)
 
-
         # create the model
-        model, convolutional = load_unsupervised_model(model_name,epoch_unsup,device)
+        CNP_model, convolutional = load_unsupervised_model(model_name,epoch_unsup,device)
 
         # modify the model to act as a classifier
-        model = modify_model_for_classification(model,convolutional,freeze_weights,img_height=img_height,img_width=img_width)
+        model = modify_model_for_classification(CNP_model,convolutional,freeze_weights,img_height=img_height,img_width=img_width)
         model.to(device)
 
+
+        """
         # print a summary of the model
         if convolutional:
             summary(model,[(1,28,28),(1,28,28)])
         else:
             summary(model, [(784, 2), (784, 1)])
+        """
 
         # define the directories
         model_save_dir = ["saved_models/MNIST/supervised/" + str(num_samples) + "S/", model_name, "/",model_name,"_","","E",".pth"]

@@ -102,6 +102,7 @@ def train_CNP_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, v
         train_losses = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
+            target = target.to(device)
             if convolutional:
                 mask, context_img = image_processor(data, num_context_points, convolutional, device)
                 data = data.to(device)
@@ -131,6 +132,7 @@ def train_CNP_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, v
         if validation_data:
             validation_losses = []
             for batch_idx, (data, target) in enumerate(validation_data):
+                target = target.to(device)
                 if convolutional:
                     mask, context_img = image_processor(data, num_context_points, convolutional, device)
                     data = data.to(device)

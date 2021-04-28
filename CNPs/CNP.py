@@ -199,9 +199,9 @@ class CNPClassifier(nn.Module):
         total = target_label.size(0)
 
         # compute the accuracy
-        accuracy = ((predicted == target_label).sum())/total
+        accuracy = ((predicted == target_label).sum()).item()/total
 
-        return accuracy.item(), total
+        return accuracy, total
 
     @property
     def num_params(self):

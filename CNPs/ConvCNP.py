@@ -225,9 +225,7 @@ class ConvCNPClassifier(nn.Module):
         x = self.CNN(x)
         x = self.conv_network(x)
         x = x.permute(0,2,3,1)
-        print(x.shape)
         x = torch.flatten(x, start_dim=1)
-        print(x.shape)
         output_score = self.dense_network(x)
         output_logit = self.final_activation(output_score)
         return output_score, output_logit
@@ -258,9 +256,9 @@ class ConvCNPClassifier(nn.Module):
         total = target_label.size(0)
 
         # compute the accuracy
-        accuracy = ((predicted == target_label).sum())/total
+        accuracy = ((predicted == target_label).sum()).item()/total
 
-        return accuracy.item(), total
+        return accuracy, total
 
     @property
     def num_params(self):
