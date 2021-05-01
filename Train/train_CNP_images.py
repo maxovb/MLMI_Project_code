@@ -62,7 +62,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, loss_dir_txt, min_c
         if (i+1) % save_freq == 0:
             # update the file name
             save_dir = model_save_dir.copy()
-            save_dir[5] = str(epoch_start + i+1)
+            save_dir[-3] = str(epoch_start + i+1)
             save_dir = "".join(save_dir)
 
             # save the model
@@ -81,7 +81,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, loss_dir_txt, min_c
 
     return avg_loss_per_epoch
 
-def train_CNP_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, validation_data = None, validation_loss_dir_txt = "", convolutional=False, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
+def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, validation_data = None, validation_loss_dir_txt = "", convolutional=False, is_CNP = True, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
     num_context_points = img_height * img_width
 
@@ -103,14 +103,18 @@ def train_CNP_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, v
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
             target = target.to(device)
-            if convolutional:
-                mask, context_img = image_processor(data, num_context_points, convolutional, device)
-                data = data.to(device)
-                loss = model.train_step(mask, context_img, target, opt)
+            if is_CNP:
+                if convolutional:
+                    mask, context_img = image_processor(data, num_context_points, convolutional, device)
+                    data = data.to(device)
+                    loss = model.train_step(mask, context_img, target, opt)
+                else:
+                    x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
+                                                                               device)
+                    loss = model.train_step(x_context, y_context, target, opt)
             else:
-                x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
-                                                                           device)
-                loss = model.train_step(x_context, y_context, target, opt)
+                loss = model.train_step(data,target,opt)
+
             # store the loss
             train_losses.append(loss)
 
@@ -133,14 +137,17 @@ def train_CNP_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, v
             validation_losses = []
             for batch_idx, (data, target) in enumerate(validation_data):
                 target = target.to(device)
-                if convolutional:
-                    mask, context_img = image_processor(data, num_context_points, convolutional, device)
-                    data = data.to(device)
-                    output_score, output_logit = model(mask,context_img)
+                if is_CNP:
+                    if convolutional:
+                        mask, context_img = image_processor(data, num_context_points, convolutional, device)
+                        data = data.to(device)
+                        output_score, output_logit = model(mask,context_img)
+                    else:
+                        x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
+                                                                                   device)
+                        output_score, output_logit = model(x_context,y_context)
                 else:
-                    x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
-                                                                               device)
-                    output_score, output_logit = model(x_context,y_context)
+                    output_score, output_logit = model(data)
                 validation_losses.append(model.loss(output_score,target).item())
             epoch_avg_validation_loss = np.array(validation_losses).mean()
             avg_validation_loss_per_epoch.append(epoch_avg_validation_loss)
@@ -154,7 +161,7 @@ def train_CNP_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, v
         if (i + 1) % save_freq == 0:
             # update the file name
             save_dir = model_save_dir.copy()
-            save_dir[5] = str(epoch_start + i + 1)
+            save_dir[-3] = str(epoch_start + i + 1)
             save_dir = "".join(save_dir)
 
             # save the model
@@ -188,14 +195,3 @@ def report_loss(name,avg_loss,step):
     txt = name + " loss, step " + str(step) + ": " + str(avg_loss)
     return txt
 
-
-def write_loss(model_save_dir,val):
-    # directory
-    loss_dir = model_save_dir.copy()
-    loss_dir[1] = "loss_"
-    loss_dir[5] = str(epochs)
-
-    # text file with the loss
-    loss_dir_txt = loss_dir.copy()
-    loss_dir_txt[6] = ".txt"
-    loss_dir_txt = "".join(loss_dir_txt)

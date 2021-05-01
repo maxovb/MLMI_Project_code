@@ -28,3 +28,4 @@ def gaussian_logpdf(target, mean, std, reduction=None):
         return torch.mean(torch.sum(logp, list(range(1,num_dim))))
     else:
         raise RuntimeError(f'Unknown reduction "{reduction}".')
+

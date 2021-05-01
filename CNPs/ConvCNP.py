@@ -182,32 +182,21 @@ class ConvCNPClassifier(nn.Module):
     """ Modify a CNP to replace the decoder with a classification head
     Args:
         model (nn.module): original CNP
-        num_features_conv (list of int): list with the number of filters for each convolution (first entry is the number of channels in the CNN)
-        dense_layer_widths (list of int): list with the dimensionality of the layers (first entry is the number of nodes after flattening the output of the last convolution)
-
+        dense_layer_widths (list of int): list with the dimensionality of the layers (first entry is the number of input filters (reduced to 1D by average pooling))
     """
-    def __init__(self,model, num_features_conv, kernel_size, dense_layer_widths):
+    def __init__(self,model, dense_layer_widths):
         super(ConvCNPClassifier,self).__init__()
         self.encoder = model.encoder
         self.CNN = model.CNN
 
-        # add the convolutions
-        l1 = len(num_features_conv)
-        h_conv = nn.ModuleList([])  # store the layers as a list
-        for i in range(0, l1 - 1):
-            h_conv.append(DepthwiseSeparableConv2D(num_features_conv[i],num_features_conv[i+1],kernel_size=kernel_size,padding=False))
-            h_conv.append(nn.ReLU())
-            h_conv.append(nn.MaxPool2d(kernel_size=2))
-        self.conv_network = nn.Sequential(*h_conv)
-
         # add the dense layers
-        l2 = len(dense_layer_widths)
-        h_dense = nn.ModuleList([])  # store the layers as a list
-        for i in range(0, l2 - 1):
-            h_dense.append(nn.Linear(dense_layer_widths[i],dense_layer_widths[i+1]))
-            if i != l2 - 2:  # no ReLU for the last layer
-                h_dense.append(nn.ReLU())
-        self.dense_network = nn.Sequential(*h_dense)
+        l = len(dense_layer_widths)
+        h = nn.ModuleList([])  # store the layers as a list
+        for i in range(0, l - 1):
+            h.append(nn.Linear(dense_layer_widths[i],dense_layer_widths[i+1]))
+            if i != l - 2:  # no ReLU for the last layer
+                h.append(nn.ReLU())
+        self.dense_network = nn.Sequential(*h)
         self.final_activation = nn.Softmax(dim=-1)
 
     def forward(self,mask,context_img):
@@ -223,12 +212,10 @@ class ConvCNPClassifier(nn.Module):
         """
         x = self.encoder(mask,context_img)
         x = self.CNN(x)
-        x = self.conv_network(x)
-        x = x.permute(0,2,3,1)
-        x = torch.flatten(x, start_dim=1)
-        output_score = self.dense_network(x)
-        output_logit = self.final_activation(output_score)
-        return output_score, output_logit
+        x = torch.mean(x,dim=[2,3])
+        output_logit = self.dense_network(x)
+        output_probs = self.final_activation(output_logit)
+        return output_logit, output_probs
 
     def loss(self,output_score,target_label):
         criterion = nn.CrossEntropyLoss()
@@ -245,7 +232,7 @@ class ConvCNPClassifier(nn.Module):
 
         return obj.item() # report the loss as a float
 
-    def evaluate_accuracy(self,mask,context_img, target_label):
+    def evaluate_accuracy(self,mask,context_img,target_label):
         # compute the logits
         output_score, output_logit = self.forward(mask,context_img)
 
@@ -364,20 +351,8 @@ if __name__ == "__main__":
     summary(model, [(1, img_height, img_width), (1, img_height, img_width)])
 
     # Classfication CNP
-    num_features_conv = [128, 8, 2]
-    kernel_size = 3
-    # get the flattened size
-    output_height,output_width = img_height,img_width
-    for i in range(len(num_features_conv)-1):
-        output_height -= 2 * (kernel_size//2)
-        output_width -= 2 * (kernel_size // 2)
-        output_height = (output_height)//2
-        output_width = (output_width)//2
-
-    flatten_size = output_height * output_width * num_features_conv[-1]
-    dense_layer_widths = [flatten_size,64,64,10]
-    classification_model = ConvCNPClassifier(model, num_features_conv, kernel_size, dense_layer_widths)
-
+    dense_layer_widths = [128,64,64,10]
+    classification_model = ConvCNPClassifier(model, dense_layer_widths)
     # freeze the weights from the original CNP
     for param in classification_model.encoder.parameters():
         param.requires_grad = False

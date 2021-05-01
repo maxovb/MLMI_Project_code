@@ -8,29 +8,7 @@ from torchvision.transforms import ToTensor
 from torchsummary import summary
 from Train.train_CNP_images import train_CNP_unsup
 from CNPs.create_model import  create_model
-
-def load_data(batch_size=64):
-    # Download training data from open datasets.
-    training_data = datasets.MNIST(
-        root="data",
-        train=True,
-        download=True,
-        transform=ToTensor(),
-    )
-
-    # Download test data from open datasets.
-    test_data = datasets.MNIST(
-        root="data",
-        train=False,
-        download=True,
-        transform=ToTensor(),
-    )
-
-    # wrap an iterable over the datasets
-    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
-    test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
-
-    return train_dataloader, test_dataloader
+from Utils.data_loader import load_data_unsupervised
 
 def plot_loss(loss_dir_txt,loss_dir_plot):
         loss = []
@@ -79,7 +57,7 @@ if __name__ == "__main__":
         summary(model, [(50, 2), (50, 1), (784,2)])
 
     # load the MNIST data
-    train_data, test_data = load_data(batch_size)
+    train_data, test_data = load_data_unsupervised(batch_size)
 
     # directories
     model_save_dir = ["saved_models/MNIST/", model_name, "/",model_name,"_","","E",".pth"]
