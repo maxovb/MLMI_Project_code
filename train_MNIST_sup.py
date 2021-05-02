@@ -10,8 +10,6 @@ from Utils.data_loader import load_supervised_data_as_generator
 from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_loss
 
 
-
-
 def load_unsupervised_model(model_name, epoch,device):
     model_load_dir = ["saved_models/MNIST/", model_name, "/", model_name, "_", str(epoch), "E", ".pth"]
     load_dir = "".join(model_load_dir)
@@ -38,15 +36,14 @@ if __name__ == "__main__":
             print(model_name, model_size)
 
             # for continued supervised training
-            train = True
-            load = False
+            train = False
+            load = True
             save = False
-            evaluate = False
+            evaluate = True
             if load:
                 epoch_start = 100 # which epoch to start from
             else:
                 epoch_start = 0
-            save_freq = 20 # epoch frequency of saving checkpoints
 
             # parameters from the model to load
             epoch_unsup = 200 # unsupervised model to load initially
@@ -54,16 +51,19 @@ if __name__ == "__main__":
 
             # training parameters
             num_training_samples = [10,20,40,60,80,100,600,1000,3000]
-            epochs = 200
 
-            for num_samples in num_training_samples:
+            for i,num_samples in enumerate(num_training_samples):
                 # batch size and learning rate
                 if num_samples <= 100:
-                    batch_size = 4
-                    learning_rate = 1e-2
-                else:
-                    batch_size = 8
+                    batch_size = 64
                     learning_rate = 1e-3
+                    epochs = 400
+                    save_freq = 20
+                else:
+                    batch_size = 64
+                    learning_rate = 1e-3
+                    epochs = 200
+                    save_freq = 20
 
                 # load the supervised set
                 train_data, validation_data, test_data, img_height, img_width = load_supervised_data_as_generator(batch_size, num_samples)
@@ -77,10 +77,12 @@ if __name__ == "__main__":
 
 
                 # print a summary of the model
+                """
                 if convolutional:
                     summary(model,[(1,28,28),(1,28,28)])
                 else:
                     summary(model, [(784, 2), (784, 1)])
+                """
 
                 # define the directories
                 model_save_dir = ["saved_models/MNIST/supervised/" + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
@@ -93,12 +95,9 @@ if __name__ == "__main__":
                 dir_to_create = "".join(model_save_dir[:3]) + "loss/"
                 os.makedirs(dir_to_create,exist_ok=True)
 
-                if os.path.isfile(train_loss_dir_txt):
-                    continue # if loss file already exists, pass to the next configuration
-
                 if load:
                     load_dir = model_save_dir.copy()
-                    load_dir[5] = str(epoch_start)
+                    load_dir[-3] = str(epoch_start)
                     load_dir = "".join(load_dir)
 
                     if train:
@@ -125,9 +124,24 @@ if __name__ == "__main__":
                     torch.save(model.state_dict(),save_dir)
 
                 if evaluate:
+                    # if it is the first iteration
+                    if i == 0:
+                        assert not(os.path.isfile(accuracies_dir_txt)), "The corresponding accuracies file already exists, please remove it to evaluate the models: " + accuracies_dir_txt
+                        # initialize the loss file with a line showing the size of the training samples
+                        txt = "training sample sizes: " + " ".join([str(x) for x in num_training_samples]) + " \n"
+                        with open(accuracies_dir_txt,'w') as f:
+                            f.write(txt)
+
+                    # compute the accuracy
                     num_context_points = 28 * 28
                     accuracy = test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_dir_txt,test_data,device,convolutional=convolutional,num_context_points=num_context_points, save_freq=save_freq, is_CNP=True)
                     print("Number of samples:",num_samples,"Test accuracy: ", accuracy)
+
+                    # write the accuracy to the text file
+                    with open(accuracies_dir_txt, 'a+') as f:
+                        f.write('%s\n' % accuracy)
+
+
 
 
 

@@ -30,7 +30,7 @@ def test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_los
 
     # load the corresponding model
     load_dir = model_save_dir.copy()
-    load_dir[5] = str(epoch)
+    load_dir[-3] = str(epoch)
     load_dir = "".join(load_dir)
 
     # load the model
