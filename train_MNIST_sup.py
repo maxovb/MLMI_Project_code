@@ -36,8 +36,8 @@ if __name__ == "__main__":
             print(model_name, model_size)
 
             # for continued supervised training
-            train = False
-            load = True
+            train = True
+            load = False
             save = False
             evaluate = True
             if load:
@@ -53,12 +53,16 @@ if __name__ == "__main__":
             num_training_samples = [10,20,40,60,80,100,600,1000,3000]
 
             for i,num_samples in enumerate(num_training_samples):
-                # batch size and learning rate
-                if num_samples <= 100:
+                if num_samples <= 60:
                     batch_size = 64
-                    learning_rate = 1e-3
+                    learning_rate = 5e-3
+                    epochs = 1000
+                    save_freq = 100
+                elif num_samples <= 100:
+                    batch_size = 64
+                    learning_rate = 5e-3
                     epochs = 400
-                    save_freq = 20
+                    save_freq = 40
                 else:
                     batch_size = 64
                     learning_rate = 1e-3

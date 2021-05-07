@@ -199,6 +199,7 @@ class ConvCNPClassifier(nn.Module):
         self.dense_network = nn.Sequential(*h)
         self.final_activation = nn.Softmax(dim=-1)
 
+
     def forward(self,mask,context_img):
         """ Forward pass through the Classification CNP
 
