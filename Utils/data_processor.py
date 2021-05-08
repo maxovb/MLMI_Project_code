@@ -33,7 +33,7 @@ def image_processor(data,num_context_points,convolutional=False,device=torch.dev
         x_target = np.repeat(image_indices[np.newaxis, :], batch_size, axis=0)
 
         # choose context points
-        context_indices = np.zeros((batch_size, num_context_points), dtype=np.int32) # memory-pre allocation for the context indices
+        context_indices = np.zeros((batch_size, num_context_points), dtype=np.int32) # memory pre allocation for the context indices
         for i in range(batch_size):
             context_indices[i, :] = np.random.choice(int(img_height * img_width), size=num_context_points, replace=False)
 
@@ -66,7 +66,7 @@ def image_processor(data,num_context_points,convolutional=False,device=torch.dev
         return mask, image_context
 
 def format_context_points_image(x_context,y_context,img_height,img_width):
-    """ Convert the context data to an RGB image with blue pixels for non-context pixels
+    """ Convert the context data to an RGB image with blue pixels for missing pixels
 
     Args:
         x_context (tensor): x-value of the context pixels (batch,num_context,2)
@@ -78,19 +78,46 @@ def format_context_points_image(x_context,y_context,img_height,img_width):
     """
     x_context = x_context.detach().cpu().numpy()
     y_context = y_context.detach().cpu().numpy()
-    x_context = (x_context * [img_height,img_width]).astype(np.int32)
+    x_context = np.round((x_context * [img_height-1,img_width-1])).astype(np.int32)
     y_context = (y_context * 255).astype(np.int32)
 
     batch_size = x_context.shape[0]
 
     image = np.zeros((batch_size,img_height,img_width, 3), dtype=np.int32)
-    image[:, :, 2] = 255 # initialize non-context pixels to blue
+    image[:, :, :, 2] = 255 # initialize non-context pixels to blue
 
     for i in range(batch_size):
-        for x, y in zip(x_context[i][0], y_context[i][0]):
+        for x, y in zip(x_context[i], y_context[i]):
             if len(y) == 1:
                 y = [y,y,y]
             image[i,x[0], x[1]] = y
 
     return image
+
+def context_points_image_from_mask(mask,context_image):
+    """ Output the context image with missing pixels in blue
+
+        Args:
+            mask (tensor): binary mask indicating pixel values (batch,num_context,1)
+            context_image (tensor): context image with value 0 at misssing pixels
+        Returns:
+            array: context image (batch,img_height,img_width,3)
+    """
+
+    mask = mask.permute(0, 2, 3, 1)
+    context_image = context_image.permute(0, 2, 3, 1)
+    mask = mask.detach().cpu().numpy()
+    inv_mask = 1-mask
+    context_image = context_image.detach().cpu().numpy()
+
+    if context_image.shape[-1] == 1:
+        context_image = np.tile(context_image, (1,1,1,3))
+
+
+    # set missing pixels to blue
+    context_image[inv_mask.astype(bool)[:,:,:,0]] = [0,0,255]
+
+    return context_image
+
+
 

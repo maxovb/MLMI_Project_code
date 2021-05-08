@@ -6,14 +6,25 @@ import numpy as np
 import random
 
 
-def load_data_unsupervised(batch_size=64):
+def load_data_unsupervised(batch_size=64, validation_split = None):
     # Download training data from open datasets.
-    training_data = datasets.MNIST(
+    data = datasets.MNIST(
         root="data",
         train=True,
         download=True,
         transform=ToTensor(),
     )
+
+    n = data.data.shape[0]
+
+    # splitting between train and validation
+    if validation_split:
+        num_validation_samples = round(n * validation_split)
+        num_training_samples = (n - num_validation_samples)
+        training_data,  validation_data = torch.utils.data.random_split(data, [num_training_samples,num_validation_samples])
+    else:
+        training_data = data
+
 
     # Download test data from open datasets.
     test_data = datasets.MNIST(
@@ -27,7 +38,12 @@ def load_data_unsupervised(batch_size=64):
     train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
     test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    return train_dataloader, test_dataloader
+    if validation_split:
+        validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
+    else:
+        validation_dataloader = None
+
+    return train_dataloader, validation_dataloader, test_dataloader
 
 
 def load_supervised_data_as_generator(batch_size=64,num_training_samples=100):

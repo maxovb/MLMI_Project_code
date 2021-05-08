@@ -1,7 +1,9 @@
-from Utils.data_processor import image_processor
+from Utils.data_processor import image_processor, format_context_points_image, context_points_image_from_mask
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import math
+import random
 
 def test_model_accuracy(model,test_data,device,convolutional=False,num_context_points=784,is_CNP=True):
     sum, total = 0,0
@@ -91,3 +93,81 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot):
     plt.xlabel("Epoch",fontsize=15)
     plt.ylabel("Loss",fontsize=15)
     plt.savefig(loss_dir_plot)
+
+def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False):
+
+    # number of images to show per class
+    num_img_per_class = 4 # true image, context image, predicted mean, predicted std
+
+    # get image height and width
+    num_channels, img_height, img_width= data.dataset[0][0].shape[0], data.dataset[0][0].shape[1], data.dataset[0][0].shape[2]
+
+    # get the data to plot (one for every class)
+    num_classes = max(data.dataset.dataset.targets).item() + 1
+
+    # get one data image per class
+    selected_classes = [False for _ in range(num_classes)]
+    images_to_plot = [None for _ in range(num_classes)]
+    found = 0
+    quit = False
+    for images, labels in data:
+        for i in range(images.shape[0]):
+            image = images[i]
+            label = labels[i]
+            if not selected_classes[label]:
+                images_to_plot[label] = (image,label)
+                found += 1
+                selected_classes[label] = True
+            if found >= num_classes:
+                break
+                quit = True
+        if quit:
+            break
+
+    # num of columns and rows in the subplot
+    num_cols = 10
+    num_rows = num_img_per_class * math.ceil(num_classes/num_cols)
+
+    # use subplots to visualize all images together
+    fig, ax = plt.subplots(num_rows,num_cols,figsize=(num_cols,num_rows))
+    plt.subplots_adjust(wspace=0.01,hspace=0.01)
+
+    # initialize the row and column position in the subplot
+    row = 0
+    col = 0
+
+    for (image,label) in images_to_plot:
+        data = image.unsqueeze(0) # add the batch dimension
+        if convolutional:
+            mask, context_img = image_processor(data, num_context_points, convolutional, device)
+            mean, std = model(mask,context_img)
+            mean = mean.detach().cpu().numpy()
+            std = std.detach().cpu().numpy()
+            context_img = context_points_image_from_mask(mask, context_img)
+        else:
+            x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
+                                                                       device)
+            mean,std = model(x_context,y_context,x_target)
+            mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+            std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
+            context_img = format_context_points_image(x_context,y_context,img_height,img_width)
+
+        ax[row,col].imshow(data[0].permute(1,2,0).detach().cpu().numpy())
+        ax[row+1,col].imshow(context_img[0])
+        ax[row+2,col].imshow(mean[0])
+        ax[row+3,col].imshow(std[0])
+        row += num_img_per_class
+        if row >= num_rows:
+            row = 0
+            col += 1
+
+    # remove the axes
+    for idx1 in range(num_rows):
+        for idx2 in range(num_cols):
+            ax[idx1,idx2].set_axis_off()
+
+    plt.tight_layout()
+    plt.savefig(save_dir)
+
+
+
