@@ -31,7 +31,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "ConvCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
 
     train = True
     load = False
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     validation_split = 0.10
     learning_rate = 1e-4
     if train:
-        epochs = 200
+        epochs = 400
     else:
         epochs = 0
 
@@ -98,16 +98,7 @@ if __name__ == "__main__":
         save_dir = "".join(save_dir)
         torch.save(model.state_dict(),save_dir)
 
-    # get the output directory
-    visualisation_dir = visualisation_dir.copy()
-    visualisation_dir[5] = str(epoch_start+epochs)
-    img_output_dir = "".join(visualisation_dir)
 
-    # create directories if it doesn't exist yet
-    dir_to_create = "".join(visualisation_dir[:3])
-    os.makedirs(dir_to_create, exist_ok=True)
-
-    qualitative_evaluation_images(model,train_data,num_context_points=100,device=device,save_dir=img_output_dir,convolutional=convolutional)
 
 
 
