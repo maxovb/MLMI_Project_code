@@ -41,7 +41,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
 
             if convolutional:
                 mask, context_img = image_processor(data,num_context_points,convolutional,device)
-                data = data.to(device)
+                data = data.to(device).permute(0,2,3,1)
                 train_loss = model.train_step(mask,context_img,data, opt)
             else:
                 x_context, y_context, x_target, y_target = image_processor(data,num_context_points,convolutional,device)
@@ -81,7 +81,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
                 if convolutional:
                     mask, context_img = image_processor(data, num_context_points, convolutional, device)
                     mean, std = model(mask,context_img)
-                    data = data.to(device)
+                    data = data.to(device).permute(0,2,3,1)
                     validation_loss = model.loss(mean,std,data).item()
                 else:
                     x_context, y_context, x_target, y_target = image_processor(data, num_context_points,

@@ -46,8 +46,8 @@ if __name__ == "__main__":
                 epoch_start = 0
 
             # parameters from the model to load
-            epoch_unsup = 200 # unsupervised model to load initially
-            freeze_weights = True # freeze the weights of the part taken from the unsupervised model
+            epoch_unsup = 400 # unsupervised model to load initially
+            freeze_weights = False # freeze the weights of the part taken from the unsupervised model
 
             # training parameters
             num_training_samples = [10,20,40,60,80,100,600,1000,3000]
@@ -89,11 +89,11 @@ if __name__ == "__main__":
                 """
 
                 # define the directories
-                model_save_dir = ["saved_models/MNIST/supervised/" + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
-                train_loss_dir_txt = "saved_models/MNIST/supervised/" + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
-                validation_loss_dir_txt = "saved_models/MNIST/supervised/" + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_validation.txt"
-                loss_dir_plot = "saved_models/MNIST/supervised/" + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ".svg"
-                accuracies_dir_txt = "saved_models/MNIST/supervised/accuracies/" + model_name + "_" + model_size + ".txt"
+                model_save_dir = ["saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
+                train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
+                validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_validation.txt"
+                loss_dir_plot = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ".svg"
+                accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + "accuracies/" + model_name + "_" + model_size + ".txt"
 
                 # create directories for the checkpoints and loss files if they don't exist yet
                 dir_to_create = "".join(model_save_dir[:3]) + "loss/"
@@ -131,6 +131,11 @@ if __name__ == "__main__":
                     # if it is the first iteration
                     if i == 0:
                         assert not(os.path.isfile(accuracies_dir_txt)), "The corresponding accuracies file already exists, please remove it to evaluate the models: " + accuracies_dir_txt
+
+                        # create directories for the accuracy if they don't exist yet
+                        dir_to_create = os.path.dirname(accuracies_dir_txt)
+                        os.makedirs(dir_to_create,exist_ok=True)
+
                         # initialize the loss file with a line showing the size of the training samples
                         txt = "training sample sizes: " + " ".join([str(x) for x in num_training_samples]) + " \n"
                         with open(accuracies_dir_txt,'w') as f:
