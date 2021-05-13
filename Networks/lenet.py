@@ -12,24 +12,24 @@ class ModifiedLeNet5(nn.Module):
         nn.Module: the LeNet network
     """
 
-    def __init__(self, n_classes):
+    def __init__(self, conv_features, dense_layer_widths):
         super(ModifiedLeNet5, self).__init__()
 
         self.feature_extractor = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, stride=1),
+            nn.Conv2d(in_channels=conv_features[0], out_channels=conv_features[1], kernel_size=5, stride=1),
             nn.ReLU(),
             nn.AvgPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5, stride=1),
+            nn.Conv2d(in_channels=conv_features[1], out_channels=conv_features[2], kernel_size=5, stride=1),
             nn.ReLU(),
             nn.AvgPool2d(kernel_size=2),
-            nn.Conv2d(in_channels=16, out_channels=120, kernel_size=4, stride=1),
+            nn.Conv2d(in_channels=conv_features[2], out_channels=conv_features[3], kernel_size=4, stride=1),
             nn.ReLU(),
         )
 
         self.classifier = nn.Sequential(
-            nn.Linear(in_features=120, out_features=84),
+            nn.Linear(in_features=dense_layer_widths[0], out_features=dense_layer_widths[1]),
             nn.ReLU(),
-            nn.Linear(in_features=84, out_features=n_classes),
+            nn.Linear(in_features=dense_layer_widths[1], out_features=dense_layer_widths[2]),
         )
 
     def forward(self, x):
@@ -71,6 +71,8 @@ class ModifiedLeNet5(nn.Module):
 
 
 if __name__ == "__main__":
-    model = ModifiedLeNet5(10)
+    conv_features = [1, 6, 16, 120]
+    dense_layer_widths = [120, 84, 10]
+    model = ModifiedLeNet5(conv_features,dense_layer_widths)
     print(model)
     summary(model,(1,28,28))

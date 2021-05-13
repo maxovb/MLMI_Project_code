@@ -36,7 +36,7 @@ if __name__ == "__main__":
             print(model_name, model_size)
 
             # for continued supervised training
-            train = True
+            train = False
             load = False
             save = False
             evaluate = True
@@ -81,12 +81,12 @@ if __name__ == "__main__":
 
 
                 # print a summary of the model
-                """
+
                 if convolutional:
                     summary(model,[(1,28,28),(1,28,28)])
                 else:
                     summary(model, [(784, 2), (784, 1)])
-                """
+
 
                 # define the directories
                 model_save_dir = ["saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
@@ -136,7 +136,7 @@ if __name__ == "__main__":
                         dir_to_create = os.path.dirname(accuracies_dir_txt)
                         os.makedirs(dir_to_create,exist_ok=True)
 
-                        # initialize the loss file with a line showing the size of the training samples
+                        # initialize the accuracy file with a line showing the size of the training samples
                         txt = "training sample sizes: " + " ".join([str(x) for x in num_training_samples]) + " \n"
                         with open(accuracies_dir_txt,'w') as f:
                             f.write(txt)

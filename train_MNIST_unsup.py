@@ -9,8 +9,8 @@ from torchsummary import summary
 from Train.train_CNP_images import train_CNP_unsup
 from CNPs.create_model import  create_model
 from Utils.data_loader import load_data_unsupervised
-from Utils.helper_results import qualitative_evaluation_images
-
+from Utils.helper_results import qualitative_evaluation_images, plot_loss
+"""
 def plot_loss(loss_dir_txt,loss_dir_plot):
         loss = []
         with open(loss_dir_txt,"r") as f:
@@ -24,6 +24,7 @@ def plot_loss(loss_dir_txt,loss_dir_plot):
         plt.xlabel("Epoch",fontsize=15)
         plt.ylabel("Negative log-likelihood",fontsize=15)
         plt.savefig(loss_dir_plot)
+"""
 
 
 if __name__ == "__main__":
@@ -31,13 +32,13 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "ConvCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
 
     train = True
-    load = False
+    load = True
     save = False
     if load:
-        epoch_start = 200 # which epoch to start from
+        epoch_start = 400 # which epoch to start from
     else:
         epoch_start = 0
     save_freq = 50 # epoch frequency of saving checkpoints
@@ -89,8 +90,8 @@ if __name__ == "__main__":
             assert not(os.path.isfile(train_loss_dir_txt)), "The corresponding loss file already exists, please remove it to train from scratch: " + train_loss_dir_txt
 
     if train:
-        avg_loss_per_epoch = train_CNP_unsup(train_data, model, epochs, model_save_dir, train_loss_dir_txt, validation_data=valid_data, validation_loss_dir_txt=validation_loss_dir_txt, convolutional=convolutional, visualisation_dir=visualisation_dir, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
-        plot_loss(train_loss_dir_txt,loss_dir_plot)
+        #avg_loss_per_epoch = train_CNP_unsup(train_data, model, epochs, model_save_dir, train_loss_dir_txt, validation_data=valid_data, validation_loss_dir_txt=validation_loss_dir_txt, convolutional=convolutional, visualisation_dir=visualisation_dir, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
+        plot_loss([train_loss_dir_txt,validation_loss_dir_txt],loss_dir_plot)
 
     if save:
         save_dir = model_save_dir.copy()
