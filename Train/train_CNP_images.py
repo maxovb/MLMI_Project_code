@@ -177,6 +177,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
                                                                                device)
                     loss = model.train_step(x_context, y_context, target, opt)
             else:
+                data = data.to(device)
                 loss = model.train_step(data,target,opt)
 
             # store the loss
@@ -211,6 +212,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
                                                                                    device)
                         output_score, output_logit = model(x_context,y_context)
                 else:
+                    data = data.to(device)
                     output_score, output_logit = model(data)
                 validation_losses.append(model.loss(output_score,target).item())
             epoch_avg_validation_loss = np.array(validation_losses).mean()

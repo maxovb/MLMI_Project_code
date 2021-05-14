@@ -19,6 +19,7 @@ def test_model_accuracy(model,test_data,device,convolutional=False,num_context_p
                                                                            device)
                 batch_accuracy, batch_size = model.evaluate_accuracy(x_context,y_context,target)
         else:
+            data = data.to(device)
             batch_accuracy, batch_size = model.evaluate_accuracy(data, target)
         sum += batch_accuracy * batch_size
         total += batch_size

@@ -31,12 +31,15 @@ if __name__ == "__main__":
     model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
     model_size = "large" # one of ["small","medium","large"]
 
+    freeze_weights = True # freeze the weights of the part taken from the unsupervised model
+    cheat_validation= True # use a large validation set even if the trainign data is small
+
     for model_name in ["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
             print(model_name, model_size)
 
             # for continued supervised training
-            train = False
+            train = True
             load = False
             save = False
             evaluate = True
@@ -47,7 +50,6 @@ if __name__ == "__main__":
 
             # parameters from the model to load
             epoch_unsup = 400 # unsupervised model to load initially
-            freeze_weights = False # freeze the weights of the part taken from the unsupervised model
 
             # training parameters
             num_training_samples = [10,20,40,60,80,100,600,1000,3000]
@@ -55,14 +57,14 @@ if __name__ == "__main__":
             for i,num_samples in enumerate(num_training_samples):
                 if num_samples <= 60:
                     batch_size = 64
-                    learning_rate = 5e-3
-                    epochs = 1000
-                    save_freq = 100
+                    learning_rate = 1e-3
+                    epochs = 400
+                    save_freq = 20
                 elif num_samples <= 100:
                     batch_size = 64
-                    learning_rate = 5e-3
+                    learning_rate = 1e-3
                     epochs = 400
-                    save_freq = 40
+                    save_freq = 20
                 else:
                     batch_size = 64
                     learning_rate = 1e-3
@@ -70,7 +72,7 @@ if __name__ == "__main__":
                     save_freq = 20
 
                 # load the supervised set
-                train_data, validation_data, test_data, img_height, img_width = load_supervised_data_as_generator(batch_size, num_samples)
+                train_data, validation_data, test_data, img_height, img_width = load_supervised_data_as_generator(batch_size, num_samples,cheat_validation=cheat_validation)
 
                 # create the model
                 CNP_model, convolutional = load_unsupervised_model(model_name,epoch_unsup,device)
@@ -89,11 +91,11 @@ if __name__ == "__main__":
 
 
                 # define the directories
-                model_save_dir = ["saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
-                train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
-                validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_validation.txt"
-                loss_dir_plot = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ".svg"
-                accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_frozen/" if freeze_weights else "/") + "accuracies/" + model_name + "_" + model_size + ".txt"
+                model_save_dir = ["saved_models/MNIST/supervised" + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
+                train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
+                validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_validation.txt"
+                loss_dir_plot = "saved_models/MNIST/supervised" + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ".svg"
+                accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + "accuracies/" + model_name + "_" + model_size + ".txt"
 
                 # create directories for the checkpoints and loss files if they don't exist yet
                 dir_to_create = "".join(model_save_dir[:3]) + "loss/"

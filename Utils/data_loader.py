@@ -46,7 +46,7 @@ def load_data_unsupervised(batch_size=64, validation_split = None):
     return train_dataloader, validation_dataloader, test_dataloader
 
 
-def load_supervised_data_as_generator(batch_size=64,num_training_samples=100):
+def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,cheat_validation=False):
     # Download training data from open datasets.
     training_data = datasets.MNIST(
         root="data",
@@ -71,7 +71,13 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100):
     num_samples_per_class = num_training_samples//num_classes
 
     num_validation_samples = num_training_samples//10
+
+    # if we want many validation samples 
+    if cheat_validation:
+        num_validation_samples = max(num_validation_samples,1000)
+
     num_validation_samples_per_class = max(num_validation_samples//num_classes,1)
+
 
     # separate the data per class
     data_divided_per_class = [[] for _ in range(num_classes)]
@@ -101,7 +107,7 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100):
     return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width
 
 
-def load_supervised_data_as_matrix(num_training_samples=100):
+def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=False):
 
     # load the data
     training_data = datasets.MNIST(
@@ -143,6 +149,11 @@ def load_supervised_data_as_matrix(num_training_samples=100):
     num_samples_per_class = num_training_samples // num_classes
 
     num_validation_samples = num_training_samples // 10
+
+    # if we want many validation samples 
+    if cheat_validation:
+        num_validation_samples = max(num_validation_samples,1000)
+
     num_validation_samples_per_class = max(num_validation_samples // num_classes, 1)
 
     # separate the data per class (by indices)
