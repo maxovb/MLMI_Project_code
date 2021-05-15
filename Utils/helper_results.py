@@ -95,7 +95,7 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot):
     plt.ylabel("Loss",fontsize=15)
     plt.savefig(loss_dir_plot)
 
-def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False):
+def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None):
 
     # number of images to show per class
     num_img_per_class = 4 # true image, context image, predicted mean, predicted std
@@ -140,14 +140,13 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
     for (image,label) in images_to_plot:
         data = image.unsqueeze(0) # add the batch dimension
         if convolutional:
-            mask, context_img = image_processor(data, num_context_points, convolutional, device)
+            mask, context_img = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
             mean, std = model(mask,context_img)
             mean = mean.detach().cpu().numpy()
             std = std.detach().cpu().numpy()
             context_img = context_points_image_from_mask(mask, context_img)
         else:
-            x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
-                                                                       device)
+            x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
             mean,std = model(x_context,y_context,x_target)
             mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
             std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))

@@ -5,7 +5,7 @@ from tqdm import tqdm
 from Utils.data_processor import image_processor, format_context_points_image
 from Utils.helper_results import qualitative_evaluation_images
 
-def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, validation_data=None, validation_loss_dir_txt="",min_context_points=2,max_percentage_context = None, convolutional=False, visualisation_dir=None, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
+def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, semantics=False, validation_data=None, validation_loss_dir_txt="",min_context_points=2,max_percentage_context = None, convolutional=False, visualisation_dir=None, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
 
     # pre-allocate memory to store the losses
@@ -14,6 +14,12 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
     if validation_data:
         avg_validation_loss_per_epoch = []
         validation_loss_to_write = []
+
+    # define the type of semantics bloks used
+    if semantics:
+        semantic_blocks = ["cut","blocks","pizza","random"]
+    else:
+        semantic_blocks = None
 
     # define the sampling threshold to use if max_percentage_context is None
     threshold = 1/3
@@ -29,7 +35,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
         train_losses = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
-            # either select nbr of context pts bwtn 2 and max_percentage_context, or uniformly between 2 and 1/3 with probability
+            # either select nbr of context pts between 2 and max_percentage_context, or uniformly between 2 and 1/3 with probability 1/2 and between 1/3 and 1 with probability 1/2
             if max_percentage_context:
                 num_context_points = np.random.randint(min_context_points,int(img_height * img_width * max_percentage_context))
             else:
@@ -40,11 +46,11 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
                     num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
 
             if convolutional:
-                mask, context_img = image_processor(data,num_context_points,convolutional,device)
+                mask, context_img = image_processor(data, num_context_points, convolutional=convolutional, semantic_blocks=semantic_blocks, device=device)
                 data = data.to(device).permute(0,2,3,1)
                 train_loss = model.train_step(mask,context_img,data, opt)
             else:
-                x_context, y_context, x_target, y_target = image_processor(data,num_context_points,convolutional,device)
+                x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
                 train_loss = model.train_step(x_context,y_context,x_target, y_target, opt)
             # store the loss
             train_losses.append(train_loss)
@@ -79,14 +85,14 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
                         num_context_points = np.random.randint(int(img_height * img_width * threshold),
                                                                img_height * img_width)
                 if convolutional:
-                    mask, context_img = image_processor(data, num_context_points, convolutional, device)
+                    mask, context_img = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device = device)
                     mean, std = model(mask,context_img)
                     data = data.to(device).permute(0,2,3,1)
                     validation_loss = model.loss(mean,std,data).item()
                 else:
                     x_context, y_context, x_target, y_target = image_processor(data, num_context_points,
-                                                                               convolutional,
-                                                                               device)
+                                                                               convolutional, semantic_blocks=semantic_blocks,
+                                                                               device = device)
                     mean, std = model(x_context, y_context, x_target)
                     validation_loss = model.loss(mean, std, y_target).item()
                 validation_losses.append(validation_loss)
@@ -98,7 +104,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
             print("Average validation loss:", epoch_avg_validation_loss)
 
         # save the checkpoint
-        if (i+1) % save_freq == 0:
+        if save_freq and (i+1) % save_freq == 0:
             # update the file name
             save_dir = model_save_dir.copy()
             save_dir[-3] = str(epoch_start + i+1)
@@ -131,8 +137,16 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
                         # create directories if it doesn't exist yet
                         dir_to_create = "".join(visualisation_dir[:3])
                         os.makedirs(dir_to_create, exist_ok=True)
-                        qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points, device=device,
-                                                      save_dir=img_output_dir, convolutional=convolutional)
+                        if num_context_points == img_height * img_width:
+                            qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
+                                                          device=device,
+                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          semantic_blocks=["random"])
+                        else:
+                            qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
+                                                          device=device,
+                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          semantic_blocks=semantic_blocks)
 
     # write the final losses
     with open(train_loss_dir_txt, 'a+') as f:
@@ -145,7 +159,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
 
     return avg_train_loss_per_epoch, avg_validation_loss_per_epoch
 
-def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, validation_data = None, validation_loss_dir_txt = "", convolutional=False, is_CNP = True, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
+def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, validation_data = None, validation_loss_dir_txt = "", convolutional=False, is_CNP = True, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu')):
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
     num_context_points = img_height * img_width
 
@@ -223,7 +237,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
             print("Average validation loss:", epoch_avg_validation_loss)
 
 
-        # save the checkpoint
+        # save the checkpoint and losses
         if (i + 1) % save_freq == 0:
             # update the file name
             save_dir = model_save_dir.copy()
@@ -231,7 +245,8 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
             save_dir = "".join(save_dir)
 
             # save the model
-            torch.save(model.state_dict(), save_dir)
+            if not (n_best_checkpoint):
+                torch.save(model.state_dict(), save_dir)
 
             # write the average epoch train loss to the txt file
             with open(train_loss_dir_txt, 'a+') as f:
@@ -245,6 +260,10 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
                     for loss_item in validation_loss_to_write:
                         f.write('%s\n' % loss_item)
                 validation_loss_to_write = []
+
+        if n_best_checkpoint:
+            pass
+            # TODO: n-best checkpoint saving
 
 
     # write the final losses

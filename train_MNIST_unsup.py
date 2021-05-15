@@ -35,13 +35,15 @@ if __name__ == "__main__":
     model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
 
     train = True
-    load = True
-    save = False
+    load = False
+    save = True
     if load:
         epoch_start = 400 # which epoch to start from
     else:
         epoch_start = 0
     save_freq = 50 # epoch frequency of saving checkpoints
+
+    semantics = True
 
     # parameters
     batch_size = 64
@@ -66,11 +68,15 @@ if __name__ == "__main__":
     train_data, valid_data, test_data = load_data_unsupervised(batch_size,validation_split=validation_split)
 
     # directories
-    model_save_dir = ["saved_models/MNIST/", model_name, "/",model_name,"_","","E",".pth"]
-    train_loss_dir_txt = "saved_models/MNIST/" + model_name + "/loss/train_" + model_name + ".txt"
-    validation_loss_dir_txt = "saved_models/MNIST/" + model_name + "/loss/validation_" + model_name + ".txt"
-    loss_dir_plot = "saved_models/MNIST/" + model_name + "/loss/" + model_name + ".svg"
-    visualisation_dir = ["saved_models/MNIST/", model_name, "/visualisation/",model_name,"_","","E_","","C.svg"]
+    model_save_dir = ["saved_models/MNIST/", model_name + ("_semantics" if semantics else ""), "/",model_name + ("_semantics" if semantics else ""),"_","","E",".pth"]
+    train_loss_dir_txt = "saved_models/MNIST/" + model_name + ("_semantics" if semantics else "") + "/loss/train_" + model_name  + ("_semantics" if semantics else "") + ".txt"
+    validation_loss_dir_txt = "saved_models/MNIST/" + model_name  + ("_semantics" if semantics else "") + "/loss/validation_" + model_name  + ("_semantics" if semantics else "") + ".txt"
+    loss_dir_plot = "saved_models/MNIST/" + model_name + ("_semantics" if semantics else "") + "/loss/" + model_name  + ("_semantics" if semantics else "") + ".svg"
+    visualisation_dir = ["saved_models/MNIST/", model_name + ("_semantics" if semantics else ""), "/visualisation/",model_name + ("_semantics" if semantics else ""),"_","","E_","","C.svg"]
+
+    # create directories for the checkpoints and loss files if they don't exist yet
+    dir_to_create = "".join(model_save_dir[:3]) + "loss/"
+    os.makedirs(dir_to_create, exist_ok=True)
 
     if load:
         load_dir = model_save_dir.copy()
@@ -90,7 +96,7 @@ if __name__ == "__main__":
             assert not(os.path.isfile(train_loss_dir_txt)), "The corresponding loss file already exists, please remove it to train from scratch: " + train_loss_dir_txt
 
     if train:
-        #avg_loss_per_epoch = train_CNP_unsup(train_data, model, epochs, model_save_dir, train_loss_dir_txt, validation_data=valid_data, validation_loss_dir_txt=validation_loss_dir_txt, convolutional=convolutional, visualisation_dir=visualisation_dir, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
+        avg_loss_per_epoch = train_CNP_unsup(train_data, model, epochs, model_save_dir, train_loss_dir_txt, semantics=semantics, validation_data=valid_data, validation_loss_dir_txt=validation_loss_dir_txt, convolutional=convolutional, visualisation_dir=visualisation_dir, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
         plot_loss([train_loss_dir_txt,validation_loss_dir_txt],loss_dir_plot)
 
     if save:

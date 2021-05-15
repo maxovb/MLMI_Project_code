@@ -37,9 +37,12 @@ def plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=None):
 
 if __name__ == "__main__":
 
+    cheat_validation = False
+
     # CNP/ConvCNP experiments
     freeze_weights = False
-    acc_dir_plot = "figures/accuracies_supervised" + ("_frozen.svg" if freeze_weights else ".svg")
+    acc_dir_plot = "figures/accuracies_supervised" + ("_frozen.svg" if freeze_weights else "") + (
+                "_cheat_validation.svg" if freeze_weights else ".svg")
     styles = ["r-","r--","r-.","b-","b--","b-."]
 
     list_acc_dir_txt = []
@@ -48,12 +51,13 @@ if __name__ == "__main__":
         for model_size in ["small","medium","large"]:
             labels.append(model_name + " " + model_size)
             accuracies_dir_txt = "../saved_models/MNIST/supervised" + (
-                "_frozen/" if freeze_weights else "/") + "accuracies/" + model_name + "_" + model_size + ".txt"
+                "_frozen" if freeze_weights else "") + (
+                "_cheat_validation/" if cheat_validation else "/") + "accuracies/" + model_name + "_" + model_size + ".txt"
             list_acc_dir_txt.append(accuracies_dir_txt)
 
     plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles)
 
-    # KNN
+    # KNN baseline
     acc_dir_plot = "figures/accuracies_KNN.svg"
     accuracies_dir_txt = "../saved_models/MNIST/supervised/accuracies/KNN.txt"
     styles = ["r-"]
@@ -63,12 +67,14 @@ if __name__ == "__main__":
 
 
     # LeNet baseline
-    acc_dir_plot = "figures/accuracies_LeNet.svg"
-    list_acc_dir_txt
+    acc_dir_plot = "figures/accuracies_LeNet" + ("_cheat_validation.svg" if freeze_weights else ".svg")
+
+    list_acc_dir_txt = []
     labels = []
     for model_size in ["small", "medium", "large"]:
         labels.append("LeNet " + model_size)
-        accuracies_dir_txt = "../saved_models/MNIST/supervised" + "accuracies/" + "Lenet_" + model_size + ".txt"
+        accuracies_dir_txt = "../saved_models/MNIST/supervised" + (
+                "_cheat_validation/" if cheat_validation else "/") + "accuracies/" + "Lenet_" + model_size + ".txt"
         list_acc_dir_txt.append(accuracies_dir_txt)
     plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles)
 
