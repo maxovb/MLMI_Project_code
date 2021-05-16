@@ -11,12 +11,11 @@ def test_model_accuracy(model,test_data,device,convolutional=False,num_context_p
         target = target.to(device)
         if is_CNP:
             if convolutional:
-                mask, context_img = image_processor(data, num_context_points, convolutional, device)
+                mask, context_img = image_processor(data, num_context_points, convolutional=convolutional, device=device)
                 data = data.to(device)
                 batch_accuracy, batch_size = model.evaluate_accuracy(mask,context_img,target)
             else:
-                x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
-                                                                           device)
+                x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional=convolutional, device=device)
                 batch_accuracy, batch_size = model.evaluate_accuracy(x_context,y_context,target)
         else:
             data = data.to(device)

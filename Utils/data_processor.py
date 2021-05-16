@@ -87,14 +87,22 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
                 image_context[i] = context
         if semantic_blocks:
             type_block = np.random.choice(semantic_blocks, 1, replace=False)
+            if type_block == "blocks":
+                percentage_active_blocks = 0.1 + 0.9 * np.random.rand()
+            else:
+                percentage_active_blocks = None
+            if type_block == "pizza":
+                percentage_active_slices = 0.1 + 0.9 * np.random.rand()
+            else:
+                percentage_active_slices = None
             for i in range(batch_size):
-                mask, context = get_context_indices_semantic(data[i].permute(1,2,0), type_block, num_context_points, convolutional=convolutional, semantic_blocks=semantic_blocks, device=device)
+                mask, context = get_context_indices_semantic(data[i].permute(1,2,0), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
                 mask = mask.float().permute(2, 0, 1)
                 context = context.float().permute(2, 0, 1)
                 masks[i] = mask
                 image_context[i] = context
 
-        return masks, image_context
+        return masks.to(device), image_context.to(device)
 
 
 

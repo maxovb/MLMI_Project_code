@@ -183,12 +183,13 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
             target = target.to(device)
             if is_CNP:
                 if convolutional:
-                    mask, context_img = image_processor(data, num_context_points, convolutional, device)
+                    mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
+                                                                               device=device)
                     data = data.to(device)
                     loss = model.train_step(mask, context_img, target, opt)
                 else:
-                    x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
-                                                                               device)
+                    x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional=convolutional,
+                                                                               device=device)
                     loss = model.train_step(x_context, y_context, target, opt)
             else:
                 data = data.to(device)
@@ -218,12 +219,13 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
                 target = target.to(device)
                 if is_CNP:
                     if convolutional:
-                        mask, context_img = image_processor(data, num_context_points, convolutional, device)
+                        mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
+                                                                                   device=device)
                         data = data.to(device)
                         output_score, output_logit = model(mask,context_img)
                     else:
-                        x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional,
-                                                                                   device)
+                        x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional=convolutional,
+                                                                                   device=device)
                         output_score, output_logit = model(x_context,y_context)
                 else:
                     data = data.to(device)

@@ -35,7 +35,7 @@ if __name__ == "__main__":
     model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
 
     train = True
-    load = False
+    load = True
     save = True
     if load:
         epoch_start = 400 # which epoch to start from
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     validation_split = 0.10
     learning_rate = 1e-4
     if train:
-        epochs = 400
+        epochs = 200
     else:
         epochs = 0
 

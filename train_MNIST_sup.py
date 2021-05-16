@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     freeze_weights = True # freeze the weights of the part taken from the unsupervised model
     cheat_validation= True # use a large validation set even if the trainign data is small
-    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
 
     for model_name in ["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
