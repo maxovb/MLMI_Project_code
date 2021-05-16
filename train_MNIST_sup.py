@@ -106,7 +106,7 @@ if __name__ == "__main__":
                     model.load_state_dict(torch.load(load_dir,map_location=device))
                 else:
                     # if train from scratch, check if a loss file already exists
-                    assert not(os.path.isfile(train_loss_dir_txt)), "The corresponding loss file already exists, please remove it to train from scratch: " + loss_dir_txt
+                    assert not(os.path.isfile(train_loss_dir_txt)), "The corresponding loss file already exists, please remove it to train from scratch: " + train_loss_dir_txt
 
                 if train:
                     avg_loss_per_epoch = train_sup(train_data, model, epochs, model_save_dir, train_loss_dir_txt, validation_data=validation_data, validation_loss_dir_txt=validation_loss_dir_txt, convolutional=convolutional, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
