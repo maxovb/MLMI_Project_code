@@ -8,19 +8,7 @@ from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
 from Utils.data_loader import load_supervised_data_as_generator
 from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_loss
-
-
-def load_unsupervised_model(model_name, epoch, semantics = False, device = torch.device('cpu')):
-    model_load_dir = ["saved_models/MNIST/", model_name + ("_semantics" if semantics else ""), "/", model_name + ("_semantics" if semantics else ""), "_", str(epoch), "E", ".pth"]
-    load_dir = "".join(model_load_dir)
-
-    # create the model
-    model, convolutional = create_model(model_name)
-
-    # load the checkpoint
-    model.load_state_dict(torch.load(load_dir, map_location=device))
-
-    return model,convolutional
+from Utils.model_loader import load_unsupervised_model
 
 
 if __name__ == "__main__":
