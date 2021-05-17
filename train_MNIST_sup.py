@@ -22,7 +22,7 @@ if __name__ == "__main__":
     freeze_weights = False # freeze the weights of the part taken from the unsupervised model
     cheat_validation= True # use a large validation set even if the trainign data is small
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
-    augment_missing = True # effectively agument the labelled data by using images with missing pixels as well
+    augment_missing = True # effectively augment the labelled data by using images with missing pixels as well
 
     for model_name in ["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
@@ -79,13 +79,12 @@ if __name__ == "__main__":
                 else:
                     summary(model, [(784, 2), (784, 1)])
 
-
                 # define the directories
-                model_save_dir = ["saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
-                train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
-                validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_validation.txt"
-                loss_dir_plot = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ".svg"
-                accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_cheat_validation/" if cheat_validation else "/")  + "accuracies/" + model_name + "_" + model_size + ".txt"
+                model_save_dir = ["saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
+                train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
+                validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_validation.txt"
+                loss_dir_plot = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ".svg"
+                accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + "accuracies/" + model_name + "_" + model_size + ".txt"
 
                 # create directories for the checkpoints and loss files if they don't exist yet
                 dir_to_create = "".join(model_save_dir[:3]) + "loss/"
@@ -110,7 +109,7 @@ if __name__ == "__main__":
                     assert not(os.path.isfile(train_loss_dir_txt)), "The corresponding loss file already exists, please remove it to train from scratch: " + train_loss_dir_txt
 
                 if train:
-                    avg_loss_per_epoch = train_sup(train_data, model, epochs, model_save_dir, train_loss_dir_txt, validation_data=validation_data, validation_loss_dir_txt=validation_loss_dir_txt, convolutional=convolutional, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
+                    avg_loss_per_epoch = train_sup(train_data, model, epochs, model_save_dir, train_loss_dir_txt, validation_data=validation_data, validation_loss_dir_txt=validation_loss_dir_txt, convolutional=convolutional, augment_missing=augment_missing, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate)
                     plot_loss([train_loss_dir_txt,validation_loss_dir_txt],loss_dir_plot)
 
                 if save:
