@@ -37,12 +37,13 @@ def plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=None):
 
 if __name__ == "__main__":
 
-    cheat_validation = False
+    cheat_validation = True
 
     # CNP/ConvCNP experiments
     freeze_weights = False
-    acc_dir_plot = "figures/accuracies_supervised" + ("_frozen.svg" if freeze_weights else "") + (
-                "_cheat_validation.svg" if freeze_weights else ".svg")
+    semantics = True
+    acc_dir_plot = "figures/accuracies_supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + (
+                "_cheat_validation.svg" if cheat_validation else ".svg")
     styles = ["r-","r--","r-.","b-","b--","b-."]
 
     list_acc_dir_txt = []
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     for model_name in ["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
             labels.append(model_name + " " + model_size)
-            accuracies_dir_txt = "../saved_models/MNIST/supervised" + (
+            accuracies_dir_txt = "../saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + (
                 "_frozen" if freeze_weights else "") + (
                 "_cheat_validation/" if cheat_validation else "/") + "accuracies/" + model_name + "_" + model_size + ".txt"
             list_acc_dir_txt.append(accuracies_dir_txt)
@@ -60,11 +61,10 @@ if __name__ == "__main__":
     # KNN baseline
     acc_dir_plot = "figures/accuracies_KNN.svg"
     accuracies_dir_txt = "../saved_models/MNIST/supervised/accuracies/KNN.txt"
-    styles = ["r-"]
+    styles_knn = ["r-"]
     labels = ["KNN"]
     list_acc_dir_txt = [accuracies_dir_txt]
-    plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles)
-
+    plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles_knn)
 
     # LeNet baseline
     acc_dir_plot = "figures/accuracies_LeNet" + ("_cheat_validation.svg" if freeze_weights else ".svg")
@@ -74,9 +74,24 @@ if __name__ == "__main__":
     for model_size in ["small", "medium", "large"]:
         labels.append("LeNet " + model_size)
         accuracies_dir_txt = "../saved_models/MNIST/supervised" + (
-                "_cheat_validation/" if cheat_validation else "/") + "accuracies/" + "Lenet_" + model_size + ".txt"
+                "_cheat_validation/" if cheat_validation else "/") + "accuracies/" + "LeNet_" + model_size + ".txt"
         list_acc_dir_txt.append(accuracies_dir_txt)
     plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles)
+
+
+    # KNN and LR on the representation out of the encoder
+    acc_dir_plot = "figures/accuracies_supervised" + ("_semantics" if semantics else "") + "_KNN_LR_on_r.svg"
+    
+    styles_r = ["r","b"]
+    list_acc_dir_txt = []
+    labels = []
+    for classification_model_name in ["KNN","LR"]:
+        labels.append(classification_model_name)
+        accuracies_dir_txt = "../saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + "/accuracies/" + classification_model_name + "_on_r.txt"
+        list_acc_dir_txt.append(accuracies_dir_txt)
+    plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles_r)
+
+
 
 
 

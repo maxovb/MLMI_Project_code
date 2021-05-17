@@ -19,9 +19,9 @@ if __name__ == "__main__":
     model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
     model_size = "large" # one of ["small","medium","large"]
 
-    freeze_weights = True # freeze the weights of the part taken from the unsupervised model
+    freeze_weights = False # freeze the weights of the part taken from the unsupervised model
     cheat_validation= True # use a large validation set even if the trainign data is small
-    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
 
     for model_name in ["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
                         # create directories for the accuracy if they don't exist yet
                         dir_to_create = os.path.dirname(accuracies_dir_txt)
-                        os.makedirs(dir_to_create,exist_ok=True)
+                        os.makedirs(dir_t`o_create,exist_ok=True)
 
                         # initialize the accuracy file with a line showing the size of the training samples
                         txt = "training sample sizes: " + " ".join([str(x) for x in num_training_samples]) + " \n"
