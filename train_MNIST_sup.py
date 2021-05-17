@@ -22,6 +22,7 @@ if __name__ == "__main__":
     freeze_weights = False # freeze the weights of the part taken from the unsupervised model
     cheat_validation= True # use a large validation set even if the trainign data is small
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    augment_missing = True # effectively agument the labelled data by using images with missing pixels as well
 
     for model_name in ["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
