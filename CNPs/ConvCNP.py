@@ -9,20 +9,33 @@ class OnTheGridConvCNP(nn.Module):
         See https://arxiv.org/abs/1910.13556 for details.
 
         Args:
+            type_CNN (string): one of ["CNN","UNet"]
             num_input_channels (int): number of input channels, i.e. 1 for BW and 3 for RGB
             num_output_channels (int): number of output channels, i.e. 2 (mean+std) for BW and 3 for RGB
             num_of_filters (int): number of filters per convolution, i.e. dimension of the output channel size of convolutional layers
             kernel_size_first_convolution (int): size of the kernel for the first normalized convolution
             kernel_size_CNN (int): size of the kernel for the CNN part
-            num_residual_blocks (int): number of residual blocks in the CNN
             num_convolutions_per_block (int): number of convolutional layers per residual blocks in the CNN
             num_dense_layers (int): number of dense layers at the end
             num_units_dense_layer (int): number of nodes in the hidden dense layers
+            num_residual_blocks (int): number of residual blocks in the CNN
+            num_down_blocks (int): number of down blocks when using UNet
+            num_of_filters_top_UNet (int): number of filters for the top UNet layer (doubles all the way down)
+            pooling_size (int): pooling size for the UNet
     """
-    def __init__(self, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_residual_blocks, num_convolutions_per_block, num_dense_layers, num_units_dense_layer):
+    def __init__(self, type_CNN, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_convolutions_per_block, num_dense_layers, num_units_dense_layer, num_residual_blocks = None, num_down_blocks=None, num_of_filters_top_UNet=None, pooling_size=None):
         super(OnTheGridConvCNP, self).__init__()
+
         self.encoder = OnTheGridConvCNPEncoder(num_input_channels,num_of_filters,kernel_size_first_convolution)
-        self.CNN = OnTheGridConvCNPCNN(num_of_filters,kernel_size_CNN,num_residual_blocks,num_convolutions_per_block)
+
+        if type_CNN == "CNN":
+            assert num_residual_blocks, "The argument num_residual blocks should be passed as integer when using the CNN ConvCNP"
+            self.CNN = OnTheGridConvCNPCNN(num_of_filters,kernel_size_CNN,num_residual_blocks,num_convolutions_per_block)
+
+        elif type_CNN == "UNet":
+            assert num_down_blocks and num_of_filters_top_UNet and pooling_size, "Arguments num_down_blocks, num_of_filters_top_UNet and pooling_size should be passed as integers when using the UNet ConvCNP"
+            self.CNN = OnTheGridConvCNPUNet(num_of_filters_top_UNet, 2 * num_of_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size)
+
         self.decoder = OnTheGridConvCNPDecoder(num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels)
 
     def forward(self,mask,context_image):
@@ -131,6 +144,77 @@ class OnTheGridConvCNPCNN(nn.Module):
         """
         return self.CNN(input)
 
+class OnTheGridConvCNPUNet(nn.Module):
+    """U-Net for the CNN part of the on-the-grid version of the Convolutional Conditional Neural Process.
+
+        Args:
+            num_in_filters (int): number of filters taken in the network
+            num_of_filters (int): number of filters per convolution at the top, doubles at every step down, and divides by two at every step up
+            kernel_size_CNN (int): size of the kernel
+            num_down_blocks (int): number of blocks until the bottleneck
+            num_convolutions_per_block (int): number of convolutional layers per residual blocks in the CNN
+            pooling_size (int): size of the maxpooling layers
+    """
+    def __init__(self, num_of_filters, num_in_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size):
+        super(OnTheGridConvCNPUNet, self).__init__()
+
+        # store some variables
+        self.num_down_blocks = num_down_blocks
+
+        self.pool = torch.nn.MaxPool2d(pooling_size)
+        self.upsample = torch.nn.Upsample(scale_factor=pooling_size)
+        self.h_down = nn.ModuleList([])
+        for i in range(num_down_blocks):
+            if i == 0:  # do not use residual blocks for the first block because the number of channel changes
+                self.h_down.append(ConvBlock(num_in_filters, num_of_filters, kernel_size_CNN,
+                                             num_convolutions_per_block, is_residual=False))
+            else:
+                self.h_down.append(ConvBlock((2**(i-1)) * num_of_filters, (2**(i)) * num_of_filters, kernel_size_CNN,
+                                             num_convolutions_per_block, is_residual=False))
+        self.h_up = nn.ModuleList([])
+        for j in range(num_down_blocks-1,-1,-1):
+            if j == num_down_blocks-1: # no skip connection at the bottom
+                self.h_up.append(ConvBlock((2**(j)) * num_of_filters, 2**(j-1) * num_of_filters, kernel_size_CNN,
+                                           num_convolutions_per_block, is_residual=False))
+            elif j == 0: # no skip connection at the bottom
+                self.h_up.append(ConvBlock((2 ** (j+1)) * num_of_filters, num_in_filters//2, kernel_size_CNN,
+                                           num_convolutions_per_block, is_residual = False))
+            else:
+                self.h_up.append(ConvBlock((2 ** (j+1)) * num_of_filters, 2 ** (j - 1) * num_of_filters, kernel_size_CNN,
+                                           num_convolutions_per_block,is_residual = False))
+
+    def forward(self,input):
+        """Forward pass through the UNet for the on-the-grid CNN
+
+        Args:
+            input (tensor): latent representation of the input context (batch, img_width, img_size, num_in_filters)
+        Returns:
+            tensor: output map of the UNet
+        """
+        layers = []
+        layers.append(input)
+        # Down
+        x = input
+        for i in range(self.num_down_blocks):
+            x = self.h_down[i](x)
+            layers.append(x)
+            x = self.pool(x)
+        # Up
+        for i in range(self.num_down_blocks):
+            # feed through conv block
+            x = self.h_up[i](x)
+            layers.append(x)
+
+            # upsample
+            x = self.upsample(x)
+
+            # pad if necessary and concatenate
+            res = layers[self.num_down_blocks-i-1]
+            h_diff, w_diff = res.shape[-2] - x.shape[-2], res.shape[-1] - x.shape[-1]
+            x = torch.nn.functional.pad(x, (0, w_diff, 0, h_diff))
+            x = torch.cat([x,res],dim=1)
+
+        return layers[-1]
 
 
 class OnTheGridConvCNPDecoder(nn.Module):
@@ -348,10 +432,28 @@ if __name__ == "__main__":
     img_height = 28
     img_width = 28
 
-    model = OnTheGridConvCNP(num_input_channels=1,num_output_channels=2,num_of_filters=128,kernel_size_first_convolution=9,kernel_size_CNN=5,num_residual_blocks=4,num_convolutions_per_block=1,num_dense_layers=5, num_units_dense_layer=64)
+    type_CNN = "UNet"
+    num_input_channels = 1
+    num_output_channels = 2
+    num_of_filters = 128
+    kernel_size_first_convolution = 9
+    kernel_size_CNN = 5
+    num_residual_blocks = 4
+    num_convolutions_per_block = 1
+    num_dense_layers = 5
+    num_units_dense_layers = 64
+    num_down_blocks = 4
+    num_of_filters_top_UNet =  32
+    pooling_size = 2
+    model = OnTheGridConvCNP(type_CNN=type_CNN,num_input_channels=num_input_channels,num_output_channels=num_output_channels,
+                             num_of_filters=num_of_filters,kernel_size_first_convolution=kernel_size_first_convolution,
+                             kernel_size_CNN=kernel_size_CNN, num_convolutions_per_block=num_convolutions_per_block,
+                             num_dense_layers=num_dense_layers,num_units_dense_layer=num_units_dense_layers,
+                             num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
+                             num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size)
     summary(model, [(1, img_height, img_width), (1, img_height, img_width)])
-
-    # Classfication CNP
+    """
+    # Classfication ConvCNP
     dense_layer_widths = [128,64,64,10]
     classification_model = ConvCNPClassifier(model, dense_layer_widths)
     # freeze the weights from the original CNP
@@ -361,6 +463,10 @@ if __name__ == "__main__":
         param.requires_grad = False
 
     summary(classification_model, [(1, img_height, img_width), (1, img_height, img_width)])
+    """
+
+
+
 
 
 

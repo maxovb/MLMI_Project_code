@@ -32,10 +32,10 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP"]
 
     train = True
-    load = True
+    load = False
     save = True
     if load:
         epoch_start = 400 # which epoch to start from
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     validation_split = 0.10
     learning_rate = 1e-4
     if train:
-        epochs = 200
+        epochs = 400
     else:
         epochs = 0
 
