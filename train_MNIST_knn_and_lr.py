@@ -19,13 +19,14 @@ if __name__ == "__main__":
     CNP_model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
     encoder = CNP_model.encoder.to(device)
 
-    accuracies_dir_txt_knn = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + "/accuracies/KNN_on_r.txt"
-    accuracies_dir_txt_lr = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + "/accuracies/LR_on_r.txt"
+    accuracies_dir_txt_knn = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + "/accuracies/KNN_on_r_" + model_name + "_" + str(epoch_unsup) + "E" + ".txt"
+    accuracies_dir_txt_lr = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + "/accuracies/LR_on_r_" + model_name + "_" + str(epoch_unsup) + "E" + ".txt"
 
 
     ks = [1, 2, 3, 5, 7, 10]  # ,20]
     cs = [1e-2,1,1e2,1e4,1e6,1e8,1e10]
-    max_iter = 1000
+    # TODO: increase max_iter back to 1000
+    max_iter = 100
     num_training_samples = [10, 20, 40, 60, 80, 100, 600, 1000, 3000]
     optimal_k = np.zeros(len(num_training_samples))
     optimal_c = np.zeros(len(num_training_samples))
@@ -55,10 +56,6 @@ if __name__ == "__main__":
 
 
         X_train, y_train, X_validation, y_validation, X_test, y_test = load_supervised_data_as_matrix(num_samples)
-
-        #TODO: remove this
-        X_test = X_test[:500]
-        y_test = y_test[:500]
 
         new_X_train = np.zeros((X_train.shape[0], 128))
         new_X_validation = np.zeros((X_validation.shape[0], 128))
@@ -90,8 +87,17 @@ if __name__ == "__main__":
             x_context, y_context, x_target, y_target = image_processor(data, num_context_points=784,
                                                           convolutional=False, semantic_blocks=None,
                                                            device=device)
-            new_X_test = torch.squeeze(encoder(x_context, y_context)[:, 0]).cpu().detach().numpy()
+
+            for n in range(x_context.shape[0]//1000):
+                new_X_test[n*1000:(n+1)*1000] = torch.squeeze(encoder(x_context[n*1000:(n+1)*1000], y_context[n*1000:(n+1)*1000])[:, 0]).cpu().detach().numpy()
+
             X_test = new_X_test
+
+            #TODO: remove this 
+            #X_test = X_test[:500]
+            #y_test = y_test[:500]
+
+
             cop = (X_test,y_test)
         else:
             X_test,y_test = cop
