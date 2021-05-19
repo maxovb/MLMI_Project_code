@@ -43,7 +43,7 @@ if __name__ == "__main__":
         epoch_start = 0
     save_freq = 50 # epoch frequency of saving checkpoints
 
-    semantics = True
+    semantics = False
 
     # parameters
     batch_size = 64
