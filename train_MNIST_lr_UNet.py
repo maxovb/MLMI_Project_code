@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import math
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from Utils.data_processor import image_processor
@@ -14,11 +15,13 @@ if __name__ == "__main__":
     # create the model
     model_name = "UNetCNP"
     epoch_unsup = 250
-    semantics = False
+    semantics = True
 
     CNP_model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
     num_down_blocks = CNP_model.CNN.num_down_blocks
     CNP_model = CNP_model.to(device)
+
+    step = 200
 
     for layer_id in range(2*num_down_blocks):
         print("Layer id:", layer_id)
@@ -78,9 +81,6 @@ if __name__ == "__main__":
 
             X_train, y_train, X_validation, y_validation, X_test, y_test = load_supervised_data_as_matrix(num_samples)
 
-            new_X_train = np.zeros((X_train.shape[0], ))
-            new_X_validation = np.zeros((X_validation.shape[0], 128))
-            new_X_test = np.zeros((X_test.shape[0], 128))
             X = np.reshape(X_train, (X_train.shape[0], 1, 28, 28))
             Xv = np.reshape(X_validation, (X_validation.shape[0], 1, 28, 28))
             Xt = np.reshape(X_test, (X_test.shape[0], 1, 28, 28))
@@ -92,15 +92,21 @@ if __name__ == "__main__":
                                                                            convolutional=convolutional, semantic_blocks=None,
                                                                            device=device)
                 out = CNP_model(x_context, y_context)
+                x = torch.mean(feature_map["current"], dim=[-2, -1])
+                X_train = x.cpu().detach().numpy()
             else:
                 mask, context_img = image_processor(data, num_context_points=784,
                                                                            convolutional=convolutional,
                                                                            semantic_blocks=None,
                                                                            device=device)
-                out = CNP_model(mask, context_img)
-
-            x = torch.mean(feature_map["current"], dim=[-2, -1])
-            X_train = x.cpu().detach().numpy()
+                for n in range(math.ceil(mask.shape[0] / step)):
+                    out = CNP_model(mask[n * step:(n + 1) * step], context_img[n * step:(n + 1) * step])
+                    x = torch.mean(feature_map["current"], dim=[-2, -1])
+                    if n == 0:
+                        c = x.cpu().detach().numpy().shape[1]
+                        new_X_train = np.zeros((X.shape[0], c))
+                    new_X_train[n * step:(n + 1) * step] = x.cpu().detach().numpy()
+                X_train = new_X_train
 
             # validation data
             data = torch.from_numpy(Xv)
@@ -110,17 +116,24 @@ if __name__ == "__main__":
                                                                            semantic_blocks=None,
                                                                            device=device)
                 out = CNP_model(x_context, y_context)
+                x = torch.mean(feature_map["current"], dim=[-2, -1])
+                X_validation = x.cpu().detach().numpy()
+
             else:
                 mask, context_img = image_processor(data, num_context_points=784,
                                                     convolutional=convolutional,
                                                     semantic_blocks=None,
                                                     device=device)
-                out = CNP_model(mask, context_img)
-            x = torch.mean(feature_map["current"], dim=[-2, -1])
-            X_validation = x.cpu().detach().numpy()
+                for n in range(math.ceil(mask.shape[0] / step)):
+                    out = CNP_model(mask[n * step:(n + 1) * step], context_img[n * step:(n + 1) * step])
+                    x = torch.mean(feature_map["current"], dim=[-2, -1])
+                    if n == 0:
+                        c = x.cpu().detach().numpy().shape[1]
+                        new_X_validation = np.zeros((Xv.shape[0], c))
+                    new_X_validation[n * step:(n + 1) * step] = x.cpu().detach().numpy()
+                X_validation = new_X_validation
 
             # test data
-            step = 200
             if first_it:
                 first_it = False
                 data = torch.from_numpy(Xt)
@@ -129,7 +142,7 @@ if __name__ == "__main__":
                                                                                convolutional=convolutional,
                                                                                semantic_blocks=None,
                                                                                device=device)
-                    for n in range(x_context.shape[0] // step):
+                    for n in range(math.ceil(x_context.shape[0] / step)):
                         out = CNP_model(x_context[n * step:(n + 1) * step], y_context[n * step:(n + 1) * step])
                         x = torch.mean(feature_map["current"], dim=[-2, -1])
                         if n == 0:
@@ -141,7 +154,7 @@ if __name__ == "__main__":
                                                                                convolutional=convolutional,
                                                                                semantic_blocks=None,
                                                                                device=device)
-                    for n in range(mask.shape[0] // step):
+                    for n in range(math.ceil(mask.shape[0] / step)):
                         out = CNP_model(mask[n * step:(n + 1) * step], context_img[n * step:(n + 1) * step])
                         x = torch.mean(feature_map["current"], dim=[-2, -1])
                         if n == 0:
