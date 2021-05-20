@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 from Utils.data_processor import image_processor
 from Utils.data_loader import load_data_unsupervised
@@ -45,12 +46,25 @@ if __name__ == "__main__":
 
         for data,label in valid_data:
             if convolutional:
-                mask, context_img = image_processor(data, num_context_points=784, convolutional=convolutional,semantic_blocks=None,
+                mask, context_img = image_processor(data, num_context_points=784, convolutional=convolutional,semantic_blocks=["cut"],
                                                     device=device)
                 mean, std = CNP_model(mask,context_img)
                 data = data.permute(0,2,3,1).to(device)
                 assert data.shape == mean.shape, "Data and mean should have the same shape"
                 loss = CNP_model.loss(mean,std,data).item()
+
+                # plot the perturbed representations:
+                img = data.cpu().detach().numpy()
+                mean = mean.cpu().detach().numpy()
+                std = std.cpu().detach().numpy()
+                plt.figure()
+                plt.imshow(img[0])
+                plt.figure()
+                plt.imshow(mean[0])
+                plt.figure()
+                plt.imshow(std[0])
+                u = "dummy"
+
             losses.append(loss)
 
         avg_loss = sum(losses)/len(losses)

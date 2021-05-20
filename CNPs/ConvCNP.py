@@ -171,17 +171,22 @@ class OnTheGridConvCNPUNet(nn.Module):
             else:
                 self.h_down.append(ConvBlock((2**(i-1)) * num_of_filters, (2**(i)) * num_of_filters, kernel_size_CNN,
                                              num_convolutions_per_block, is_residual=False))
+
+        self.h_bottom = ConvBlock((2**(num_down_blocks-1)) * num_of_filters, (2**(num_down_blocks-1)) * num_of_filters,
+                                  kernel_size_CNN,num_convolutions_per_block, is_residual=False)
+
         self.h_up = nn.ModuleList([])
         for j in range(num_down_blocks-1,-1,-1):
-            if j == num_down_blocks-1: # no skip connection at the bottom
-                self.h_up.append(ConvBlock((2**(j)) * num_of_filters, 2**(j-1) * num_of_filters, kernel_size_CNN,
-                                           num_convolutions_per_block, is_residual=False))
-            elif j == 0: # no skip connection at the bottom
+            if j == 0: # no skip connection at the bottom
                 self.h_up.append(ConvBlock((2 ** (j+1)) * num_of_filters, num_in_filters//2, kernel_size_CNN,
                                            num_convolutions_per_block, is_residual = False))
             else:
                 self.h_up.append(ConvBlock((2 ** (j+1)) * num_of_filters, 2 ** (j - 1) * num_of_filters, kernel_size_CNN,
                                            num_convolutions_per_block,is_residual = False))
+
+        self.connections = nn.ModuleList([])
+        for k in range(num_down_blocks+1):
+            self.connections.append(torch.nn.Identity())
 
     def forward(self,input):
         """Forward pass through the UNet for the on-the-grid CNN
@@ -192,27 +197,35 @@ class OnTheGridConvCNPUNet(nn.Module):
             tensor: output map of the UNet
         """
         layers = []
-        layers.append(input)
+        #layers.append(input)
         # Down
         x = input
         for i in range(self.num_down_blocks):
             x = self.h_down[i](x)
             layers.append(x)
             x = self.pool(x)
+
+        # Bottleneck
+        x = self.h_bottom(x)
+        x = self.connections[self.num_down_blocks](x)
+        layers.append(x)
+
         # Up
         for i in range(self.num_down_blocks):
-            # feed through conv block
-            x = self.h_up[i](x)
-            layers.append(x)
 
             # upsample
             x = self.upsample(x)
 
             # pad if necessary and concatenate
-            res = layers[self.num_down_blocks-i-1]
+            res = layers[self.num_down_blocks - i - 1]
+            res = self.connections[self.num_down_blocks-i-1](res)
             h_diff, w_diff = res.shape[-2] - x.shape[-2], res.shape[-1] - x.shape[-1]
             x = torch.nn.functional.pad(x, (0, w_diff, 0, h_diff))
-            x = torch.cat([x,res],dim=1)
+            x = torch.cat([x, res], dim=1)
+
+            # feed through conv block
+            x = self.h_up[i](x)
+            layers.append(x)
 
         return layers[-1]
 
@@ -437,7 +450,7 @@ if __name__ == "__main__":
     num_output_channels = 2
     num_of_filters = 128
     kernel_size_first_convolution = 9
-    kernel_size_CNN = 5
+    kernel_size_CNN = 3
     num_residual_blocks = 4
     num_convolutions_per_block = 1
     num_dense_layers = 5
@@ -452,6 +465,21 @@ if __name__ == "__main__":
                              num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                              num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size)
     summary(model, [(1, img_height, img_width), (1, img_height, img_width)])
+
+    # obtain the layer values
+    layers = []
+    def hook_fn(m, i, o):
+        layers.append(o)
+    for name, layer in model.CNN.h_down._modules.items():
+        layer.register_forward_hook(hook_fn)
+    for name, layer in model.CNN.h_up._modules.items():
+        layer.register_forward_hook(hook_fn)
+    mask = torch.ones((2,1,28,28))
+    ctxt = torch.ones((2,1,28,28))
+    out = model(mask,ctxt)
+    print(layers[3].shape)
+
+
     """
     # Classfication ConvCNP
     dense_layer_widths = [128,64,64,10]
