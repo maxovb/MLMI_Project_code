@@ -124,25 +124,31 @@ class OnTheGridConvCNPCNN(nn.Module):
         super(OnTheGridConvCNPCNN, self).__init__()
 
         # store the layers as a list
-        h = nn.ModuleList([])
+        self.h = nn.ModuleList([])
+        self.num_residual_blocks = num_residual_blocks
         for i in range(0, num_residual_blocks):
             if i == 0:  # do not use residual blocks for the first block because the number of channel changes
-                h.append(ConvBlock(2 * num_of_filters, num_of_filters, kernel_size_CNN, num_convolutions_per_block,
+                self.h.append(ConvBlock(2 * num_of_filters, num_of_filters, kernel_size_CNN, num_convolutions_per_block,
                                     is_residual=False))
             else:
-                h.append(ConvBlock(num_of_filters, num_of_filters, kernel_size_CNN, num_convolutions_per_block,
+                self.h.append(ConvBlock(num_of_filters, num_of_filters, kernel_size_CNN, num_convolutions_per_block,
                                     is_residual=True))
-        self.CNN = nn.Sequential(*h)
 
-    def forward(self,input):
+    def forward(self,input, layer_id=-1):
         """Forward pass through the CNN for the on-the-grid CNN
 
         Args:
             input (tensor): latent representation of the input context (batch, img_width, img_size, num_of_filters)
+            layer_id (int), optional: id of the layer to output, by default -1 to return the last one
         Returns:
             tensor: output map of the CNN
         """
-        return self.CNN(input)
+        x = input
+        layers = []
+        for i in range(self.num_residual_blocks):
+            x = self.h[i](x)
+            layers.append(x)
+        return layers[layer_id]
 
 class OnTheGridConvCNPUNet(nn.Module):
     """U-Net for the CNN part of the on-the-grid version of the Convolutional Conditional Neural Process.
@@ -188,11 +194,12 @@ class OnTheGridConvCNPUNet(nn.Module):
         for k in range(num_down_blocks+1):
             self.connections.append(torch.nn.Identity())
 
-    def forward(self,input):
+    def forward(self,input, layer_id=-1):
         """Forward pass through the UNet for the on-the-grid CNN
 
         Args:
             input (tensor): latent representation of the input context (batch, img_width, img_size, num_in_filters)
+            layer_id (int), optional: id of the layer to output, by default -1 to return the last one
         Returns:
             tensor: output map of the UNet
         """
@@ -227,7 +234,7 @@ class OnTheGridConvCNPUNet(nn.Module):
             x = self.h_up[i](x)
             layers.append(x)
 
-        return layers[-1]
+        return layers[layer_id]
 
 
 class OnTheGridConvCNPDecoder(nn.Module):
@@ -351,6 +358,43 @@ class ConvCNPClassifier(nn.Module):
         return np.sum([torch.tensor(param.shape).prod()
                        for param in self.parameters()])
 
+class ConvCNPExtractRepresentation(nn.Module):
+    """ Modify the convCNP to have a get a representation out
+
+        Args:
+            model (nn.module): original ConvCNP
+            layer_id (int): id of the layer where the representation is extracted
+            pooling (string), optional: type of pooling used to get a 1d representation, one of ["average","max","min"]
+    """
+    def __init__(self,model,layer_id, pooling="mean"):
+        super(ConvCNPExtractRepresentation, self).__init__()
+        self.encoder = model.encoder
+        self.CNN = model.CNN
+        self.layer_id = layer_id
+
+        assert pooling in ["average","max","min"], "Pooling should be one of " + " ".join(["average","max","min"])
+
+    def forward(self,mask,context_image):
+        """ Foward pass through the ConvCNP model up to the CNN and returning the relevant representation
+
+        Args:
+            mask (tensor): binary tensor indicating context pixels with a 1 (batch,img_height,img_width,1)
+            context_image (tensor): masked image with 0 everywhere except at context pixels (batch, img_height, img_width, num_input_channels)
+
+        Returns:
+            tensor: representation at the corresponding layer (batch, num_features)
+
+        """
+        output_encoder = self.encoder(mask,context_image)
+        r = self.CNN(output_encoder, layer_id=layer_id)
+        if pooling == "average":
+            return torch.mean(r, dim=[-2, -1])
+        elif pooling == "max":
+            return torch.amax(r, dim=[-2, -1])
+        elif pooling == "min":
+            return torch.amin(r, dim=[-2, -1])
+
+
 class ConvBlock(nn.Module):
     """ Convolutional (optionally residual) block for the one-the-grid ConvCNP
 
@@ -389,6 +433,7 @@ class ConvBlock(nn.Module):
             x = x + input
         x = self.activation(x)
         return x
+
 
 class DepthwiseSeparableConv2D(nn.Module):
     """ Depthwise separable 2D convolution
@@ -466,21 +511,13 @@ if __name__ == "__main__":
                              num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size)
     summary(model, [(1, img_height, img_width), (1, img_height, img_width)])
 
-    # obtain the layer values
-    layers = []
-    def hook_fn(m, i, o):
-        layers.append(o)
-    for name, layer in model.CNN.h_down._modules.items():
-        layer.register_forward_hook(hook_fn)
-    for name, layer in model.CNN.h_up._modules.items():
-        layer.register_forward_hook(hook_fn)
-    mask = torch.ones((2,1,28,28))
-    ctxt = torch.ones((2,1,28,28))
-    out = model(mask,ctxt)
-    print(layers[3].shape)
+    # model to extract the representations
+    layer_id = 6
+    pooling = "max"
+    model_r = ConvCNPExtractRepresentation(model,layer_id,pooling)
+    summary(model_r, [(1, img_height, img_width), (1, img_height, img_width)])
 
 
-    """
     # Classfication ConvCNP
     dense_layer_widths = [128,64,64,10]
     classification_model = ConvCNPClassifier(model, dense_layer_widths)
@@ -491,10 +528,6 @@ if __name__ == "__main__":
         param.requires_grad = False
 
     summary(classification_model, [(1, img_height, img_width), (1, img_height, img_width)])
-    """
-
-
-
 
 
 
