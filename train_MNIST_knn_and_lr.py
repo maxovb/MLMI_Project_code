@@ -60,7 +60,7 @@ if __name__ == "__main__":
     # create the model
     model_name = "UNetCNP"
     epoch_unsup = 400
-    semantics = False
+    semantics = True
     cheat_validation = False
     pooling = "average"
     model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
