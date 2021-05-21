@@ -89,4 +89,32 @@ def create_model(model_name):
         # it is a convolutional model
         convolutional = True
 
+    elif model_name == "UNet_restrained":
+        type_CNN = "UNet"
+        num_input_channels = 1
+        num_output_channels = 2
+        num_of_filters = 128
+        kernel_size_first_convolution = 9
+        kernel_size_CNN = 3
+        num_residual_blocks = 4
+        num_convolutions_per_block = 1
+        num_dense_layers = 5
+        num_units_dense_layers = 64
+        num_down_blocks = 4
+        num_of_filters_top_UNet = 64
+        pooling_size = 2
+        max_size = 64
+
+        model = OnTheGridConvCNP(type_CNN, num_input_channels=num_input_channels,
+                                 num_output_channels=num_output_channels,
+                                 num_of_filters=num_of_filters,
+                                 kernel_size_first_convolution=kernel_size_first_convolution,
+                                 kernel_size_CNN=kernel_size_CNN, num_convolutions_per_block=num_convolutions_per_block,
+                                 num_dense_layers=num_dense_layers, num_units_dense_layer=num_units_dense_layers,
+                                 num_down_blocks=num_down_blocks, num_of_filters_top_UNet=num_of_filters_top_UNet,
+                                 pooling_size=pooling_size, max_size=max_size)
+
+        # it is a convolutional model
+        convolutional = True
+
     return model, convolutional
