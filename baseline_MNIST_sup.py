@@ -7,49 +7,54 @@ from sklearn.neighbors import KNeighborsClassifier
 import os
 from Networks.create_lenet import create_lenet
 from Train.train_CNP_images import train_sup
+from Utils.simple_models import KNN_classifier, LR_classifier
 from Utils.data_loader import load_supervised_data_as_matrix,load_supervised_data_as_generator
 from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_loss
 
 if __name__ == "__main__":
 
     #####  K-nearest neighbour #####
-    print("KNN")
+    print("KNN and LR")
 
     accuracies_dir_txt_knn = "saved_models/MNIST/supervised/accuracies/KNN.txt"
+    accuracies_dir_txt_lr = "saved_models/MNIST/supervised/accuracies/LR.txt"
 
-    ks = [1,2,3,5,7,10]#,20]
+    ks = [1,2,3,5,7,10]
+    cs = [1e-2,1,1e2,1e4,1e6,1e8,1e10]
+    max_iter = 1000
     num_training_samples = [10, 20, 40, 60, 80, 100, 600, 1000, 3000]
     optimal_k = np.zeros(len(num_training_samples))
-    accuracies = np.zeros(len(num_training_samples))
+    accuracies_knn = np.zeros(len(num_training_samples))
+    optimal_c = np.zeros(len(num_training_samples))
+    accuracies_lr = np.zeros(len(num_training_samples))
     for i,num_samples in enumerate(num_training_samples):
         if i == 0:  # at the iteration over the different number of training samples
             # create directories for the accuracy if they don't exist yet
             dir_to_create = os.path.dirname(accuracies_dir_txt_knn)
+            os.makedirs(dir_to_create, exist_ok=True)
+            dir_to_create = os.path.dirname(accuracies_dir_txt_lr)
             os.makedirs(dir_to_create, exist_ok=True)
 
             # initialize the accuracy file with a line showing the size of the training samples
             txt = "training sample sizes: " + " ".join([str(x) for x in num_training_samples]) + " \n"
             with open(accuracies_dir_txt_knn, 'w') as f:
                 f.write(txt)
+            with open(accuracies_dir_txt_lr, 'w') as f:
+                f.write(txt)
 
         X_train, y_train, X_validation, y_validation, X_test, y_test = load_supervised_data_as_matrix(num_samples)
-        max_validation_accuracy = 0
-        for k in ks:
-            knn = KNeighborsClassifier(n_neighbors=k).fit(X_train,y_train)
-            validation_accuracy = knn.score(X_validation,y_validation)
-            if validation_accuracy > max_validation_accuracy:
-                optimal_k[i] = k
-                max_validation_accuracy = validation_accuracy
-        knn = KNeighborsClassifier(n_neighbors=int(optimal_k[i])).fit(X_train, y_train)
-        accuracies[i] = knn.score(X_test,y_test)
+        accuracies_knn[i], optimal_k[i] = KNN_classifier(X_train, y_train, X_validation, y_validation, X_test, y_test, ks=ks)
+        accuracies_lr[i], optimal_c[i] = LR_classifier(X_train, y_train, X_validation, y_validation, X_test, y_test, cs=cs, max_iter=max_iter)
 
         # write the accuracy to the text file
         with open(accuracies_dir_txt_knn, 'a+') as f:
-            f.write('%s\n' % accuracies[i])
+            f.write('%s\n' % accuracies_knn[i])
+        with open(accuracies_dir_txt_lr, 'a+') as f:
+            f.write('%s\n' % accuracies_lr[i])
 
 
     ##### LeNet #####
-
+    """
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -159,4 +164,4 @@ if __name__ == "__main__":
                 # write the accuracy to the text file
                 with open(accuracies_dir_txt, 'a+') as f:
                     f.write('%s\n' % accuracy)
-
+    """

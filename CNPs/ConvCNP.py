@@ -371,6 +371,7 @@ class ConvCNPExtractRepresentation(nn.Module):
         self.encoder = model.encoder
         self.CNN = model.CNN
         self.layer_id = layer_id
+        self.pooling = pooling
 
         assert pooling in ["average","max","min"], "Pooling should be one of " + " ".join(["average","max","min"])
 
@@ -386,12 +387,12 @@ class ConvCNPExtractRepresentation(nn.Module):
 
         """
         output_encoder = self.encoder(mask,context_image)
-        r = self.CNN(output_encoder, layer_id=layer_id)
-        if pooling == "average":
+        r = self.CNN(output_encoder, layer_id=self.layer_id)
+        if self.pooling == "average":
             return torch.mean(r, dim=[-2, -1])
-        elif pooling == "max":
+        elif self.pooling == "max":
             return torch.amax(r, dim=[-2, -1])
-        elif pooling == "min":
+        elif self.pooling == "min":
             return torch.amin(r, dim=[-2, -1])
 
 

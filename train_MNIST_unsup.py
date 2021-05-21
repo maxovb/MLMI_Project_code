@@ -32,7 +32,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP"]
+    model_name = "ConvCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP"]
 
     train = True
     load = False

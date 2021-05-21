@@ -12,20 +12,20 @@ if __name__ == "__main__":
 
     # create the model
     model_name = "UNetCNP"
-    epoch_unsup = 250
+    epoch_unsup = 300
     semantics = True
 
     CNP_model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
     num_down_blocks = CNP_model.CNN.num_down_blocks
     CNP_model = CNP_model.to(device)
 
-    std_noise = 0 # standard deviation of the perturbation
-    batch_size = 64
+    std_noise = 10 # standard deviation of the perturbation
+    batch_size = 1
     validation_split = 0.1
 
     losses = []
 
-    for layer_id in range(2*num_down_blocks):
+    for layer_id in range(num_down_blocks):
         print("Layer id:", layer_id)
 
         CNP_model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
@@ -37,10 +37,9 @@ if __name__ == "__main__":
         def hook_fn(m, i, o):
             o = o + std_noise * torch.randn(o.shape, device=device)
             return o
-        if layer_id < num_down_blocks:
-            CNP_model.CNN.h_down[layer_id].register_forward_hook(hook_fn)
-        else:
-            CNP_model.CNN.h_up[layer_id-num_down_blocks].register_forward_hook(hook_fn)
+
+        # register hook to perform the perturbation
+        CNP_model.CNN.connections[layer_id](hook_fn)
 
         train_data, valid_data, test_data = load_data_unsupervised(batch_size,validation_split=validation_split)
 
@@ -53,6 +52,7 @@ if __name__ == "__main__":
                 assert data.shape == mean.shape, "Data and mean should have the same shape"
                 loss = CNP_model.loss(mean,std,data).item()
 
+                """
                 # plot the perturbed representations:
                 img = data.cpu().detach().numpy()
                 mean = mean.cpu().detach().numpy()
@@ -64,6 +64,7 @@ if __name__ == "__main__":
                 plt.figure()
                 plt.imshow(std[0])
                 u = "dummy"
+                """
 
             losses.append(loss)
 
