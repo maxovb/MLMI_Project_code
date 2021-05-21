@@ -55,11 +55,11 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     num_training_samples = [10, 20, 40, 60, 80, 100, 600, 1000, 3000]
-    batch_size = 16
+    batch_size = 64
 
     # create the model
-    model_name = "UNetCNP"
-    epoch_unsup = 400
+    model_name = "ConvCNP"
+    epoch_unsup = 350
     semantics = True
     cheat_validation = False
     pooling = "average"

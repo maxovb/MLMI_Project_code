@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import time
 
 def image_processor(data,num_context_points,convolutional=False,semantic_blocks=None,device=torch.device('cpu')):
     """ Process the image to generate the context and target points
@@ -31,7 +32,7 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
     if not convolutional:
         if not semantic_blocks:
             for i in range(batch_size):
-                x, y = get_context_indices_semantic(data[i].permute(1,2,0),"random", num_context_points, convolutional=convolutional, device=device)
+                x, y = get_context_indices_semantic(data[i].permute(1,2,0).to(device),"random", num_context_points, convolutional=convolutional, device=device)
                 if i == 0:
                     x_context = torch.zeros((batch_size,x.shape[0],x.shape[1]))
                     y_context = torch.zeros((batch_size, y.shape[0], y.shape[1]))
@@ -48,7 +49,7 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
             else:
                 percentage_active_slices = None
             for i in range(batch_size):
-                x, y = get_context_indices_semantic(data[i].permute(1,2,0), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
+                x, y = get_context_indices_semantic(data[i].permute(1,2,0).to(device), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
                 if i == 0:
                     x_context = torch.zeros((batch_size,x.shape[0],x.shape[1]))
                     y_context = torch.zeros((batch_size, y.shape[0], y.shape[1]))
@@ -76,11 +77,11 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
         return x_context, y_context, x_target, y_target
 
     else:
-        masks = torch.zeros(batch_size,1,img_width,img_height)
-        image_context = torch.zeros(batch_size,num_channels,img_width,img_height)
+        masks = torch.zeros((batch_size,1,img_width,img_height),device=device)
+        image_context = torch.zeros((batch_size,num_channels,img_width,img_height),device=device)
         if not semantic_blocks:
             for i in range(batch_size):
-                mask, context = get_context_indices_semantic(data[i].permute(1,2,0), "random", num_context_points, convolutional=convolutional, device=device)
+                mask, context = get_context_indices_semantic(data[i].permute(1,2,0).to(device), "random", num_context_points, convolutional=convolutional, device=device)
                 mask = mask.float().permute(2, 0, 1)
                 context = context.float().permute(2, 0, 1)
                 masks[i] = mask
@@ -96,13 +97,13 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
             else:
                 percentage_active_slices = None
             for i in range(batch_size):
-                mask, context = get_context_indices_semantic(data[i].permute(1,2,0), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
+                mask, context = get_context_indices_semantic(data[i].permute(1,2,0).to(device), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
                 mask = mask.float().permute(2, 0, 1)
                 context = context.float().permute(2, 0, 1)
                 masks[i] = mask
                 image_context[i] = context
 
-        return masks.to(device), image_context.to(device)
+        return masks, image_context
 
 
 

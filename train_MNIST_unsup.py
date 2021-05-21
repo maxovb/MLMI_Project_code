@@ -32,7 +32,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "ConvCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP"]
+    model_name = "UNet_restrained" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained"]
 
     train = True
     load = False
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         epoch_start = 0
     save_freq = 50 # epoch frequency of saving checkpoints
 
-    semantics = False
+    semantics = True
 
     # parameters
     batch_size = 64

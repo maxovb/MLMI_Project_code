@@ -5,13 +5,13 @@ def create_model(model_name):
     """ Create and return the appropriate CNP model
 
     Args:
-        model_name (string): one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP"]
+        model_name (string): one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained"]
     Returns:
         nn.Module: instance of the model
         bool: whether the model is a convolutional model
     """
 
-    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP"], "model name: " + model_name + ", not supported"
+    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained"], "model name: " + model_name + ", not supported"
 
     convolutional = False
 
