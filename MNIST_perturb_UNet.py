@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     losses = []
 
-    for layer_id in range(num_down_blocks):
+    for layer_id in range(0,num_down_blocks):
         print("Layer id:", layer_id)
 
         CNP_model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
@@ -35,24 +35,26 @@ if __name__ == "__main__":
         feature_map = {}
         feature_map["current"] = torch.ones((1,1,1,1,1))
         def hook_fn(m, i, o):
-            o = o + std_noise * torch.randn(o.shape, device=device)
+            o = o * 0#+ std_noise * torch.randn(o.shape, device=device)
             return o
 
         # register hook to perform the perturbation
-        CNP_model.CNN.connections[layer_id](hook_fn)
+        for i in range(num_down_blocks):
+            if i != layer_id:
+                CNP_model.CNN.connections[i].register_forward_hook(hook_fn)
+        #CNP_model.CNN.connections[layer_id].register_forward_hook(hook_fn)
 
         train_data, valid_data, test_data = load_data_unsupervised(batch_size,validation_split=validation_split)
 
         for data,label in valid_data:
             if convolutional:
-                mask, context_img = image_processor(data, num_context_points=784, convolutional=convolutional,semantic_blocks=["cut"],
+                mask, context_img = image_processor(data, num_context_points=784, convolutional=convolutional,semantic_blocks=None,
                                                     device=device)
                 mean, std = CNP_model(mask,context_img)
                 data = data.permute(0,2,3,1).to(device)
                 assert data.shape == mean.shape, "Data and mean should have the same shape"
                 loss = CNP_model.loss(mean,std,data).item()
 
-                """
                 # plot the perturbed representations:
                 img = data.cpu().detach().numpy()
                 mean = mean.cpu().detach().numpy()
@@ -64,7 +66,6 @@ if __name__ == "__main__":
                 plt.figure()
                 plt.imshow(std[0])
                 u = "dummy"
-                """
 
             losses.append(loss)
 
