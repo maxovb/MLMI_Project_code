@@ -10,6 +10,7 @@ def create_model(model_name):
         nn.Module: instance of the model
         bool: whether the model is a convolutional model
     """
+    #TODO: change model name to UNetCNP_restrained  
 
     assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained"], "model name: " + model_name + ", not supported"
 

@@ -388,7 +388,7 @@ class ConvCNPExtractRepresentation(nn.Module):
         Args:
             model (nn.module): original ConvCNP
             layer_id (int): id of the layer where the representation is extracted
-            pooling (string), optional: type of pooling used to get a 1d representation, one of ["average","max","min"]
+            pooling (string), optional: type of pooling used to get a 1d representation, one of ["average","max","min","flatten"]
     """
     def __init__(self,model,layer_id, pooling="mean"):
         super(ConvCNPExtractRepresentation, self).__init__()
@@ -397,7 +397,7 @@ class ConvCNPExtractRepresentation(nn.Module):
         self.layer_id = layer_id
         self.pooling = pooling
 
-        assert pooling in ["average","max","min"], "Pooling should be one of " + " ".join(["average","max","min"])
+        assert pooling in ["average","max","min","flatten"], "Pooling should be one of " + " ".join(["average","max","min","flatten"])
 
     def forward(self,mask,context_image):
         """ Foward pass through the ConvCNP model up to the CNN and returning the relevant representation
@@ -418,6 +418,9 @@ class ConvCNPExtractRepresentation(nn.Module):
             return torch.amax(r, dim=[-2, -1])
         elif self.pooling == "min":
             return torch.amin(r, dim=[-2, -1])
+        elif self.pooling == "flatten":
+            return torch.flatten(r, start_dim=1, end_dim=-1)
+
 
 
 class ConvBlock(nn.Module):

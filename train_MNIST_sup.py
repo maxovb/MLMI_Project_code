@@ -16,7 +16,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
     model_size = "large" # one of ["small","medium","large"]
 
     freeze_weights = True # freeze the weights of the part taken from the unsupervised model

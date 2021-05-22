@@ -58,27 +58,28 @@ if __name__ == "__main__":
     batch_size = 64
 
     # create the model
-    model_name = "ConvCNP"
-    epoch_unsup = 350
-    semantics = True
+    model_name = "UNet_restrained"
+    epoch_unsup = 100
+    semantics = False
     cheat_validation = False
     pooling = "average"
     model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
 
     accuracies_dir_txt_knn = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") +\
-                             "/accuracies/KNN_on_r_" + model_name + "_" + str(epoch_unsup) + "E" + ".txt"
+                             "/accuracies/KNN_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
     accuracies_dir_txt_lr = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") +\
-                            "/accuracies/LR_on_r_" + model_name + "_" + str(epoch_unsup) + "E" + ".txt"
+                            "/accuracies/LR_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
 
     # get the number of layers possible to investigate
     if model_name == "CNP":
         num_layers = 1
     elif model_name == "ConvCNP":
         num_layers = model.CNN.num_residual_blocks
-    elif model_name == "UNetCNP":
+    # TODO: change model name to UNetCNP_restrained
+    elif model_name in ["UNetCNP","UNet_restrained"]:
         num_layers = 2 * model.CNN.num_down_blocks + 1
     else:
-        raise "Model name invalid, was given: " + str(model_name)
+        raise "Model name invalid"
 
     shape_results = (num_layers,len(num_training_samples))
     optimal_k = np.zeros(shape_results)
