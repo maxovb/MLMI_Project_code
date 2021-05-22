@@ -16,15 +16,26 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
+    model_name = "UnetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
     model_size = "large" # one of ["small","medium","large"]
+
 
     freeze_weights = True # freeze the weights of the part taken from the unsupervised model
     cheat_validation= True # use a large validation set even if the trainign data is small
-    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
-    augment_missing = True # effectively augment the labelled data by using images with missing pixels as well
+    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    augment_missing = False # effectively augment the labelled data by using images with missing pixels as well
 
-    for model_name in ["CNP","ConvCNP"]:
+    if model_name in ["ConvCNP", "ConvCNPXL"]:
+        layer_id = -1
+        pooling = "average"
+    elif model_name in ["UnetCNP", "UnetCNP_restrained"]:
+        layer_id = 4
+        pooling = "average"
+    else:
+        layer_id = None
+        pooling = None
+
+    for model_name in ["UNetCNP"]:#["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
             print(model_name, model_size)
 
@@ -68,15 +79,16 @@ if __name__ == "__main__":
                     save_freq = 20
 
                 # load the supervised set
-                train_data, validation_data, test_data, img_height, img_width = load_supervised_data_as_generator(batch_size, num_samples,cheat_validation=cheat_validation)
+                train_data, validation_data, test_data, img_height, img_width, num_channels = load_supervised_data_as_generator(batch_size, num_samples,cheat_validation=cheat_validation)
 
                 # create the model
                 CNP_model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
 
                 # modify the model to act as a classifier
-                model = modify_model_for_classification(CNP_model,model_size,convolutional,freeze_weights,img_height=img_height,img_width=img_width)
+                model = modify_model_for_classification(CNP_model,model_size,convolutional,freeze_weights,
+                                                        img_height=img_height,img_width=img_width,
+                                                        num_channels=num_channels, layer_id=layer_id, pooling=pooling)
                 model.to(device)
-
 
                 # print a summary of the model
 
@@ -86,11 +98,11 @@ if __name__ == "__main__":
                     summary(model, [(784, 2), (784, 1)])
 
                 # define the directories
-                model_save_dir = ["saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E",".pth"]
-                train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
-                validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_validation.txt"
-                loss_dir_plot = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ".svg"
-                accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + "accuracies/" + model_name + "_" + model_size + ".txt"
+                model_save_dir = ["saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
+                train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train.txt"
+                validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation.txt"
+                loss_dir_plot = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".svg"
+                accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + ("_frozen" if freeze_weights else "") + ("_augment" if augment_missing else "") + ("_cheat_validation/" if cheat_validation else "/")  + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
                 # create directories for the checkpoints and loss files if they don't exist yet
                 dir_to_create = "".join(model_save_dir[:3]) + "loss/"

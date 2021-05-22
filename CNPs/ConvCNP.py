@@ -311,11 +311,15 @@ class ConvCNPClassifier(nn.Module):
     Args:
         model (nn.module): original CNP
         dense_layer_widths (list of int): list with the dimensionality of the layers (first entry is the number of input filters (reduced to 1D by average pooling))
+        layer_id (int): id of the layer from which to extract the representation
+        pooling (string): type of pooling to perform, one of ["average", "max", "min"]
     """
-    def __init__(self,model, dense_layer_widths):
+    def __init__(self,model, dense_layer_widths, layer_id=-1, pooling="average"):
         super(ConvCNPClassifier,self).__init__()
         self.encoder = model.encoder
         self.CNN = model.CNN
+        self.layer_id = layer_id
+        self.pooling = pooling
 
         # add the dense layers
         l = len(dense_layer_widths)
@@ -340,8 +344,13 @@ class ConvCNPClassifier(nn.Module):
             tensor: probability mass for the different output classes (batch,num_classes)
         """
         x = self.encoder(mask,context_img)
-        x = self.CNN(x)
-        x = torch.mean(x,dim=[2,3])
+        x = self.CNN(x, layer_id=self.layer_id)
+        if self.pooling == "average":
+            x = torch.mean(x,dim=[2,3])
+        elif self.pooling == "max":
+            x = torch.amax(x, dim=[2, 3])
+        elif self.pooling == "min":
+            x = torch.amin(x, dim=[2, 3])
         output_logit = self.dense_network(x)
         output_probs = self.final_activation(output_logit)
         return output_logit, output_probs

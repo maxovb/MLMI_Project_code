@@ -103,8 +103,8 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,che
 
 
     # get img_width and height
-    img_height, img_width = train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
-    return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width
+    num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
+    return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels
 
 
 def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=False):
