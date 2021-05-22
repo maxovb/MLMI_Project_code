@@ -42,8 +42,7 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
                 percentage_active_slices = 0.1 + 0.9 * np.random.rand()
             else:
                 percentage_active_slices = None
-            for i in range(batch_size):
-                x_context, y_context = get_context_indices_semantic(data.to(device), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
+            x_context, y_context = get_context_indices_semantic(data.to(device), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
 
         # get the target values
         # create shell containing all indices (this is the full x data)
@@ -68,8 +67,6 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
     else:
         if not semantic_blocks:
             masks, image_context = get_context_indices_semantic(data.to(device), "random", num_context_points, convolutional=convolutional, device=device)
-            #mask = mask.float().permute(2, 0, 1)
-            #context = context.float().permute(2, 0, 1)
         if semantic_blocks:
             type_block = np.random.choice(semantic_blocks, 1, replace=False)
             if type_block == "blocks":
@@ -80,10 +77,7 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
                 percentage_active_slices = 0.1 + 0.9 * np.random.rand()
             else:
                 percentage_active_slices = None
-            for i in range(batch_size):
-                masks, image_context = get_context_indices_semantic(data.to(device), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
-                #mask = mask.float().permute(2, 0, 1)
-                #context = context.float().permute(2, 0, 1)
+            masks, image_context = get_context_indices_semantic(data.to(device), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
 
         return masks, image_context
 
@@ -230,19 +224,20 @@ def context_indices_blocks(img,blocks_per_dim=4,convolutional=False, device=torc
     mask = torch.zeros((batch_size,num_channels,img_height,img_width), device=device)
 
     num_active_blocks = round(percentage_active_blocks * blocks_per_dim**2)
-    assert num_active_blocks != 0, "The number of actives blocks must be large than 0, so the percentage of actives" \
+    assert num_active_blocks != 0, "The number of active blocks must be large than 0, so the percentage of active" \
                                    " blocks must be larger than " + str(1 / (2 * blocks_per_dim**2))
 
-    actives_blocks = np.zeros((batch_size,blocks_per_dim**2))
-    actives_blocks[:,:num_active_blocks] = 1
+    active_blocks = torch.zeros((batch_size,blocks_per_dim**2), device=device)
+    active_blocks[:, :num_active_blocks] = 1
     for i in range(batch_size):
-        np.random.shuffle(actives_blocks[i])
+        idx = torch.randperm(active_blocks.shape[-1])
+        active_blocks[i] = active_blocks[i,idx]
 
     while torch.max(mask).item() == 0: # ensures that we don't return an empty array
         for i in range(blocks_per_dim):
             for j in range(blocks_per_dim):
                 mask[:,:,i*block_size_height:(i+1)*block_size_height,j*block_size_width:(j+1)*block_size_width] += \
-                    torch.Tensor(actives_blocks[:,i*blocks_per_dim+j],device=device)[:,None,None,None]
+                    active_blocks[:,i*blocks_per_dim+j][:,None,None,None]
     if convolutional:
         return mask, img*mask
     else:
@@ -250,7 +245,9 @@ def context_indices_blocks(img,blocks_per_dim=4,convolutional=False, device=torc
         context_indices = torch.reshape(context_indices[:, 2:], (batch_size, num_context_points, 2))
         y_ctxt = img[mask.bool()]
         y_ctxt = torch.reshape(y_ctxt, (batch_size, num_context_points, 1))
-        return context_indices / torch.Tensor([img_height - 1, img_width - 1], device=device), y_ctxt
+        rescale = torch.zeros((batch_size,num_context_pixels,2), device=device)
+        rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
+        return context_indices / rescale, y_ctxt
 
 def context_indices_cut(img,convolutional=False, device=torch.device('cpu')):
     """ Return the context indices where we have half of the image either right/left half or top/bottom half
@@ -271,15 +268,16 @@ def context_indices_cut(img,convolutional=False, device=torch.device('cpu')):
     batch_size, num_channels, img_height, img_width =  img.shape[0], img.shape[1], img.shape[2], img.shape[3]
     mask = torch.zeros((batch_size, num_channels, img_height, img_width), device=device)
 
-    actives_cuts = np.zeros((batch_size, 4))
-    actives_cuts[:, 0] = 1
+    active_cuts = torch.zeros((batch_size, 4), device=device)
+    active_cuts[:, 0] = 1
     for i in range(batch_size):
-        np.random.shuffle(actives_cuts[i])
+        idx = torch.randperm(active_cuts.shape[-1])
+        active_cuts[i] = active_cuts[i,idx]
 
-    mask[:,:,:img_height // 2, :] += torch.Tensor(actives_cuts[:,0],device=device)[:,None,None,None]
-    mask[:,:,img_height // 2:, :] += torch.Tensor(actives_cuts[:, 1], device=device)[:, None, None, None]
-    mask[:,:,:, :img_width // 2] += torch.Tensor(actives_cuts[:, 2], device=device)[:, None, None, None]
-    mask[:,:,:, img_width // 2:] += torch.Tensor(actives_cuts[:, 3], device=device)[:, None, None, None]
+    mask[:,:,:img_height // 2, :] += active_cuts[:,0][:,None,None,None]
+    mask[:,:,img_height // 2:, :] += active_cuts[:,1][:, None, None, None]
+    mask[:,:,:, :img_width // 2] += active_cuts[:,2][:, None, None, None]
+    mask[:,:,:, img_width // 2:] += active_cuts[:,3][:, None, None, None]
 
     if convolutional:
         return mask, img*mask
@@ -288,7 +286,9 @@ def context_indices_cut(img,convolutional=False, device=torch.device('cpu')):
         context_indices = torch.reshape(context_indices[:, 2:], (batch_size, num_context_points, 2))
         y_ctxt = img[mask.bool()]
         y_ctxt = torch.reshape(y_ctxt, (batch_size, num_context_points, 1))
-        return context_indices / torch.Tensor([img_height - 1, img_width - 1], device=device), y_ctxt
+        rescale = torch.zeros((batch_size,num_context_pixels,2), device=device)
+        rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
+        return context_indices / rescale, y_ctxt
 
 def context_indices_pizza(img,convolutional=False, device=torch.device('cpu'),percentage_active_slices=1/2):
     """ Return the context indices where each of the pizza slice has probability 1/2 of being included in the context
@@ -312,12 +312,13 @@ def context_indices_pizza(img,convolutional=False, device=torch.device('cpu'),pe
     mask = torch.ones((batch_size, num_channels, img_height,img_width), device=device)
 
     num_active_slices = round(percentage_active_slices*8)
-    assert num_active_slices != 0, "The number of actives slices must be large than 0, so the percentage of actives slices must be larger than " + str(1/16)
+    assert num_active_slices != 0, "The number of active slices must be large than 0, so the percentage of active slices must be larger than " + str(1/16)
 
-    actives_slices = np.zeros((batch_size, 8))
-    actives_slices[:, :num_active_slices] = 1
+    active_slices = torch.zeros((batch_size, 8), device=device)
+    active_slices[:, :num_active_slices] = 1
     for i in range(batch_size):
-        np.random.shuffle(actives_slices[i])
+        idx = torch.randperm(active_slices.shape[-1])
+        active_slices[i] = active_slices[i,idx]
 
     slice_id = -1
     for i in range(2):
@@ -334,7 +335,7 @@ def context_indices_pizza(img,convolutional=False, device=torch.device('cpu'),pe
                 add = torch.triu(torch.ones(size, device=device)) - remove_lower_half_diagonal[None,None,:,:]
             else:
                 add = torch.flip(torch.triu(torch.ones(size, device=device)) - remove_lower_half_diagonal,[-1])
-            local_mask += add * torch.Tensor(actives_slices[:,slice_id],device=device)[:,None,None,None]
+            local_mask += add * active_slices[:,slice_id][:,None,None,None]
 
             # Second half square
             slice_id += 1
@@ -344,7 +345,7 @@ def context_indices_pizza(img,convolutional=False, device=torch.device('cpu'),pe
                 add = torch.tril(torch.ones(size, device=device)) - remove_upper_half_diagonal[None,None,:,:]
             else:
                 add = torch.flip(torch.tril(torch.ones(size, device=device)) - remove_upper_half_diagonal,[-1])
-            local_mask += add * torch.Tensor(actives_slices[:,slice_id],device=device)[:,None,None,None]
+            local_mask += add * active_slices[:,slice_id][:,None,None,None]
 
             mask[:,:,i * (img_height // 2):(i + 1) * (img_height // 2), j * (img_width // 2):(j+ 1) * (img_width // 2)] *= local_mask #torch.clamp(local_mask,max=1)
 
@@ -355,7 +356,9 @@ def context_indices_pizza(img,convolutional=False, device=torch.device('cpu'),pe
         context_indices = torch.reshape(context_indices[:, 2:], (batch_size, num_context_points, 2))
         y_ctxt = img[mask.bool()]
         y_ctxt = torch.reshape(y_ctxt, (batch_size, num_context_points, 1))
-        return context_indices / torch.Tensor([img_height - 1, img_width - 1], device=device), y_ctxt
+        rescale = torch.zeros((batch_size,num_context_pixels,2), device=device)
+        rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
+        return context_indices / rescale, y_ctxt
 
 def context_indices_random(img,num_context_points,convolutional=False, device=torch.device('cpu')):
     """ Return the context indices with by selecting random pixels
@@ -390,10 +393,12 @@ def context_indices_random(img,num_context_points,convolutional=False, device=to
         return mask, img*mask
     else:
         context_indices = (mask == 1).nonzero(as_tuple=False)
-        context_indices = torch.reshape(context_indices[:,2:], (batch_size, num_context_points, 2))
+        context_indices = torch.reshape(context_indices[:, 2:], (batch_size, num_context_points, 2))
         y_ctxt = img[mask.bool()]
-        y_ctxt = torch.reshape(y_ctxt,(batch_size, num_context_points, 1))
-        return context_indices / torch.Tensor([img_height - 1, img_width - 1], device=device), y_ctxt
+        y_ctxt = torch.reshape(y_ctxt, (batch_size, num_context_points, 1))
+        rescale = torch.zeros((batch_size,num_context_pixels,2), device=device)
+        rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
+        return context_indices / rescale, y_ctxt
 
 if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
