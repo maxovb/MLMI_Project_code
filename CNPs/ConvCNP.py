@@ -372,6 +372,7 @@ class ConvCNPClassifier(nn.Module):
         return criterion(output_logit,target_label)
 
     def joint_loss(self,output_logit,target_label,mean,std,target_image,l_sup=10,l_unsup=1):
+        target_label = target_label.detach().clone()
         select_labelled = target_label != -1
         target_label[target_label == -1] = 0
         sup_loss = select_labelled.float() * l_sup * self.loss(output_logit,target_label, reduction='none')

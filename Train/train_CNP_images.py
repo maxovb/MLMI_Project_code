@@ -296,9 +296,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
     avg_train_accuracy_per_epoch = []
     avg_validation_loss_per_epoch = [[],[]]
     avg_validation_accuracy_per_epoch = []
-    train_loss_to_write = []
+    train_loss_to_write = [[],[]]
     train_accuracy_to_write = [[], []]
-    validation_loss_to_write = []
+    validation_loss_to_write = [[],[]]
     validation_accuracy_to_write = [[], []]
 
     # define the optimizer
@@ -358,7 +358,8 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
         # compute the average loss over the epoch and store all losses
         epoch_avg_train_joint_loss = np.array(train_losses[0]).mean()
         epoch_avg_train_unsup_loss = np.array(train_losses[1]).mean()
-        epoch_avg_train_accuracy = np.array(train_num_correct).sum() / np.array(train_totals).sum()
+        total = np.array(train_totals).sum()
+        epoch_avg_train_accuracy = np.array(train_num_correct).sum() / total
         avg_train_loss_per_epoch[0].append(epoch_avg_train_joint_loss)
         avg_train_loss_per_epoch[1].append(epoch_avg_train_unsup_loss)
         avg_train_accuracy_per_epoch.append(epoch_avg_train_accuracy)
@@ -368,7 +369,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
 
 
         # Print the average epoch loss
-        print("Average training joint loss:", epoch_avg_train_joint_loss, "unsup loss:", epoch_avg_train_unsup_loss, "accuracy:", epoch_avg_train_accuracy)
+        print("Average training joint loss:", epoch_avg_train_joint_loss, "unsup loss:", epoch_avg_train_unsup_loss, "accuracy:", epoch_avg_train_accuracy, "total", total)
 
         # calculate the validation loss
         if validation_data:
@@ -384,7 +385,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                     output_logit, output_probs, mean, std = model(mask,context_img,joint=True)
 
                     # get the losses
-                    joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit,target,mean,std,data,l_sup=l_sup,l_unsup=l_unsup).item()
+                    joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit,target,mean,std,data,l_sup=l_sup,l_unsup=l_unsup)
 
                 else:
                     x_context, y_context, x_target, y_target = image_processor(data, num_context_points,
@@ -394,14 +395,14 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                     output_logit, output_probs, mean, std = model(x_context, y_context, x_target, joint=True)
 
                     # get the losses
-                    joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit, target, mean, std, y_context,l_sup=l_sup, l_unsup=l_unsup).item()
+                    joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit, target, mean, std, y_context,l_sup=l_sup, l_unsup=l_unsup)
 
                 joint_loss, unsup_loss = joint_loss.item(), unsup_loss.item()
 
                 # return the accuracy as well
                 _, predicted = torch.max(output_probs, dim=1)
                 total = (target != -1).sum().item()
-                if total.item() != 0:
+                if total != 0:
                     num_correct = ((predicted == target).sum()).item()
                 else:
                     num_correct = 0
@@ -414,7 +415,8 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
 
             epoch_avg_validation_joint_loss = np.array(validation_losses[0]).mean()
             epoch_avg_validation_unsup_loss = np.array(validation_losses[1]).mean()
-            epoch_avg_validation_accuracy = np.array(validation_num_correct).sum() / np.array(validation_totals).sum()
+            total = np.array(validation_totals).sum()
+            epoch_avg_validation_accuracy = np.array(validation_num_correct).sum() / total
 
             avg_validation_loss_per_epoch[0].append(epoch_avg_validation_joint_loss)
             avg_validation_loss_per_epoch[1].append(epoch_avg_validation_unsup_loss)
@@ -425,7 +427,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
 
             # Print the average epoch loss
             print("Average validation joint loss:", epoch_avg_validation_joint_loss, "unsup loss:",
-                  epoch_avg_validation_unsup_loss, "accuracy:", epoch_avg_validation_accuracy)
+                  epoch_avg_validation_unsup_loss, "accuracy:", epoch_avg_validation_accuracy, "total", total)
 
         # save the checkpoint and losses
         if (i + 1) % save_freq == 0:

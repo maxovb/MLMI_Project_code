@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     # type of model
     model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
-    model_size = "large" # one of ["small","medium","large"]
+    model_size = "medium" # one of ["small","medium","large"]
 
 
     semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics

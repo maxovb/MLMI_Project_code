@@ -34,7 +34,6 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
         temp_x = torch.randn(2,num_channels,img_height,img_width)
         temp_model = ConvCNPExtractRepresentation(model,layer_id,pooling)
         out = temp_model(temp_x,temp_x)
-        print(out.shape)
         tmp, r_size = out.shape
         if model_size == "small":
             dense_layer_widths = [r_size,10,10]

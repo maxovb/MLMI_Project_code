@@ -22,14 +22,14 @@ if __name__ == "__main__":
 
     freeze_weights = True # freeze the weights of the part taken from the unsupervised model
     cheat_validation= True # use a large validation set even if the trainign data is small
-    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     augment_missing = False # effectively augment the labelled data by using images with missing pixels as well
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
         pooling = "average"
     elif model_name in ["UnetCNP", "UnetCNP_restrained"]:
-        layer_id = 4
+        layer_id = 3
         pooling = "average"
     else:
         layer_id = None
