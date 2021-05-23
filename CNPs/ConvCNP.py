@@ -318,6 +318,8 @@ class ConvCNPClassifier(nn.Module):
         super(ConvCNPClassifier,self).__init__()
         self.encoder = model.encoder
         self.CNN = model.CNN
+        self.decoder = model.decoder
+        self.loss_unsup = model.loss
         self.layer_id = layer_id
         self.pooling = pooling
 
@@ -332,19 +334,22 @@ class ConvCNPClassifier(nn.Module):
         self.final_activation = nn.Softmax(dim=-1)
 
 
-    def forward(self,mask,context_img):
+    def forward(self,mask,context_img, joint=False):
         """ Forward pass through the Classification CNP
 
         Args:
             mask (tensor): binary mask locating context pixels (batch,img_height,img_width,1)
             context_img (tensor): context pixels with non-context points masked (batch,img_height,img_width,num_channels)
+            joint (bool): whether it is used for joint training, so if true will return both logits and mean/std, otherwise only logits
 
         Returns:
             tensor: classification score for the different output classes (batch,num_classes)
             tensor: probability mass for the different output classes (batch,num_classes)
         """
-        x = self.encoder(mask,context_img)
-        x = self.CNN(x, layer_id=self.layer_id)
+        output_encoder = self.encoder(mask,context_img)
+
+        # supervised part
+        x = self.CNN(output_encoder, layer_id=self.layer_id)
         if self.pooling == "average":
             x = torch.mean(x,dim=[2,3])
         elif self.pooling == "max":
@@ -353,29 +358,83 @@ class ConvCNPClassifier(nn.Module):
             x = torch.amin(x, dim=[2, 3])
         output_logit = self.dense_network(x)
         output_probs = self.final_activation(output_logit)
-        return output_logit, output_probs
 
-    def loss(self,output_score,target_label):
-        criterion = nn.CrossEntropyLoss()
-        return criterion(output_score,target_label)
+        if joint:
+            # unsupervised part
+            x = self.CNN(output_encoder, layer_id=-1)
+            mean, std = self.decoder(x)
+            return output_logit, output_probs, mean, std
+        else:
+            return output_logit, output_probs
+
+    def loss(self,output_logit,target_label, reduction='mean'):
+        criterion = nn.CrossEntropyLoss(reduction=reduction)
+        return criterion(output_logit,target_label)
+
+    def joint_loss(self,output_logit,target_label,mean,std,target_image,l_sup=10,l_unsup=1):
+        select_labelled = target_label != -1
+        target_label[target_label == -1] = 0
+        sup_loss = select_labelled.float() * l_sup * self.loss(output_logit,target_label, reduction='none')
+        sup_loss = sup_loss.mean()
+        unsup_loss = l_unsup * self.loss_unsup(mean,std,target_image)
+        return sup_loss + unsup_loss, sup_loss, unsup_loss
+
 
     def train_step(self,mask,context_img,target_label,opt):
-        output_score, _ = self.forward(mask,context_img)
-        obj = self.loss(output_score,target_label)
+        output_logit, _ = self.forward(mask,context_img,joint=False)
+        obj = self.loss(output_logit,target_label)
 
         # Optimization
         obj.backward()
         opt.step()
         opt.zero_grad()
 
-        return obj.item() # report the loss as a float
+        # return the accuracy as well
+        _, predicted = torch.max(output_probs, dim=1)
+        total = (target_label != -1).sum().item()
+        if total.item() != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+
+        return obj.item(), accuracy, total
+
+    def joint_train_step(self,mask,context_img,target_label,target_image,opt,l_sup=10,l_unsup=1):
+        output_logit, output_probs, mean, std = self.forward(mask,context_img,joint=True)
+        obj, sup_loss, unsup_loss = self.joint_loss(output_logit,target_label,mean,std,target_image,l_sup=l_sup,l_unsup=l_unsup)
+
+        # Optimization
+        obj.backward()
+        opt.step()
+        opt.zero_grad()
+
+        # return the accuracy as well
+        _, predicted = torch.max(output_probs, dim=1)
+        total = (target_label != -1).sum().item()
+        if total != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+
+        return obj.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
+
+    def unsup_train_step(self,mask,context_img,target_image,opt,l_unsup=1):
+        output_logit, _, mean, std = self.forward(mask, context_img, joint=True)
+        obj = l_unsup * self.loss_unsup(mean, std, target_image)
+
+        # Optimization
+        obj.backward()
+        opt.step()
+        opt.zero_grad()
+
+        return obj.item()  # report the loss as a float
 
     def evaluate_accuracy(self,mask,context_img,target_label):
         # compute the logits
-        output_score, output_logit = self.forward(mask,context_img)
+        output_logit, output_probs = self.forward(mask,context_img)
 
         # get the predictions
-        _, predicted = torch.max(output_logit,dim=1)
+        _, predicted = torch.max(output_probs,dim=1)
 
         # get the total number of labels
         total = target_label.size(0)
@@ -429,7 +488,6 @@ class ConvCNPExtractRepresentation(nn.Module):
             return torch.amin(r, dim=[-2, -1])
         elif self.pooling == "flatten":
             return torch.flatten(r, start_dim=1, end_dim=-1)
-
 
 
 class ConvBlock(nn.Module):

@@ -156,12 +156,17 @@ class CNPClassifier(nn.Module):
         self.classification_head = nn.Sequential(*h)
         self.final_activation = nn.Softmax(dim=-1)
 
-    def forward(self,x_context,y_context):
+        # for joint training
+        self.decoder = model.decoder
+        self.loss_unsup = model.loss
+
+    def forward(self,x_context,y_context,joint=False):
         """ Forward pass through the Classification CNP
 
         Args:
             x_context (tensor): x values of the context points (batch,num_context,input_dim_x)
             y_context (tensor): y values of the context points (batch,num_context,input_dim_y)
+            joint (bool): whether it is used for joint training, so if true will return both logits and mean/std, otherwise only logits
 
         Returns:
             tensor: classification score for the different output classes (batch,num_classes)
@@ -169,31 +174,81 @@ class CNPClassifier(nn.Module):
         """
         r = self.encoder(x_context,y_context)
         r = torch.squeeze(r,dim=1)
-        output_score = self.classification_head(r)
-        output_logit = self.final_activation(output_score)
-        return output_score, output_logit
+        output_logit = self.classification_head(r)
+        output_probs = self.final_activation(output_logit)
 
-    def loss(self,output_score,target_label):
-        criterion = nn.CrossEntropyLoss()
-        return criterion(output_score,target_label)
+        if joint:
+            mean, std = self.decoder(r)
+            return output_logit, output_probs, mean, std
+        else:
+            return output_logit, output_probs
+
+    def loss(self,output_logit,target_label, reduction='mean'):
+        criterion = nn.CrossEntropyLoss(reduction=reduction)
+        return criterion(output_logit,target_label)
+
+    def joint_loss(self,output_logit,target_label,mean,std,y_target,l_sup=10,l_unsup=1):
+        select_labelled = target_label != -1
+        sup_loss = select_labelled.float() * l_sup * self.loss(output_logit, target_label, reduction='none')
+        sup_loss = sup_loss.mean()
+        unsup_loss = l_unsup * self.loss_unsup(mean,std,y_target)
+        return sup_loss + unsup_loss, sup_loss, unsup_loss
 
     def train_step(self,x_context,y_context,target_label,opt):
-        output_score, _ = self.forward(x_context,y_context)
-        obj = self.loss(output_score,target_label)
+        output_logit, output_probs = self.forward(x_context,y_context,joint=False)
+        obj = self.loss(output_logit,target_label)
 
         # Optimization
         obj.backward()
         opt.step()
         opt.zero_grad()
 
-        return obj.item() # report the loss as a float
+        # return the accuracy as well
+        _, predicted = torch.max(output_probs, dim=1)
+        total = (target_label != -1).sum().item()
+        if total.item() != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+
+        return obj.item(), accuracy, total
+
+    def joint_train_step(self,x_context,y_context,target_label,y_target,opt,l_sup=10,l_unsup=1):
+        output_logit, output_probs, mean, std = self.forward(x_context,y_context,joint=True)
+        obj, sup_loss, unsup_loss = self.joint_loss(output_logit,target_label,mean,std,y_target,l_sup=10,l_unsup=1)
+
+        # Optimization
+        obj.backward()
+        opt.step()
+        opt.zero_grad()
+
+        # return the accuracy as well
+        _, predicted = torch.max(output_probs, dim=1)
+        total = (target_label != -1).sum().item()
+        if total.item() != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+
+        return obj.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
+
+    def unsup_train_step(self,x_context,y_context,y_target,opt,l_unsup=1):
+        output_logit, _, mean, std = self.forward(x_context,y_context,joint=True)
+        obj = l_unsup * self.loss_unsup(mean, std, y_target)
+
+        # Optimization
+        obj.backward()
+        opt.step()
+        opt.zero_grad()
+
+        return obj.item()  # report the loss as a float
 
     def evaluate_accuracy(self,x_context,y_context, target_label):
         # compute the logits
-        output_score, output_logit = self.forward(x_context, y_context)
+        output_logit, output_probs = self.forward(x_context, y_context)
 
         # get the predictions
-        _, predicted = torch.max(output_logit,dim=1)
+        _, predicted = torch.max(output_probs,dim=1)
 
         # get the total number of labels
         total = target_label.size(0)

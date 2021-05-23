@@ -1,7 +1,7 @@
 import torch
 from torchvision import datasets
 from torch.utils.data import DataLoader
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, Lambda
 import numpy as np
 import random
 
@@ -47,6 +47,7 @@ def load_data_unsupervised(batch_size=64, validation_split = None):
 
 
 def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,cheat_validation=False):
+
     # Download training data from open datasets.
     training_data = datasets.MNIST(
         root="data",
@@ -106,6 +107,74 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,che
     num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
     return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels
 
+def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validation_split=None):
+
+    # Download training data from open datasets.
+    data = datasets.MNIST(
+        root="data",
+        train=True,
+        download=True,
+        transform=ToTensor(),
+    )
+
+    # Download test data from open datasets.
+    test_data = datasets.MNIST(
+        root="data",
+        train=False,
+        download=True,
+        transform=ToTensor(),
+    )
+
+    n = data.data.shape[0]
+
+    # splitting between train and validation
+    if validation_split:
+        num_validation_samples = round(n * validation_split)
+        num_training_samples = (n - num_validation_samples)
+        training_data, validation_data = torch.utils.data.random_split(data,[num_training_samples, num_validation_samples])
+    else:
+        training_data = data
+
+    num_classes = max(training_data.dataset.targets).item() + 1
+    assert num_labelled_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
+                                                  +") must be divisible by the number of classes (" + str(num_classes)\
+                                                  +")"
+
+    num_samples_per_class = num_labelled_samples//num_classes
+
+    # separate the data per class
+    data_divided_per_class = [[] for _ in range(num_classes)]
+    for (img,label) in training_data:
+        data_divided_per_class[label].append((img,label))
+
+    # shuffle all lists and select a subset
+    selected_training_labelled_data = []
+    selected_training_unlabelled_data = []
+    for j in range(num_classes):
+        random.shuffle(data_divided_per_class[j])
+        selected_training_labelled_data.extend(data_divided_per_class[j][:num_samples_per_class])
+        selected_training_unlabelled_data.extend(data_divided_per_class[j][num_samples_per_class:])
+
+    # remove the label from the unlabelled data
+    processed_training_unlabelled_data = []
+    for (img,label) in selected_training_unlabelled_data:
+        processed_training_unlabelled_data.append((img,-1))
+
+    # combine both labelled and unlabelled data and shuffle
+    processed_training_data =  processed_training_unlabelled_data + selected_training_labelled_data
+    random.shuffle(processed_training_data)
+
+    # wrap an iterable over the datasets
+    train_dataloader = DataLoader(processed_training_data, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+    if validation_split:
+        validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
+    else:
+        validation_dataloader = None
+
+    # get img_width and height
+    num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
+    return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels
 
 def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=False):
 

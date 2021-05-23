@@ -2,7 +2,7 @@ from CNPs.CNP import CNP, CNPClassifier
 from CNPs.ConvCNP import  OnTheGridConvCNP, ConvCNPClassifier, ConvCNPExtractRepresentation
 import torch
 
-def modify_model_for_classification(model,model_size,convolutional = False, freeze = True, img_height = None, img_width = None, num_channels = None, layer_id = None, pooling = None):
+def modify_model_for_classification(model,model_size,convolutional = False, freeze = True, img_height = None, img_width = None, num_channels = None, layer_id = None, pooling = None, joint = False):
     """ Modify the given model and return the supervised version
 
     Args:
@@ -15,6 +15,7 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
         num_channels (int): number of channels of the input image, to pass when convolutional is True
         layer_id (int): layer from which to extract the latent representation, to pass when convolutional is True
         pooling (string): type of pooling to apply on the representation, to pass when convolutional is True
+        joint (bool): whether the model will be used for joint training or not
     Returns:
         nn.Module: instance of the new classification model
     """
@@ -46,10 +47,11 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
         classification_model = ConvCNPClassifier(model, dense_layer_widths, layer_id=layer_id, pooling=pooling)
 
         # freeze the weights from the original CNP
-        for param in classification_model.encoder.parameters():
-            param.requires_grad = False
-        for param in classification_model.CNN.parameters():
-            param.requires_grad = False
+        if freeze:
+            for param in classification_model.encoder.parameters():
+                param.requires_grad = False
+            for param in classification_model.CNN.parameters():
+                param.requires_grad = False
 
     else:
 

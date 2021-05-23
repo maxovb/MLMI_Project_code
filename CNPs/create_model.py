@@ -119,3 +119,18 @@ def create_model(model_name):
         convolutional = True
 
     return model, convolutional
+
+def create_joint_model(model_name, model_size):
+    """ Create and return the a joint model for doing both unsupervised and supervised training
+
+    Args:
+        model_name (string): one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained"]
+        model_size (string): size of the supervised head, one of ["small", "medium", "large"]
+    Returns:
+        nn.Module: instance of the model
+        bool: whether the model is a convolutional model
+    """
+
+    model, convolutional = create_model(model_name)
+
+

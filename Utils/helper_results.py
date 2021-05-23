@@ -24,11 +24,11 @@ def test_model_accuracy(model,test_data,device,convolutional=False,num_context_p
         total += batch_size
     return sum/total
 
-def test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_dir_txt,test_data,device,convolutional=False,num_context_points=784, save_freq=20, is_CNP=False):
+def test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_dir_txt,test_data,device,convolutional=False,num_context_points=784, save_freq=20, is_CNP=False, best="min"):
 
     # get the optimal epoch number
     N = 10 # window size for the smoothing the loss (moving average)
-    epoch = find_optimal_epoch_number(validation_loss_dir_txt, save_freq=save_freq, window_size=N)
+    epoch = find_optimal_epoch_number(validation_loss_dir_txt, save_freq=save_freq, window_size=N, best=best)
 
     # load the corresponding model
     load_dir = model_save_dir.copy()
@@ -43,7 +43,9 @@ def test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_los
 
     return accuracy
 
-def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size = 10):
+def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size=10, best="min"):
+
+    assert best in ["min","max"], "Argument best should be one of [min,max] but was given: " + str(best)
 
     # read in the validation loss
     l = len(validation_loss_dir_txt)
@@ -66,7 +68,10 @@ def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size
             moving_aves.append(cumsum[i] / (i + 1))
 
     # get the index of the minimum
-    _, idx = min((val, idx) for (idx, val) in enumerate(moving_aves))
+    if best == "min":
+        _, idx = min((val, idx) for (idx, val) in enumerate(moving_aves))
+    elif best == "max":
+        _, idx = max((val, idx) for (idx, val) in enumerate(moving_aves))
 
     # get the closest corresponding epoch number for which a checkpoint was saved
     epoch = int(round((idx + 1) / save_freq) * save_freq)
