@@ -56,7 +56,7 @@ if __name__ == "__main__":
         batch_size = 64
         learning_rate = 1e-4
         epochs = 400
-        save_freq = 20
+        save_freq = 40
 
         # load the supervised set
         train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)
@@ -77,18 +77,17 @@ if __name__ == "__main__":
             summary(model, [(784, 2), (784, 1)])
 
         # define the directories
-        model_save_dir = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
-        train_joint_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
-        train_unsup_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_unsup.txt"
-        train_accuracy_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_accuracy.txt"
-        validation_joint_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_joint.txt"
-        validation_unsup_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_unsup.txt"
-        validation_accuracy_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_accuracy.txt"
-        joint_loss_dir_plot = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "joint.svg"
-        unsup_loss_dir_plot = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "unsup.svg"
-        accuracy_dir_plot = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "acc.svg"
-
-        accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "")  + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+        model_save_dir = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
+        train_joint_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
+        train_unsup_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_unsup.txt"
+        train_accuracy_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_accuracy.txt"
+        validation_joint_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_joint.txt"
+        validation_unsup_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_unsup.txt"
+        validation_accuracy_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_accuracy.txt"
+        joint_loss_dir_plot = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "joint.svg"
+        unsup_loss_dir_plot = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "unsup.svg"
+        accuracy_dir_plot = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "acc.svg"
+        accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "/")  + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
         # create directories for the checkpoints and loss files if they don't exist yet
         dir_to_create = "".join(model_save_dir[:3]) + "loss/"
