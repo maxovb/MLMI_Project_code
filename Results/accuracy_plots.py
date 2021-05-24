@@ -1,25 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=None):
+def plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=None):
     # input processing
-    l = len(list_acc_dir_txt)
+    l = len(accuracies)
     assert l == len(labels), "Ensure that the number of labels corresponds to the number of accuracy text files"
-
-    # loading the accuracies
-    accuracies = [[] for _ in range(l)]
-    for i,filename in enumerate(list_acc_dir_txt):
-        if i ==0: # get the number of samples used for each accuracy entry
-            with open(filename, "r") as f:
-                list_num_samples = (f.readlines()[0].split(":")[1]).split()
-                list_num_samples = [x for x in list_num_samples if x]
-                list_num_samples = np.array(list_num_samples).astype(int)
-
-        with open(filename,"r") as f:
-            for j,x in enumerate(f):
-                if j != 0: # first line does not contain the accuracies, it stores the number of samples
-                    if x != "":
-                        accuracies[i].append(float(x))
 
     # plot
     plt.figure()
@@ -33,6 +18,42 @@ def plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=None):
     plt.ylabel("Accuracy",fontsize=15)
     plt.xscale("log")
     plt.savefig(acc_dir_plot)
+
+
+def extract_accuracies_from_list_of_files(list_acc_dir_txt):
+    # loading the accuracies
+    accuracies = [[] for _ in range(len(list_acc_dir_txt))]
+    for i, filename in enumerate(list_acc_dir_txt):
+        if i == 0:  # get the number of samples used for each accuracy entry
+            with open(filename, "r") as f:
+                list_num_samples = (f.readlines()[0].split(":")[1]).split()
+                list_num_samples = [x for x in list_num_samples if x]
+                list_num_samples = np.array(list_num_samples).astype(int)
+
+        with open(filename, "r") as f:
+            for j, x in enumerate(f):
+                if j != 0:  # first line does not contain the accuracies, it stores the number of samples
+                    if x != "":
+                        accuracies[i].append(float(x))
+    return accuracies, list_num_samples
+
+
+def extract_accuracies_form_file_with_multiple_columns(acc_dir_txt):
+    accuracies = []
+    with open(acc_dir_txt, "r") as f:
+        for i,line in enumerate(f):
+            values = line.split()
+            values = [x for x in values if x]
+            if i == 0: # initialize the lsit of accuracies
+                list_num_samples = line.split(":")[1].split()
+                list_num_samples = [x for x in list_num_samples if x]
+                list_num_samples = np.array(list_num_samples).astype(int)
+                [accuracies.append([]) for x in list_num_samples]
+            else:
+                for i,x in enumerate(values):
+                    accuracies[i].append(float(x))
+    return accuracies, list_num_samples
+
 
 
 if __name__ == "__main__":
@@ -59,15 +80,19 @@ if __name__ == "__main__":
                                 + "accuracies/" + model_name + "_" + model_size + ".txt"
             list_acc_dir_txt.append(accuracies_dir_txt)
 
-    plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles)
+    accuracies, list_num_samples = extract_accuracies_from_list_of_files(list_acc_dir_txt)
+    plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=styles)
 
+    """
     # KNN baseline
     acc_dir_plot = "figures/accuracies_KNN.svg"
     accuracies_dir_txt = "../saved_models/MNIST/supervised/accuracies/KNN.txt"
     styles_knn = ["r-"]
     labels = ["KNN"]
     list_acc_dir_txt = [accuracies_dir_txt]
-    plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles_knn)
+
+    accuracies, list_num_samples = extract_accuracies_from_list_of_files(list_acc_dir_txt)
+    plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=styles_knn)
 
     # LeNet baseline
     acc_dir_plot = "figures/accuracies_LeNet" + ("_cheat_validation.svg" if freeze_weights else ".svg")
@@ -79,10 +104,12 @@ if __name__ == "__main__":
         accuracies_dir_txt = "../saved_models/MNIST/supervised" + (
                 "_cheat_validation/" if cheat_validation else "/") + "accuracies/" + "LeNet_" + model_size + ".txt"
         list_acc_dir_txt.append(accuracies_dir_txt)
-    plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles)
+
+    accuracies, list_num_samples= extract_accuracies_from_list_of_files(list_acc_dir_txt)
+    plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=styles)
 
 
-    # KNN and LR on the representation out of the encoder
+    # KNN and LR on the representation out of the encoder
     acc_dir_plot = "figures/accuracies_supervised" + ("_semantics" if semantics else "") + "_KNN_LR_on_r.svg"
     
     styles_r = ["r","b"]
@@ -92,7 +119,30 @@ if __name__ == "__main__":
         labels.append(classification_model_name)
         accuracies_dir_txt = "../saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + "/accuracies/" + classification_model_name + "_on_r.txt"
         list_acc_dir_txt.append(accuracies_dir_txt)
-    plot_accuracy(list_acc_dir_txt, acc_dir_plot, labels, styles=styles_r)
+
+    accuracies, list_num_samples = extract_accuracies_from_list_of_files(list_acc_dir_txt)
+    plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=styles)
+    """
+
+    model_name = "UNetCNP"
+    epoch = 400
+    pooling = "average"
+    # KNN and LR on the representation out of the different layers
+    for classification_model_name in ["KNN", "LR"]:
+        accuracies_dir_txt = "../saved_models/MNIST/supervised" + ("_semantics" if semantics else "") \
+                             + "/accuracies/" + classification_model_name + "_on_r_" + model_name + "_" + pooling + \
+                             "_"+ str(epoch) + "E.txt"
+        acc_dir_plot = "figures/accuracies_supervised" + ("_semantics" if semantics else "") \
+                       + classification_model_name + "_on_r_" + model_name + "_" + pooling + \
+                       "_"+ str(epoch) + "E.svg"
+        accuracies, list_num_samples = extract_accuracies_form_file_with_multiple_columns(accuracies_dir_txt)
+        labels = []
+        for i in range(len(accuracies)):
+            labels.append("Layer " + str(i))
+        plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels)
+
+
+
 
 
 

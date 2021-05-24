@@ -12,7 +12,7 @@ def create_model(model_name):
     """
     #TODO: change model name to UNetCNP_restrained  
 
-    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained"], "model name: " + model_name + ", not supported"
+    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained"], "model name: " + model_name + ", not supported"
 
     convolutional = False
 
@@ -90,7 +90,7 @@ def create_model(model_name):
         # it is a convolutional model
         convolutional = True
 
-    elif model_name == "UNet_restrained":
+    elif model_name == "UNetCNP_restrained":
         type_CNN = "UNet"
         num_input_channels = 1
         num_output_channels = 2
