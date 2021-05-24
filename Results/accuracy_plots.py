@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 def plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=None):
     # input processing
@@ -17,6 +18,7 @@ def plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=Non
     plt.xlabel("Number of labelled samples",fontsize=15)
     plt.ylabel("Accuracy",fontsize=15)
     plt.xscale("log")
+    plt.ylim([0,1])
     plt.savefig(acc_dir_plot)
 
 
@@ -48,8 +50,9 @@ def extract_accuracies_form_file_with_multiple_columns(acc_dir_txt):
                 list_num_samples = line.split(":")[1].split()
                 list_num_samples = [x for x in list_num_samples if x]
                 list_num_samples = np.array(list_num_samples).astype(int)
-                [accuracies.append([]) for x in list_num_samples]
             else:
+                if i == 1:
+                    [accuracies.append([]) for x in values]
                 for i,x in enumerate(values):
                     accuracies[i].append(float(x))
     return accuracies, list_num_samples
@@ -82,6 +85,16 @@ if __name__ == "__main__":
 
     accuracies, list_num_samples = extract_accuracies_from_list_of_files(list_acc_dir_txt)
     plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=styles)
+
+    # LR baseline
+    acc_dir_plot = "figures/accuracies_LR.svg"
+    accuracies_dir_txt = "../saved_models/MNIST/supervised/accuracies/LR.txt"
+    styles_knn = ["r-"]
+    labels = ["LR"]
+    list_acc_dir_txt = [accuracies_dir_txt]
+
+    accuracies, list_num_samples = extract_accuracies_from_list_of_files(list_acc_dir_txt)
+    plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=styles_knn)
 
     """
     # KNN baseline
@@ -124,22 +137,26 @@ if __name__ == "__main__":
     plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=styles)
     """
 
-    model_name = "UNetCNP"
-    epoch = 400
-    pooling = "average"
-    # KNN and LR on the representation out of the different layers
-    for classification_model_name in ["KNN", "LR"]:
-        accuracies_dir_txt = "../saved_models/MNIST/supervised" + ("_semantics" if semantics else "") \
-                             + "/accuracies/" + classification_model_name + "_on_r_" + model_name + "_" + pooling + \
-                             "_"+ str(epoch) + "E.txt"
-        acc_dir_plot = "figures/accuracies_supervised" + ("_semantics" if semantics else "") \
-                       + classification_model_name + "_on_r_" + model_name + "_" + pooling + \
-                       "_"+ str(epoch) + "E.svg"
-        accuracies, list_num_samples = extract_accuracies_form_file_with_multiple_columns(accuracies_dir_txt)
-        labels = []
-        for i in range(len(accuracies)):
-            labels.append("Layer " + str(i))
-        plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels)
+    for model_name in ["ConvCNP","UNetCNP","UNetCNP_restrained"]:
+        for pooling in ["average","flatten"]:
+            epoch = 400
+            # KNN and LR on the representation out of the different layers
+            for classification_model_name in ["KNN", "LR"]:
+                accuracies_dir_txt = "../saved_models/MNIST/supervised" + ("_semantics" if semantics else "") \
+                                     + "/accuracies/" + classification_model_name + "_on_r_" + model_name + "_" + pooling + \
+                                     "_"+ str(epoch) + "E.txt"
+                acc_dir_plot = "figures/" + classification_model_name + "/accuracies_supervised" + \
+                               ("_semantics" if semantics else "") + "_" + classification_model_name + "_on_r_" + model_name \
+                               + "_" + pooling + "_"+ str(epoch) + "E.svg"
+
+                dir_to_create = os.path.dirname(acc_dir_plot)
+                os.makedirs(dir_to_create,exist_ok=True)
+
+                accuracies, list_num_samples = extract_accuracies_form_file_with_multiple_columns(accuracies_dir_txt)
+                labels = []
+                for i in range(len(accuracies)):
+                    labels.append("Layer " + str(i))
+                plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels)
 
 
 
