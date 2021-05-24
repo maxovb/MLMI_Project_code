@@ -1,5 +1,6 @@
 from CNPs.CNP import CNP
 from CNPs.ConvCNP import  OnTheGridConvCNP
+from torchsummary import summary
 
 def create_model(model_name):
     """ Create and return the appropriate CNP model
@@ -134,3 +135,10 @@ def create_joint_model(model_name, model_size):
     model, convolutional = create_model(model_name)
 
 
+if __name__ == "__main__":
+    model_name = "UNetCNP_restrained"
+    model, convolutional = create_model(model_name)
+    if convolutional:
+        summary(model, [(1, 28, 28), (1, 28, 28)])
+    else:
+        summary(model, [(784, 2), (784, 1)])

@@ -13,14 +13,16 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # create the model
-    model_name = "ConvCNP"
+    model_name = "UNetCNP_restrained"
     epoch_unsup = 400
-    semantics = False
+    semantics = True
     num_context_points = 784
     semantic_blocks = None
 
     std_noise = 15  # standard deviation of the perturbation
-    #perturbation_type = "zero-other"  # one of ["noise", "zero", "zero-other"]
+    cumulative = True
+    quantify = False
+
     for perturbation_type in ["noise", "zero", "zero-other"]:
 
         model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
@@ -43,13 +45,15 @@ if __name__ == "__main__":
             model = model.to(device)
 
             visualisation_dir = "saved_models/MNIST/" + model_name + ("_semantics" if semantics else "") \
-                                + "/perturbation/" + model_name + "_L" + str(layer_id) + "_" + perturbation_type + \
+                                + "/perturbation/" + model_name + ("_cumul" if cumulative else "") + "_L" + \
+                                str(layer_id) + "_" + perturbation_type + \
                                 (str(std_noise) if perturbation_type == "noise" else "") + \
                                 ("_semantics_blocks.svg" if semantic_blocks else ".svg")
 
             loss_dir = "saved_models/MNIST/" + model_name + ("_semantics" if semantics else "") + "/perturbation/" +\
-                    model_name + "_" + perturbation_type + (str(std_noise) if perturbation_type == "noise" else "") + \
-                    ("_semantics_blocks.txt" if semantic_blocks else ".txt")
+                        model_name + ("_cumul" if cumulative else "") + "_" + perturbation_type +\
+                        (str(std_noise) if perturbation_type == "noise" else "") + \
+                        ("_semantics_blocks.txt" if semantic_blocks else ".txt")
 
             if layer_id == 0:
                 dir_to_create = os.path.dirname(visualisation_dir)
@@ -64,49 +68,64 @@ if __name__ == "__main__":
                 return o
 
             # register hook to perform the perturbation
-            if perturbation_type in ["noise", "zero"]:
-                if model_name == "CNP":
-                    model.encoder.register_forward_hook(hook_fn)
-                elif model_name in ["ConvCNP"]:
-                    model.CNN.h[layer_id].register_forward_hook(hook_fn)
-                elif model_name in ["UNetCNP", "UNetCNP_restrained"]:
-                    model.CNN.connections[layer_id].register_forward_hook(hook_fn)
-            elif perturbation_type in ["zero-other"]:
-                for layer_to_perturb in range(num_layers_to_peturb):
-                    if layer_to_perturb != layer_id:
+            if not(cumulative):
+                if perturbation_type in ["noise", "zero"]:
+                    if model_name == "CNP":
+                        model.encoder.register_forward_hook(hook_fn)
+                    elif model_name in ["ConvCNP"]:
+                        model.CNN.h[layer_id].register_forward_hook(hook_fn)
+                    elif model_name in ["UNetCNP", "UNetCNP_restrained"]:
+                        model.CNN.connections[layer_id].register_forward_hook(hook_fn)
+                elif perturbation_type in ["zero-other"]:
+                    for layer_to_perturb in range(num_layers_to_peturb):
+                        if layer_to_perturb != layer_id:
+                            print("corruption layer")
+                            if model_name == "CNP":
+                                model.encoder.register_forward_hook(hook_fn)
+                            elif model_name in ["ConvCNP"]:
+                                model.CNN.h[layer_to_perturb].register_forward_hook(hook_fn)
+                            elif model_name in ["UNetCNP", "UNetCNP_restrained"]:
+                                model.CNN.connections[layer_to_perturb].register_forward_hook(hook_fn)
+            else:
+                if perturbation_type in ["noise", "zero"]:
+                    for layer_to_perturb in range(num_layers_to_peturb-1,layer_id,-1):
                         if model_name == "CNP":
                             model.encoder.register_forward_hook(hook_fn)
                         elif model_name in ["ConvCNP"]:
                             model.CNN.h[layer_to_perturb].register_forward_hook(hook_fn)
                         elif model_name in ["UNetCNP", "UNetCNP_restrained"]:
                             model.CNN.connections[layer_to_perturb].register_forward_hook(hook_fn)
+                else:
+                    continue
+
 
             train_data, valid_data, test_data = load_data_unsupervised(batch_size,validation_split=validation_split)
 
             qualitative_evaluation_images(model,valid_data,num_context_points,device,visualisation_dir,convolutional,semantic_blocks)
 
-            losses = []
-            iterator = tqdm(valid_data)
-            for i,(data,label) in enumerate(iterator):
-                if convolutional:
-                    mask, context_img = image_processor(data, num_context_points=784, convolutional=convolutional,
-                                                        semantic_blocks=None, device=device)
-                    mean, std = model(mask,context_img)
-                    data = data.permute(0,2,3,1).to(device)
-                    assert data.shape == mean.shape, "Data and mean should have the same shape"
-                    loss = model.loss(mean,std,data).item()
-                else:
-                    x_context, y_context, x_target, y_target = image_processor(data, num_context_points=784,
-                                                                            convolutional=convolutional,
-                                                                            semantic_blocks=None, device=device)
-                    mean, std = model(x_context, y_context, x_target)
-                    loss = model.loss(mean, std, y_target).item()
-                losses.append(loss)
-            avg_loss = np.array(losses).mean()
+            if quantify:
+                losses = []
+                iterator = tqdm(valid_data)
+                for i,(data,label) in enumerate(iterator):
+                    if convolutional:
+                        mask, context_img = image_processor(data, num_context_points=784, convolutional=convolutional,
+                                                            semantic_blocks=None, device=device)
+                        mean, std = model(mask,context_img)
+                        data = data.permute(0,2,3,1).to(device)
+                        assert data.shape == mean.shape, "Data and mean should have the same shape"
+                        loss = model.loss(mean,std,data).item()
+                    else:
+                        x_context, y_context, x_target, y_target = image_processor(data, num_context_points=784,
+                                                                                convolutional=convolutional,
+                                                                                semantic_blocks=None, device=device)
+                        mean, std = model(x_context, y_context, x_target)
+                        loss = model.loss(mean, std, y_target).item()
+                    losses.append(loss)
+                avg_loss = np.array(losses).mean()
 
-            if layer_id == 0:
-                with open(loss_dir,'w') as f:
-                    f.write('%s\n' % avg_loss)
-            else:
-                with open(loss_dir,'a') as f:
-                    f.write('%s\n' % avg_loss)
+                if layer_id == 0:
+                    with open(loss_dir,'w') as f:
+                        f.write('%s\n' % avg_loss)
+                else:
+                    with open(loss_dir,'a') as f:
+                        f.write('%s\n' % avg_loss)
