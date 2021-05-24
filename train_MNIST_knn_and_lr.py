@@ -58,11 +58,11 @@ if __name__ == "__main__":
     batch_size = 64
 
     # create the model
-    model_name = "UNet_restrained"
-    epoch_unsup = 100
-    semantics = False
+    model_name = "UNetCNP"
+    epoch_unsup = 400
+    semantics = True
     cheat_validation = False
-    pooling = "average"
+    pooling = "flatten"
     model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
 
     accuracies_dir_txt_knn = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") +\
@@ -75,8 +75,7 @@ if __name__ == "__main__":
         num_layers = 1
     elif model_name == "ConvCNP":
         num_layers = model.CNN.num_residual_blocks
-    # TODO: change model name to UNetCNP_restrained
-    elif model_name in ["UNetCNP","UNet_restrained"]:
+    elif model_name in ["UNetCNP","UNetCNP_restrained"]:
         num_layers = 2 * model.CNN.num_down_blocks + 1
     else:
         raise "Model name invalid"
@@ -101,7 +100,7 @@ if __name__ == "__main__":
 
         for i, num_samples in enumerate(num_training_samples):
 
-            train_data, valid_data, test_data, img_height, img_width = load_supervised_data_as_generator(batch_size=batch_size, num_training_samples=num_samples, cheat_validation=cheat_validation)
+            train_data, valid_data, test_data, img_height, img_widt, num_channels = load_supervised_data_as_generator(batch_size=batch_size, num_training_samples=num_samples, cheat_validation=cheat_validation)
 
             X_train, y_train, X_validation, y_validation = transform_data_to_representation(model_extract_r, [train_data, valid_data], convolutional)
             if num_samples == num_training_samples[0]:
