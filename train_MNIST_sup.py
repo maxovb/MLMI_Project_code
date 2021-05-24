@@ -16,26 +16,26 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UnetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
-    model_size = "large" # one of ["small","medium","large"]
+    model_name = "UNetCNP_restrained" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
+    # model_size = "large" # one of ["small","medium","large"]
 
 
-    freeze_weights = True # freeze the weights of the part taken from the unsupervised model
+    freeze_weights = False # freeze the weights of the part taken from the unsupervised model
     cheat_validation= True # use a large validation set even if the trainign data is small
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
-    augment_missing = False # effectively augment the labelled data by using images with missing pixels as well
+    augment_missing = True # effectively augment the labelled data by using images with missing pixels as well
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
         pooling = "average"
-    elif model_name in ["UnetCNP", "UnetCNP_restrained"]:
-        layer_id = 3
+    elif model_name in ["UNetCNP", "UNetCNP_restrained"]:
+        layer_id = 4
         pooling = "average"
     else:
         layer_id = None
         pooling = None
 
-    for model_name in ["UNetCNP"]:#["CNP","ConvCNP"]:
+    for model_name in [model_name]:#["CNP","ConvCNP"]:
         for model_size in ["small","medium","large"]:
             print(model_name, model_size)
 

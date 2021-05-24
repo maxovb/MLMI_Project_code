@@ -193,7 +193,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
                     mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
                                                         device=device)
                     data = data.to(device)
-                    loss = model.train_step(mask, context_img, target, opt)
+                    loss, accuracy, total = model.train_step(mask, context_img, target, opt)
                 else:
                     x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional=convolutional,
                                                                                device=device)
