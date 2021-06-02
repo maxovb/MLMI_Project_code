@@ -7,7 +7,7 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
 
     Args:
         model (nn.Module): original unsupervised CNP model
-        model_size (string): one of "small", "medium" and "large, influences the number of parameters in the classification head
+        model_size (string): one of "LR", "small", "medium" and "large, influences the number of parameters in the classification head
         convolutional (bool): whether the model is a convolutional model
         freeze (bool): whether to freeze the weights from the original CNP
         img_height (int): height of the image in pixels, to pass when convolutional is True
@@ -19,7 +19,7 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
     Returns:
         nn.Module: instance of the new classification model
     """
-    assert model_size in ["small","medium","large"], "model_size should be one of 'small','medium' or 'large', not " + str(model_size)
+    assert model_size in ["LR","small","medium","large"], "model_size should be one of 'LR', 'small','medium' or 'large', not " + str(model_size)
 
     if convolutional:
 
@@ -35,7 +35,10 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
         temp_model = ConvCNPExtractRepresentation(model,layer_id,pooling)
         out = temp_model(temp_x,temp_x)
         tmp, r_size = out.shape
-        if model_size == "small":
+
+        if model_size == "LR":
+            dense_layer_widths = [r_size,10]
+        elif model_size == "small":
             dense_layer_widths = [r_size,10,10]
         elif model_size == "medium":
             dense_layer_widths = [r_size,64,64,10]
@@ -53,8 +56,9 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
                 param.requires_grad = False
 
     else:
-
-        if model_size == "small":
+        if model_size == "LR":
+            classification_head_layer_widths = [128,10]
+        elif model_size == "small":
             classification_head_layer_widths = [128,10,10]
         elif model_size == "medium":
             classification_head_layer_widths = [128, 64, 64, 10]

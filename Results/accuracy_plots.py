@@ -22,6 +22,25 @@ def plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=Non
     plt.savefig(acc_dir_plot)
 
 
+def plot_accuracy_vs_layer_num(accuracies, layer_numbers, acc_dir_plot, labels, styles=None):
+    # input processing
+    l = len(accuracies)
+    assert l == len(labels), "Ensure that the number of labels corresponds to the number of accuracy text files"
+
+    # plot
+    plt.figure()
+    for i in range(l):
+        if not (styles):
+            plt.plot(layer_numbers, accuracies[i])
+        else:
+            plt.plot(layer_numbers, accuracies[i], styles[i])
+    plt.legend(labels)
+    plt.xlabel("Layer Number", fontsize=15)
+    plt.ylabel("Accuracy", fontsize=15)
+    plt.ylim([0, 1])
+    plt.savefig(acc_dir_plot)
+
+
 def extract_accuracies_from_list_of_files(list_acc_dir_txt):
     # loading the accuracies
     accuracies = [[] for _ in range(len(list_acc_dir_txt))]
@@ -157,6 +176,19 @@ if __name__ == "__main__":
                 for i in range(len(accuracies)):
                     labels.append("Layer " + str(i))
                 plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels)
+
+                # accuracy vs layer num
+                acc_dir_plot = "figures/" + classification_model_name + "/accuracies_supervised" + \
+                               ("_semantics" if semantics else "") + "_" + classification_model_name + "_on_r_" \
+                               + model_name + "_" + pooling + "_" + str(epoch) + "E_vs_layer_num.svg"
+                accuracies_array = np.array(accuracies)
+                accuracies_array = accuracies_array.T
+                accuracies_transposed = accuracies_array.tolist()
+                labels = []
+                for x in list_num_samples:
+                    labels.append(str(x) + " samples")
+                plot_accuracy_vs_layer_num(accuracies_transposed, list(range(len(accuracies))), acc_dir_plot, labels)
+
 
 
 
