@@ -294,12 +294,12 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
     # pre-allocate memory to store the losses
     avg_train_loss_per_epoch = [[],[]] # [joint,unsupervised]
     avg_train_accuracy_per_epoch = []
-    avg_validation_loss_per_epoch = [[],[]]
+    avg_validation_loss_per_epoch = []
     avg_validation_accuracy_per_epoch = []
     train_loss_to_write = [[],[]]
     train_accuracy_to_write = [[], []]
     validation_loss_to_write = [[],[]]
-    validation_accuracy_to_write = [[], []]
+    validation_accuracy_to_write = []
 
     # define the optimizer
     opt = torch.optim.Adam(model.parameters(),
@@ -323,6 +323,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
         train_totals = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
+
             s = np.random.rand()
             if s < 1 / 2:
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
@@ -374,9 +375,10 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
         # calculate the validation loss
         if validation_data:
             validation_losses = [[],[]]
-            validation_num_correct= []
+            validation_num_correct = []
             validation_totals = []
             for batch_idx, (data, target) in enumerate(validation_data):
+
                 target = target.to(device)
                 if convolutional:
                     mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
