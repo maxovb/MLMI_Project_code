@@ -57,8 +57,8 @@ if __name__ == "__main__":
 
     batch_size = 64
     learning_rate = 1e-4
-    epochs = 2
-    save_freq = 1
+    epochs = 200
+    save_freq = 20
 
     # load the supervised set
     train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)

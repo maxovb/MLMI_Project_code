@@ -294,10 +294,10 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
     # pre-allocate memory to store the losses
     avg_train_loss_per_epoch = [[],[]] # [joint,unsupervised]
     avg_train_accuracy_per_epoch = []
-    avg_validation_loss_per_epoch = []
+    avg_validation_loss_per_epoch = [[],[]]
     avg_validation_accuracy_per_epoch = []
     train_loss_to_write = [[],[]]
-    train_accuracy_to_write = [[], []]
+    train_accuracy_to_write = []
     validation_loss_to_write = [[],[]]
     validation_accuracy_to_write = []
 
@@ -323,7 +323,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
         train_totals = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
-
             s = np.random.rand()
             if s < 1 / 2:
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
@@ -352,7 +351,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 avg_train_joint_loss = np.array(train_losses[0]).mean()
                 avg_train_unsup_loss = np.array(train_losses[1]).mean()
                 avg_train_accuracy = np.array(train_num_correct).sum()/np.array(train_totals).sum()
-                txt = report_multiple_losses(["Joint", "Unsup", "Accuracy"], [avg_train_joint_loss, avg_train_unsup_loss, avg_train_accuracy], batch_idx)
+                txt = report_multiple_losses(["Joint", "Unsup", "Accuracy"], [round(avg_train_joint_loss,2), round(avg_train_unsup_loss,2), round(avg_train_accuracy,3)], batch_idx)
                 iterator.set_description(txt)
                 iterator.refresh()  # to show immediately the update
 
@@ -375,10 +374,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
         # calculate the validation loss
         if validation_data:
             validation_losses = [[],[]]
-            validation_num_correct = []
+            validation_num_correct= []
             validation_totals = []
             for batch_idx, (data, target) in enumerate(validation_data):
-
                 target = target.to(device)
                 if convolutional:
                     mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
