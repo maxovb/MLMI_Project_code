@@ -20,10 +20,10 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP_restrained" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
-    model_size = "LR" # one of ["LR","small","medium","large"]
+    model_name = "NP_UG" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
+    model_size = "" # one of ["LR","small","medium","large"]
 
-    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     validation_split = 0.1
     min_context_points = 2
 
@@ -36,6 +36,12 @@ if __name__ == "__main__":
     else:
         layer_id = None
         pooling = None
+
+    variational = False
+    if model_name in ["NP_UG"]:
+        variational = True
+        std_y = 0.1
+        num_samples_expectation = 16
 
     print(model_name, model_size)
 
@@ -52,8 +58,10 @@ if __name__ == "__main__":
     # training parameters
     num_training_samples = [10,20,40,60,80,100,600,1000,3000]
 
+    # hyper-parameters
     l_sup = 1000 * (60000 * (1-validation_split))/num_samples
     l_unsup = 1
+    alpha = 0.1 * (60000 * (1-validation_split))/num_samples
 
     batch_size = 64
     learning_rate = 1e-4
@@ -63,20 +71,24 @@ if __name__ == "__main__":
     # load the supervised set
     train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)
 
-    # create the model
-    unsupervised_model, convolutional = create_model(model_name)
+    if not(variational):
+        # create the model
+        unsupervised_model, convolutional = create_model(model_name)
 
-    # modify the model to act as a classifier
-    model = modify_model_for_classification(unsupervised_model,model_size,convolutional,freeze=False,
-                                            img_height=img_height,img_width=img_width,
-                                            num_channels=num_channels, layer_id=layer_id, pooling=pooling)
-    model.to(device)
+        # modify the model to act as a classifier
+        model = modify_model_for_classification(unsupervised_model,model_size,convolutional,freeze=False,
+                                                img_height=img_height,img_width=img_width,
+                                                num_channels=num_channels, layer_id=layer_id, pooling=pooling)
+        model.to(device)
+    else:
+        model, convolutional = create_model(model_name)
+        model.to(device)
 
     # print a summary of the model
     if convolutional:
         summary(model,[(1,28,28),(1,28,28)])
     else:
-        summary(model, [(784, 2), (784, 1)])
+        summary(model, [(784, 2), (784, 1), (784,2)])
 
     # define the directories
     model_save_dir = ["saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
@@ -123,7 +135,7 @@ if __name__ == "__main__":
         assert not (os.path.isfile(validation_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + validation_accuracy_dir_txt
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, semantics=semantics, convolutional=convolutional, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, l_sup=l_sup, l_unsup=l_unsup)
+        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, l_sup=l_sup, l_unsup=l_unsup, alpha=alpha, num_samples_expectation=num_samples_expectation, std_y=std_y)
         plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
         plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
         plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)

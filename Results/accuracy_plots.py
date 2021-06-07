@@ -44,36 +44,35 @@ def plot_accuracy_vs_layer_num(accuracies, layer_numbers, acc_dir_plot, labels, 
 def extract_accuracies_from_list_of_files(list_acc_dir_txt):
     # loading the accuracies
     accuracies = [[] for _ in range(len(list_acc_dir_txt))]
+    list_num_samples = []
     for i, filename in enumerate(list_acc_dir_txt):
-        if i == 0:  # get the number of samples used for each accuracy entry
-            with open(filename, "r") as f:
-                list_num_samples = (f.readlines()[0].split(":")[1]).split()
-                list_num_samples = [x for x in list_num_samples if x]
-                list_num_samples = np.array(list_num_samples).astype(int)
 
         with open(filename, "r") as f:
             for j, x in enumerate(f):
-                if j != 0:  # first line does not contain the accuracies, it stores the number of samples
-                    if x != "":
-                        accuracies[i].append(float(x))
+                if x != "":
+                    d = x.split(", ")
+                    sam = d[0]
+                    acc = d[1][:-2]
+                    if i == 0:
+                        list_num_samples.append(float(sam))
+                    accuracies[i].append(float(acc))
+
     return accuracies, list_num_samples
 
 
 def extract_accuracies_form_file_with_multiple_columns(acc_dir_txt):
     accuracies = []
+    list_num_samples = []
     with open(acc_dir_txt, "r") as f:
         for i,line in enumerate(f):
-            values = line.split()
+            sam, rest = line.split(", ")
+            list_num_samples.append(float(sam))
+            values = rest.split()
             values = [x for x in values if x]
-            if i == 0: # initialize the lsit of accuracies
-                list_num_samples = line.split(":")[1].split()
-                list_num_samples = [x for x in list_num_samples if x]
-                list_num_samples = np.array(list_num_samples).astype(int)
-            else:
-                if i == 1:
-                    [accuracies.append([]) for x in values]
-                for i,x in enumerate(values):
-                    accuracies[i].append(float(x))
+            if i == 0:
+                [accuracies.append([]) for x in values]
+            for i,x in enumerate(values):
+                accuracies[i].append(float(x))
     return accuracies, list_num_samples
 
 

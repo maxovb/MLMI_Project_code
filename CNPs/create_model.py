@@ -1,4 +1,5 @@
 from CNPs.CNP import CNP
+from CNPs.NP import NP
 from CNPs.ConvCNP import  OnTheGridConvCNP
 from torchsummary import summary
 
@@ -6,14 +7,14 @@ def create_model(model_name):
     """ Create and return the appropriate CNP model
 
     Args:
-        model_name (string): one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained"]
+        model_name (string): one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained", "NP_UG"]
     Returns:
         nn.Module: instance of the model
         bool: whether the model is a convolutional model
     """
     #TODO: change model name to UNetCNP_restrained  
 
-    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained"], "model name: " + model_name + ", not supported"
+    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained", "NP_UG"], "model name: " + model_name + ", not supported"
 
     convolutional = False
 
@@ -25,6 +26,7 @@ def create_model(model_name):
 
         # create the model
         model = CNP(encoder_layer_widths, decoder_layer_widths)
+
 
     elif model_name == "ConvCNP":
 
@@ -118,6 +120,14 @@ def create_model(model_name):
 
         # it is a convolutional model
         convolutional = True
+
+    elif model_name == "NP_UG":
+        encoder_layer_widths = [3, 128, 128, 128]
+        decoder_layer_widths = [2, 128, 128, 128, 1]
+        classifier_layer_widths = [128, 128, 10]
+        latent_network_layer_widths = [138, 128, 128]
+        prior = "UnitGaussian"
+        model = NP(encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths,prior)
 
     return model, convolutional
 

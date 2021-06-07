@@ -145,11 +145,6 @@ if __name__ == "__main__":
                         dir_to_create = os.path.dirname(accuracies_dir_txt)
                         os.makedirs(dir_to_create,exist_ok=True)
 
-                        # initialize the accuracy file with a line showing the size of the training samples
-                        txt = "training sample sizes: " + " ".join([str(x) for x in num_training_samples]) + " \n"
-                        with open(accuracies_dir_txt,'w') as f:
-                            f.write(txt)
-
                     # compute the accuracy
                     num_context_points = 28 * 28
                     accuracy = test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_dir_txt,test_data,device,convolutional=convolutional,num_context_points=num_context_points, save_freq=save_freq, is_CNP=True)
@@ -157,7 +152,7 @@ if __name__ == "__main__":
 
                     # write the accuracy to the text file
                     with open(accuracies_dir_txt, 'a+') as f:
-                        f.write('%s\n' % accuracy)
+                        f.write('%s, %s\n' % (num_samples,accuracy))
 
 
 
