@@ -42,6 +42,7 @@ if __name__ == "__main__":
         variational = True
         std_y = 0.1
         num_samples_expectation = 16
+        parallel = True
 
     print(model_name, model_size)
 
@@ -137,7 +138,7 @@ if __name__ == "__main__":
         assert not (os.path.isfile(validation_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + validation_accuracy_dir_txt
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, l_sup=l_sup, l_unsup=l_unsup, alpha=alpha, num_samples_expectation=num_samples_expectation, std_y=std_y)
+        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, l_sup=l_sup, l_unsup=l_unsup, alpha=alpha, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel)
         plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
         plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
         plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)

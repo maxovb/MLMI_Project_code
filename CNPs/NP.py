@@ -68,9 +68,9 @@ class NP(nn.Module):
 
         return y_prediction
 
-    def joint_train_step(self,x_context,y_context,x_target,target_label,y_target,opt,alpha,num_samples_expectation=16, std_y=0.1):
+    def joint_train_step(self,x_context,y_context,x_target,target_label,y_target,opt,alpha,num_samples_expectation=16, std_y=0.1, parallel=False):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation,std_y)
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation,std_y,parallel)
 
         # Optimization
         obj.backward()
@@ -79,7 +79,7 @@ class NP(nn.Module):
 
         return obj.item(), sup_loss, unsup_loss, accuracy, total
 
-    def joint_loss(self,x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation=16, std_y=0.1):
+    def joint_loss(self,x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation=16, std_y=0.1, parallel=False):
 
         # split into labelled and unlabelled
         labelled_indices = target_label != -1
@@ -104,7 +104,7 @@ class NP(nn.Module):
 
             # unlabelled objective
             U = self.unlabelled_objective(x_context_unlabelled, y_context_unlabelled, x_target_unlabelled,
-                                        y_target_unlabelled, num_samples_expectation, std_y)
+                                        y_target_unlabelled, num_samples_expectation, std_y, parallel)
 
         # general objective
         J = (torch.mean(U) if not(all_labelled) else 0)
@@ -179,9 +179,9 @@ class NP(nn.Module):
         list_classes = []
         U = 0
         if parallel:
-            classes = torch.ones(batch_size, self.num_classes, 1)
+            classes = torch.ones((batch_size, self.num_classes),device=r.device)
             for i in range(self.num_classes):
-                classes[:,i,:] = classes[:,i,:] * i
+                classes[:,i] = classes[:,i] * i
             L = self.labelled_objective(x_context_unlabelled,y_context_unlabelled,x_target_unlabelled,y_target_unlabelled,classes,num_samples_expectation,std_y,r=r)
             
         else:
@@ -218,13 +218,13 @@ class NP(nn.Module):
         one_hot = torch.nn.functional.one_hot(class_labels.type(torch.int64), num_classes=self.num_classes).to(r.device)
 
         # if running the marginalization over classes in parallel extend the representation
-        if one_hot[:-1].shape != r[:-1].shape:
-            r = torch.unsqueeze(dim=1)
-            r = torch.repeat(1,self.num_classes,1)
+        if one_hot.shape[:-1] != r.shape[:-1]:
+            r = torch.unsqueeze(r,dim=1)
+            r = r.repeat(1,self.num_classes,1)
             x_target_labelled = torch.unsqueeze(x_target_labelled,dim=1)
             x_target_labelled = x_target_labelled.repeat(1,self.num_classes,1,1)
-            y_target_unlabelled = torch.unsqueeze(y_target_unlabelled ,dim=1)
-            y_target_unlabelled = y_target_labelled.repeat(1,self.num_classes,1,1)
+            y_target_labelled = torch.unsqueeze(y_target_labelled ,dim=1)
+            y_target_labelled = y_target_labelled.repeat(1,self.num_classes,1,1)
 
         # get the parameter of the distribution over the continuous latent variables
         mean_latent, std_latent = self.latent_network(r, one_hot)
@@ -240,17 +240,18 @@ class NP(nn.Module):
         kl = kl_divergence(posterior,self.prior)
 
         # sample from the contiuous latent distribution
-        list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent),dim=1) for i in range(num_samples_expectation)]
-        z = torch.cat(list_samples, dim=1)
+        list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent),dim=-2) for i in range(num_samples_expectation)]
+        z = torch.cat(list_samples, dim=-2)
 
         # pass through the decoder
-        one_hot_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(one_hot,dim=1)], dim=1)
-        x_target_labelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(x_target_labelled,dim=1)], dim=1)
+        one_hot_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(one_hot,dim=-2)], dim=-2)
+        x_target_labelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(x_target_labelled,dim=-3)], dim=-3)
         output = self.decoder(x_target_labelled_repeated, z, one_hot_repeated)
 
         # compute the likelihood
-        y_target_unlabelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(y_target_labelled,dim=1)], dim=1)
-        likelihood = gaussian_logpdf(y_target_unlabelled_repeated, output, std_y, 'samples_mean')
+        y_target_labelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(y_target_labelled,dim=-3)], dim=-3)
+        start_idx_sum = -2
+        likelihood = gaussian_logpdf(y_target_labelled_repeated, output, std_y, 'samples_mean', start_idx_sum)
 
         return likelihood - kl.sum(dim=-1)
 
@@ -407,6 +408,10 @@ class Decoder(nn.Module):
             num_target = x_target.shape[2]
             latent = torch.unsqueeze(latent, 2)
             latent = latent.repeat(1, 1, num_target, 1)
+        elif len(latent.shape) == 4:
+            num_target = x_target.shape[3]
+            latent = torch.unsqueeze(latent, 3)
+            latent = latent.repeat(1, 1, 1, num_target, 1)
         else:
             raise RuntimeError(f'Latent shape not supported "{latent.shape}".')
 
