@@ -153,7 +153,7 @@ class NP(nn.Module):
 
         return obj, sup_loss, unsup_loss, accuracy, total
 
-    def unlabelled_objective(self, x_context_unlabelled, y_context_unlabelled, x_target_unlabelled, y_target_unlabelled, num_samples_expectation=16, std_y = 0.1):
+    def unlabelled_objective(self, x_context_unlabelled, y_context_unlabelled, x_target_unlabelled, y_target_unlabelled, num_samples_expectation=16, std_y = 0.1, parallel=False):
         """ Evaluate the unlabelled objective, by marginalizing over the class latent variable
 
         Args:
@@ -163,6 +163,7 @@ class NP(nn.Module):
             y_target_unlabelled (tensor): y values of the target points (batch,num_target,y_dim)
             num_samples_expectation (int): number of samples for the monte carlo approximation of the expectation of the reconstruction loss
             std_y (int), optional: standard deviation of the likelihood (default 0.1)
+            summing (bool), optional: whether the marginalization should be done in parallel or not (parallel is faster but takes more GPU memory)
         Returns:
             (tensor): value of the unlabelled objective
         """
@@ -177,10 +178,17 @@ class NP(nn.Module):
         batch_size = r.shape[0]
         list_classes = []
         U = 0
-        for i in range(self.num_classes):
-            classes = torch.ones(batch_size) * i
+        if parallel:
+            classes = torch.ones(batch_size, self.num_classes, 1)
+            for i in range(self.num_classes):
+                classes[:,i,:] = classes[:,i,:] * i
             L = self.labelled_objective(x_context_unlabelled,y_context_unlabelled,x_target_unlabelled,y_target_unlabelled,classes,num_samples_expectation,std_y,r=r)
-            U += probs[:,i] * L
+            
+        else:
+            for i in range(self.num_classes):
+                classes = torch.ones(batch_size) * i
+                L = self.labelled_objective(x_context_unlabelled,y_context_unlabelled,x_target_unlabelled,y_target_unlabelled,classes,num_samples_expectation,std_y,r=r)
+                U += probs[:,i] * L
         H = -torch.sum(probs * torch.log(probs), dim=1) # entropy
         U += H
 
@@ -209,6 +217,15 @@ class NP(nn.Module):
         # one hot encoding of the class labels
         one_hot = torch.nn.functional.one_hot(class_labels.type(torch.int64), num_classes=self.num_classes).to(r.device)
 
+        # if running the marginalization over classes in parallel extend the representation
+        if one_hot[:-1].shape != r[:-1].shape:
+            r = torch.unsqueeze(dim=1)
+            r = torch.repeat(1,self.num_classes,1)
+            x_target_labelled = torch.unsqueeze(x_target_labelled,dim=1)
+            x_target_labelled = x_target_labelled.repeat(1,self.num_classes,1,1)
+            y_target_unlabelled = torch.unsqueeze(y_target_unlabelled ,dim=1)
+            y_target_unlabelled = y_target_labelled.repeat(1,self.num_classes,1,1)
+
         # get the parameter of the distribution over the continuous latent variables
         mean_latent, std_latent = self.latent_network(r, one_hot)
 
@@ -216,8 +233,8 @@ class NP(nn.Module):
         try:
             posterior = Normal(loc=mean_latent, scale=std_latent)
         except ValueError:
+            print('loc',std_latent)
             print('scale',scale)
-            print('loc',loc)
             posterior = Normal(loc=mean_latent, scale=std_latent)
 
         kl = kl_divergence(posterior,self.prior)
@@ -235,7 +252,7 @@ class NP(nn.Module):
         y_target_unlabelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(y_target_labelled,dim=1)], dim=1)
         likelihood = gaussian_logpdf(y_target_unlabelled_repeated, output, std_y, 'samples_mean')
 
-        return likelihood - kl.sum(dim=1)
+        return likelihood - kl.sum(dim=-1)
 
 class Encoder(nn.Module):
     """Encoder used for standard NP model.
