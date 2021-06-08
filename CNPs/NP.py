@@ -1,6 +1,7 @@
 # Some parts of this code are taken from https://github.com/cambridge-mlg/convcnp.git
 
 import torch
+import time
 from torch import nn
 from torch.distributions import Categorical, Normal
 from torch.distributions.kl import kl_divergence
@@ -54,7 +55,7 @@ class NP(nn.Module):
         dist = Categorical(probs)
         sampled_classes = dist.sample((num_samples,))
         sampled_classes = sampled_classes.reshape(-1)
-        one_hot = torch.nn.functional.one_hot(sampled_classes, num_classes=self.num_classes)
+        one_hot = torch.nn.functional.one_hot(sampled_classes, num_classes=self.num_classes).to(r.device)
 
         # continuous latent variable
         mean, std = self.latent_network(torch.cat(num_samples * [r], dim = 0),one_hot)
@@ -69,6 +70,17 @@ class NP(nn.Module):
 
     def joint_train_step(self,x_context,y_context,x_target,target_label,y_target,opt,alpha,num_samples_expectation=16, std_y=0.1):
 
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation,std_y)
+
+        # Optimization
+        obj.backward()
+        opt.step()
+        opt.zero_grad()
+
+        return obj.item(), sup_loss, unsup_loss, accuracy, total
+
+    def joint_loss(self,x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation=16, std_y=0.1):
+
         # split into labelled and unlabelled
         labelled_indices = target_label != -1
         unlabelled_indices = torch.logical_not(labelled_indices)
@@ -78,20 +90,26 @@ class NP(nn.Module):
             all_unlabelled = True
         else:
             all_unlabelled = False
+        if torch.all(labelled_indices):
+            all_labelled = True
+        else:
+            all_labelled = False
 
-        # split to obtain the unlabelled samples
-        x_context_unlabelled = x_context[unlabelled_indices]
-        y_context_unlabelled = y_context[unlabelled_indices]
-        x_target_unlabelled = x_target[unlabelled_indices]
-        y_target_unlabelled = y_target[unlabelled_indices]
+        if not(all_labelled):
+            # split to obtain the unlabelled samples
+            x_context_unlabelled = x_context[unlabelled_indices]
+            y_context_unlabelled = y_context[unlabelled_indices]
+            x_target_unlabelled = x_target[unlabelled_indices]
+            y_target_unlabelled = y_target[unlabelled_indices]
 
-        # unlabelled objective
-        U = self.unlabelled_objective(x_context_unlabelled, y_context_unlabelled, x_target_unlabelled,
-                                      y_target_unlabelled, num_samples_expectation, std_y)
+            # unlabelled objective
+            U = self.unlabelled_objective(x_context_unlabelled, y_context_unlabelled, x_target_unlabelled,
+                                        y_target_unlabelled, num_samples_expectation, std_y)
 
         # general objective
-        J = torch.mean(U)
-        unsup_loss = J.item()
+        J = (torch.mean(U) if not(all_labelled) else 0)
+        if not(all_labelled):
+            unsup_loss = -J.item()
 
         # obtain the objective and classification loss for labelled samples
         if not(all_unlabelled):
@@ -107,7 +125,7 @@ class NP(nn.Module):
 
             # update the general loss
             J = J + torch.mean(L)
-            unusup_loss = J.item()
+            unsup_loss = -J.item()
 
             # classification loss
             r = self.encoder(x_context_labelled,y_context_labelled)
@@ -133,13 +151,7 @@ class NP(nn.Module):
         # loss to maximize
         obj = -J
 
-        # Optimization
-        obj.backward()
-        opt.step()
-        opt.zero_grad()
-
-        return obj.item(), sup_loss, unsup_loss, accuracy, total
-
+        return obj, sup_loss, unsup_loss, accuracy, total
 
     def unlabelled_objective(self, x_context_unlabelled, y_context_unlabelled, x_target_unlabelled, y_target_unlabelled, num_samples_expectation=16, std_y = 0.1):
         """ Evaluate the unlabelled objective, by marginalizing over the class latent variable
@@ -170,7 +182,7 @@ class NP(nn.Module):
             L = self.labelled_objective(x_context_unlabelled,y_context_unlabelled,x_target_unlabelled,y_target_unlabelled,classes,num_samples_expectation,std_y,r=r)
             U += probs[:,i] * L
         H = -torch.sum(probs * torch.log(probs), dim=1) # entropy
-        U += - H
+        U += H
 
         return U
 
@@ -195,13 +207,19 @@ class NP(nn.Module):
             r = self.encoder(x_context_labelled,y_context_labelled)
 
         # one hot encoding of the class labels
-        one_hot = torch.nn.functional.one_hot(class_labels.type(torch.int64), num_classes=self.num_classes)
+        one_hot = torch.nn.functional.one_hot(class_labels.type(torch.int64), num_classes=self.num_classes).to(r.device)
 
         # get the parameter of the distribution over the continuous latent variables
         mean_latent, std_latent = self.latent_network(r, one_hot)
 
         # compute the KL divergence
-        posterior = Normal(loc=mean_latent, scale=std_latent)
+        try:
+            posterior = Normal(loc=mean_latent, scale=std_latent)
+        except ValueError:
+            print('scale',scale)
+            print('loc',loc)
+            posterior = Normal(loc=mean_latent, scale=std_latent)
+
         kl = kl_divergence(posterior,self.prior)
 
         # sample from the contiuous latent distribution
@@ -215,7 +233,7 @@ class NP(nn.Module):
 
         # compute the likelihood
         y_target_unlabelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(y_target_labelled,dim=1)], dim=1)
-        likelihood = -gaussian_logpdf(y_target_unlabelled_repeated, output, std_y, 'samples_mean')
+        likelihood = gaussian_logpdf(y_target_unlabelled_repeated, output, std_y, 'samples_mean')
 
         return likelihood - kl.sum(dim=1)
 

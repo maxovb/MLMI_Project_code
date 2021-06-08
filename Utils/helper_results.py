@@ -99,7 +99,7 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot):
     plt.ylabel("Loss",fontsize=15)
     plt.savefig(loss_dir_plot)
 
-def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None):
+def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False):
 
     # number of images to show per class
     num_img_per_class = 4 # true image, context image, predicted mean, predicted std
@@ -145,21 +145,33 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         data = image.unsqueeze(0) # add the batch dimension
         if convolutional:
             mask, context_img = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
-            mean, std = model(mask,context_img)
-            mean = mean.detach().cpu().numpy()
-            std = std.detach().cpu().numpy()
+            if not(variational):
+                mean, std = model(mask,context_img)
+                mean = mean.detach().cpu().numpy()
+                std = std.detach().cpu().numpy()
+                img1, img2 = mean, std
+            else:
+                sample1 = model(mask,context_img).detach().cpu().numpy()
+                sample2 = model(mask,context_img).detach().cpu().numpy()
+                img1, img2 = sample1, sample2
             context_img = context_points_image_from_mask(mask, context_img)
         else:
             x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
-            mean,std = model(x_context,y_context,x_target)
-            mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
-            std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
+            if not(variational):
+                mean,std = model(x_context,y_context,x_target)
+                mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
+                img1, img2 = mean, std
+            else:
+                sample1 = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                sample2 = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                img1, img2 = sample1, sample2
             context_img = format_context_points_image(x_context,y_context,img_height,img_width)
 
         ax[row,col].imshow(data[0].permute(1,2,0).detach().cpu().numpy())
         ax[row+1,col].imshow(context_img[0])
-        ax[row+2,col].imshow(mean[0])
-        ax[row+3,col].imshow(std[0])
+        ax[row+2,col].imshow(img1[0]) # mean for CNP and sample 1 for NP
+        ax[row+3,col].imshow(img1[0]) # std for CNP and sample 1 for NP
         row += num_img_per_class
         if row >= num_rows:
             row = 0

@@ -287,7 +287,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
     return avg_train_loss_per_epoch, avg_validation_loss_per_epoch
 
 
-def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data = None, validation_joint_loss_dir_txt = "", validation_unsup_loss_dir_txt = "", validation_accuracy_dir_txt = "", semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), l_sup=10, l_unsup=1, alpha=None,num_samples_expectation=None, std_y=None):
+def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data = None, validation_joint_loss_dir_txt = "", validation_unsup_loss_dir_txt = "", validation_accuracy_dir_txt = "", visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), l_sup=10, l_unsup=1, alpha=None,num_samples_expectation=None, std_y=None):
 
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
 
@@ -395,21 +395,23 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                                                                                convolutional=convolutional,
                                                                                semantic_blocks=semantic_blocks,
                                                                                device=device)
-                    output_logit, output_probs, mean, std = model(x_context, y_context, x_target, joint=True)
-
-                    # get the losses
-                    joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit, target, mean, std, y_context,l_sup=l_sup, l_unsup=l_unsup)
-
-                joint_loss, unsup_loss = joint_loss.item(), unsup_loss.item()
-
-                # return the accuracy as well
-                _, predicted = torch.max(output_probs, dim=1)
-                total = (target != -1).sum().item()
-                if total != 0:
-                    num_correct = ((predicted == target).sum()).item()
-                else:
-                    num_correct = 0
-
+                    if not(variational):
+                        output_logit, output_probs, mean, std = model(x_context, y_context, x_target, joint=True)
+                        # return the accuracy as well
+                        _, predicted = torch.max(output_probs, dim=1)
+                        total = (target != -1).sum().item()
+                        if total != 0:
+                            num_correct = ((predicted == target).sum()).item()
+                        else:
+                            num_correct = 0
+                        # get the losses
+                        joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit, target, mean, std, y_context,l_sup=l_sup, l_unsup=l_unsup)
+                        joint_loss, unsup_loss = joint_loss.item(), unsup_loss.item()
+                    else:
+                        obj, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context,y_context,x_target,target,y_target,alpha,num_samples_expectation,std_y)
+                        joint_loss = obj.item()
+                        num_correct = accuracy * total
+        
                 validation_losses[0].append(joint_loss)
                 validation_losses[1].append(unsup_loss)
                 validation_num_correct.append(num_correct)
@@ -453,6 +455,29 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]
                 dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt]
                 validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write = write_list_to_files_and_reset(values, dirs)
+
+                if visualisation_dir:
+                    # get the output directory
+                    for num_context_points in [10,100,img_height * img_width]:
+                        visualisation_dir = visualisation_dir.copy()
+                        visualisation_dir[5] = str(epoch_start + i + 1)
+                        visualisation_dir[-2] = str(num_context_points)
+                        img_output_dir = "".join(visualisation_dir)
+
+                        # create directories if it doesn't exist yet
+                        dir_to_create = "".join(visualisation_dir[:3])
+                        os.makedirs(dir_to_create, exist_ok=True)
+                        if num_context_points == img_height * img_width:
+                            qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
+                                                          device=device,
+                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          semantic_blocks=["random"], variational=variational)
+                        else:
+                            qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
+                                                          device=device,
+                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          semantic_blocks=semantic_blocks, variational=variational)
+
 
         if n_best_checkpoint:
             pass
