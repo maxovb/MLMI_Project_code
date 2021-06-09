@@ -41,7 +41,7 @@ if __name__ == "__main__":
     if model_name in ["NP_UG"]:
         variational = True
         std_y = 0.1
-        num_samples_expectation = 16
+        num_samples_expectation = 1
         parallel = True
 
     print(model_name, model_size)
@@ -64,10 +64,10 @@ if __name__ == "__main__":
     l_unsup = 1
     alpha = (60000 * (1-validation_split))/num_samples
 
-    batch_size = 8
-    learning_rate = 1e-2
-    epochs = 10
-    save_freq = 1
+    batch_size = 16
+    learning_rate = 1e-4
+    epochs = 400
+    save_freq = 20
 
     # load the supervised set
     train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)

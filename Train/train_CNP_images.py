@@ -330,6 +330,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
 
             target = target.to(device)
+            # TODO: add variational conv
             if convolutional:
                 mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
                                                     semantic_blocks=semantic_blocks, device=device)
@@ -381,6 +382,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             validation_totals = []
             for batch_idx, (data, target) in enumerate(validation_data):
                 target = target.to(device)
+                # TODO: add variational conv
                 if convolutional:
                     mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
                                                         semantic_blocks=semantic_blocks, device=device)

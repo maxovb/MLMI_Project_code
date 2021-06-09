@@ -210,7 +210,7 @@ class NP(nn.Module):
             Returns:
                 (tensor): value of the labelled objective
             """
-
+        r_orig = r
         if r == None:
             r = self.encoder(x_context_labelled,y_context_labelled)
 
@@ -233,8 +233,28 @@ class NP(nn.Module):
         try:
             posterior = Normal(loc=mean_latent, scale=std_latent)
         except ValueError:
-            print('loc',std_latent)
-            print('scale',scale)
+            with open("error.txt","w") as f:
+                f.write("-------------- x_context_labelled ------------------")
+                f.write(str(x_context_labelled))
+                f.write("\n")
+                f.write("-------------- y_context_labelled ------------------")
+                f.write(str(y_context_labelled))
+                f.write("\n")
+                f.write("-------------- r_orig ------------------")
+                f.write(str(r_orig))
+                f.write("\n")
+                f.write("-------------- r ------------------")
+                f.write(str(r))
+                f.write("\n")
+                f.write("-------------- one_hot ------------------")
+                f.write(str(one_hot))
+                f.write("\n")
+                f.write("-------------- loc ------------------")
+                f.write(str(mean_latent))
+                f.write("\n")
+                f.write("-------------- scale ------------------")
+                f.write(str(std_latent))
+                f.write("\n")
             posterior = Normal(loc=mean_latent, scale=std_latent)
 
         kl = kl_divergence(posterior,self.prior)
