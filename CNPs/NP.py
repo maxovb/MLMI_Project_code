@@ -148,7 +148,7 @@ class NP(nn.Module):
             total = 0
             accuracy = 0
 
-        # loss to maximize
+        # loss to minimize
         obj = -J
 
         return obj, sup_loss, unsup_loss, accuracy, total
@@ -183,6 +183,7 @@ class NP(nn.Module):
             for i in range(self.num_classes):
                 classes[:,i] = classes[:,i] * i
             L = self.labelled_objective(x_context_unlabelled,y_context_unlabelled,x_target_unlabelled,y_target_unlabelled,classes,num_samples_expectation,std_y,r=r)
+            U += torch.sum(probs * L,dim=-1)
             
         else:
             for i in range(self.num_classes):
@@ -481,9 +482,11 @@ if __name__ == "__main__":
     num_samples = 10
     opt = torch.optim.Adam(model.parameters(),1e-4,weight_decay=1e-5)
     alpha = 0.1
-    num_samples_expectation = 16
+    num_samples_expectation = 2
+    parallel = True
+    std_y = 0.1
     J = model.joint_train_step(x_context,y_context,x_target,target_label,y_target,opt,alpha,num_samples_expectation)
-
+    J = model.joint_loss(x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation=16,std_y=std_y,parallel=parallel)
 
 
 
