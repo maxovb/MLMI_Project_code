@@ -393,6 +393,18 @@ class LatentNetwork(nn.Module):
         parameters = self.latent_embedding(x)
         mean, log_std = torch.split(parameters,self.latent_dim//2,dim=-1)
         std = torch.exp(log_std)
+        # TODO: remove this (debugging)
+        if torch.isnan(mean).any() or torch.isnan(std).any():
+            with open("tracking.txt","a+") as f:
+                f.write("------------ x -----------")
+                f.write("x " + str(x))
+                f.write("---------- mean ----------")
+                f.write("mean " + str(mean))
+                f.write("------- log_std ----------")
+                f.write("log_std " + str(log_std))
+                f.write("----------- std ----------")
+                f.write("std " + str(std))
+
         return mean, std
 
 class Decoder(nn.Module):
