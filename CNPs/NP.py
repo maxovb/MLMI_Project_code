@@ -81,6 +81,9 @@ class NP(nn.Module):
 
     def joint_loss(self,x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation=16, std_y=0.1, parallel=False):
 
+        # obtain the batch size
+        batch_size = x_context.shape[0]
+
         # split into labelled and unlabelled
         labelled_indices = target_label != -1
         unlabelled_indices = torch.logical_not(labelled_indices)
@@ -94,6 +97,9 @@ class NP(nn.Module):
             all_labelled = True
         else:
             all_labelled = False
+        
+        # general objective
+        J = 0
 
         if not(all_labelled):
             # split to obtain the unlabelled samples
@@ -102,14 +108,16 @@ class NP(nn.Module):
             x_target_unlabelled = x_target[unlabelled_indices]
             y_target_unlabelled = y_target[unlabelled_indices]
 
+            # unlabelled batch size
+            batch_size_unlabelled = x_context_unlabelled.shape[0]
+
             # unlabelled objective
             U = self.unlabelled_objective(x_context_unlabelled, y_context_unlabelled, x_target_unlabelled,
                                         y_target_unlabelled, num_samples_expectation, std_y, parallel)
 
-        # general objective
-        J = (torch.mean(U) if not(all_labelled) else 0)
-        if not(all_labelled):
-            unsup_loss = -J.item()
+            # general objective
+            J += torch.sum(U) 
+            unsup_loss = -J.item()/batch_size_unlabelled
 
         # obtain the objective and classification loss for labelled samples
         if not(all_unlabelled):
@@ -119,22 +127,25 @@ class NP(nn.Module):
             y_target_labelled = y_target[labelled_indices]
             target_labelled_only = target_label[labelled_indices]
 
+            # labelled batch size
+            batch_size_labelled = x_context_labelled.shape[0]
+
             # labelled objective
             L = self.labelled_objective(x_context_labelled, y_context_labelled, x_target_labelled, y_target_labelled,
                                         target_labelled_only, num_samples_expectation, std_y)
-
+            
             # update the general loss
-            J = J + torch.mean(L)
-            unsup_loss = -J.item()
+            J = J + torch.sum(L)
+            unsup_loss = -J.item()/(batch_size)
 
             # classification loss
             r = self.encoder(x_context_labelled,y_context_labelled)
             logits, probs = self.classifier(r)
-            criterion = nn.CrossEntropyLoss()
+            criterion = nn.CrossEntropyLoss(reduction="sum")
             classification_loss = alpha * criterion(logits,target_labelled_only.type(torch.long))
-            J = J - alpha * criterion(logits,target_labelled_only.type(torch.long))
+            J = J - classification_loss
 
-            sup_loss = torch.mean(alpha * criterion(logits,target_labelled_only.type(torch.long))).item()
+            sup_loss = classification_loss.item()/batch_size_labelled
 
             # return the accuracy as well
             _, predicted = torch.max(probs, dim=1)
@@ -149,7 +160,7 @@ class NP(nn.Module):
             accuracy = 0
 
         # loss to minimize
-        obj = -J
+        obj = -J/batch_size
 
         return obj, sup_loss, unsup_loss, accuracy, total
 

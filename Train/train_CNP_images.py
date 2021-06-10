@@ -31,6 +31,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
                            weight_decay=weight_decay)
 
     for i in range(epochs):
+
         print("Epoch:", i+epoch_start+1)
         model.train()
         train_losses = []
@@ -287,7 +288,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
     return avg_train_loss_per_epoch, avg_validation_loss_per_epoch
 
 
-def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data = None, validation_joint_loss_dir_txt = "", validation_unsup_loss_dir_txt = "", validation_accuracy_dir_txt = "", visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), l_sup=10, l_unsup=1, alpha=None,num_samples_expectation=None, std_y=None, parallel=False):
+def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data = None, validation_joint_loss_dir_txt = "", validation_unsup_loss_dir_txt = "", validation_accuracy_dir_txt = "", visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), l_sup=10, l_unsup=1, alpha=None, alpha_validation=None, num_samples_expectation=None, std_y=None, parallel=False):
 
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
 
@@ -316,6 +317,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
     threshold = 1 / 3
 
     for i in range(epochs):
+            
         print("Epoch:", i + epoch_start + 1)
         model.train()
         train_losses = [[],[]]
@@ -410,7 +412,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                         joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit, target, mean, std, y_context,l_sup=l_sup, l_unsup=l_unsup)
                         joint_loss, unsup_loss = joint_loss.item(), unsup_loss.item()
                     else:
-                        obj, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context,y_context,x_target,target,y_target,alpha,num_samples_expectation,std_y)
+                        obj, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context,y_context,x_target,target,y_target,alpha_validation,num_samples_expectation,std_y)
                         joint_loss = obj.item()
                         num_correct = accuracy * total
         
