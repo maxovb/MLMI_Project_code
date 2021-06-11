@@ -58,6 +58,7 @@ class NP(nn.Module):
         one_hot = torch.nn.functional.one_hot(sampled_classes, num_classes=self.num_classes).to(r.device)
 
         # continuous latent variable
+        # TODO: fix the dimension here, check that samples should not be on another dimension
         mean, std = self.latent_network(torch.cat(num_samples * [r], dim = 0),one_hot)
 
         # sample from the continuous latent
@@ -181,13 +182,12 @@ class NP(nn.Module):
 
         # encoder
         r = self.encoder(x_context_unlabelled, y_context_unlabelled)
-
+    
         # classifier
         logits, probs = self.classifier(r)
 
         # propagate with all classes
         batch_size = r.shape[0]
-        list_classes = []
         U = 0
         if parallel:
             classes = torch.ones((batch_size, self.num_classes),device=r.device)
@@ -323,6 +323,17 @@ class Encoder(nn.Module):
         x = self.pre_pooling(x)
         r = torch.mean(x, dim=-2, keepdim=False)
 
+        # TODO: remove this (debugging)
+        if torch.isnan(r).any():
+            with open("tracking.txt","a+") as f:
+                f.write("------------ pre_layers -----------")
+                f.write("pre_layers " + str(torch.cat((x_context, y_context), dim=-1)))
+                f.write("------------ pre_mean -----------")
+                f.write("pre_mean " + str(x))
+                f.write("---------- r----------")
+                f.write("r " + str(r))
+
+
         return r
 
 class Classifier(nn.Module):
@@ -393,17 +404,6 @@ class LatentNetwork(nn.Module):
         parameters = self.latent_embedding(x)
         mean, log_std = torch.split(parameters,self.latent_dim//2,dim=-1)
         std = torch.exp(log_std)
-        # TODO: remove this (debugging)
-        if torch.isnan(mean).any() or torch.isnan(std).any():
-            with open("tracking.txt","a+") as f:
-                f.write("------------ x -----------")
-                f.write("x " + str(x))
-                f.write("---------- mean ----------")
-                f.write("mean " + str(mean))
-                f.write("------- log_std ----------")
-                f.write("log_std " + str(log_std))
-                f.write("----------- std ----------")
-                f.write("std " + str(std))
 
         return mean, std
 

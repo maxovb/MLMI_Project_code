@@ -48,11 +48,11 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = False
+    load = True
     save = False
     evaluate = True
     if load:
-        epoch_start = 100 # which epoch to start from
+        epoch_start = 80 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -62,12 +62,12 @@ if __name__ == "__main__":
     # hyper-parameters
     l_sup = 1000 * (60000 * (1-validation_split))/num_samples
     l_unsup = 1
-    alpha = 789 * (60000 * (1-validation_split))/num_samples
-    alpha_validation = 789
+    alpha = 1 * (60000 * (1-validation_split))/num_samples
+    alpha_validation = 1
 
     batch_size = 64
-    learning_rate = 1e-3
-    epochs = 400
+    learning_rate = 1e-4
+    epochs = 300
     save_freq = 20
 
     # load the supervised set
