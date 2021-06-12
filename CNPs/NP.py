@@ -136,7 +136,7 @@ class NP(nn.Module):
                                         target_labelled_only, num_samples_expectation, std_y)
             
             # update the general loss
-            J = J + torch.sum(L)
+            J += torch.sum(L)
             unsup_loss = -J.item()/(batch_size)
 
             # classification loss
@@ -203,7 +203,6 @@ class NP(nn.Module):
                 U += probs[:,i] * L
         H = -torch.sum(probs * torch.log(probs), dim=1) # entropy
         U += H
-
         return U
 
 
@@ -222,7 +221,6 @@ class NP(nn.Module):
             Returns:
                 (tensor): value of the labelled objective
             """
-        r_orig = r
         if r == None:
             r = self.encoder(x_context_labelled,y_context_labelled)
 
@@ -242,33 +240,7 @@ class NP(nn.Module):
         mean_latent, std_latent = self.latent_network(r, one_hot)
 
         # compute the KL divergence
-        try:
-            posterior = Normal(loc=mean_latent, scale=std_latent)
-        except ValueError:
-            with open("error.txt","w") as f:
-                f.write("-------------- x_context_labelled ------------------")
-                f.write(str(x_context_labelled))
-                f.write("\n")
-                f.write("-------------- y_context_labelled ------------------")
-                f.write(str(y_context_labelled))
-                f.write("\n")
-                f.write("-------------- r_orig ------------------")
-                f.write(str(r_orig))
-                f.write("\n")
-                f.write("-------------- r ------------------")
-                f.write(str(r))
-                f.write("\n")
-                f.write("-------------- one_hot ------------------")
-                f.write(str(one_hot))
-                f.write("\n")
-                f.write("-------------- loc ------------------")
-                f.write(str(mean_latent))
-                f.write("\n")
-                f.write("-------------- scale ------------------")
-                f.write(str(std_latent))
-                f.write("\n")
-            posterior = Normal(loc=mean_latent, scale=std_latent)
-
+        posterior = Normal(loc=mean_latent, scale=std_latent)
         kl = kl_divergence(posterior,self.prior)
 
         # sample from the contiuous latent distribution
@@ -322,18 +294,7 @@ class Encoder(nn.Module):
         x = torch.cat((x_context, y_context), dim=-1)
         x = self.pre_pooling(x)
         r = torch.mean(x, dim=-2, keepdim=False)
-
-        # TODO: remove this (debugging)
-        if torch.isnan(r).any():
-            with open("tracking.txt","a+") as f:
-                f.write("------------ pre_layers -----------")
-                f.write("pre_layers " + str(torch.cat((x_context, y_context), dim=-1)))
-                f.write("------------ pre_mean -----------")
-                f.write("pre_mean " + str(x))
-                f.write("---------- r----------")
-                f.write("r " + str(r))
-
-
+        
         return r
 
 class Classifier(nn.Module):
