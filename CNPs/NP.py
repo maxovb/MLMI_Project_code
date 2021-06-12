@@ -21,10 +21,11 @@ class NP(nn.Module):
         prior (string), optional: type of prior used on the latent variables
     """
 
-    def __init__(self, encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths, prior="UnitGaussian"):
+    def __init__(self, encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths,
+                 prior="UnitGaussian"):
         super(NP, self).__init__()
         self.num_classes = classifier_layer_widths[-1]
-        self.latent_dim = latent_network_layer_widths[-1]//2
+        self.latent_dim = latent_network_layer_widths[-1] // 2
 
         self.encoder = Encoder(encoder_layer_widths)
         self.classifier = Classifier(classifier_layer_widths)
@@ -33,7 +34,7 @@ class NP(nn.Module):
         self.decoder = Decoder(decoder_layer_widths, self.latent_dim + self.num_classes)
 
         if prior == "UnitGaussian":
-            self.prior = Normal(loc=torch.zeros(self.latent_dim),scale=torch.ones(self.latent_dim))
+            self.prior = Normal(loc=torch.zeros(self.latent_dim), scale=torch.ones(self.latent_dim))
 
     def forward(self, x_context, y_context, x_target, num_samples=1):
         """Forward pass through the NP
@@ -48,7 +49,7 @@ class NP(nn.Module):
                 """
 
         # encoder
-        r = self.encoder(x_context,y_context)
+        r = self.encoder(x_context, y_context)
 
         # class latent variable
         logits, probs = self.classifier(r)
@@ -59,19 +60,22 @@ class NP(nn.Module):
 
         # continuous latent variable
         # TODO: fix the dimension here, check that samples should not be on another dimension
-        mean, std = self.latent_network(torch.cat(num_samples * [r], dim = 0),one_hot)
+        mean, std = self.latent_network(torch.cat(num_samples * [r], dim=0), one_hot)
 
         # sample from the continuous latent
         z = self.sampler(mean, std)
 
         # output
-        y_prediction = self.decoder(torch.cat(num_samples * [x_target],dim=0), one_hot, z)
+        y_prediction = self.decoder(torch.cat(num_samples * [x_target], dim=0), one_hot, z)
 
         return y_prediction
 
-    def joint_train_step(self,x_context,y_context,x_target,target_label,y_target,opt,alpha,num_samples_expectation=16, std_y=0.1, parallel=False):
+    def joint_train_step(self, x_context, y_context, x_target, target_label, y_target, opt, alpha,
+                         num_samples_expectation=16, std_y=0.1, parallel=False):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation,std_y,parallel)
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context, y_context, x_target, target_label,
+                                                                     y_target, alpha, num_samples_expectation, std_y,
+                                                                     parallel)
 
         # Optimization
         obj.backward()
@@ -80,7 +84,8 @@ class NP(nn.Module):
 
         return obj.item(), sup_loss, unsup_loss, accuracy, total
 
-    def joint_loss(self,x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation=16, std_y=0.1, parallel=False):
+    def joint_loss(self, x_context, y_context, x_target, target_label, y_target, alpha, num_samples_expectation=16,
+                   std_y=0.1, parallel=False):
 
         # obtain the batch size
         batch_size = x_context.shape[0]
@@ -98,11 +103,11 @@ class NP(nn.Module):
             all_labelled = True
         else:
             all_labelled = False
-        
+
         # general objective
         J = 0
 
-        if not(all_labelled):
+        if not (all_labelled):
             # split to obtain the unlabelled samples
             x_context_unlabelled = x_context[unlabelled_indices]
             y_context_unlabelled = y_context[unlabelled_indices]
@@ -114,14 +119,14 @@ class NP(nn.Module):
 
             # unlabelled objective
             U = self.unlabelled_objective(x_context_unlabelled, y_context_unlabelled, x_target_unlabelled,
-                                        y_target_unlabelled, num_samples_expectation, std_y, parallel)
+                                          y_target_unlabelled, num_samples_expectation, std_y, parallel)
 
             # general objective
-            J += torch.sum(U) 
-            unsup_loss = -J.item()/batch_size_unlabelled
+            J += torch.sum(U)
+            unsup_loss = -J.item() / batch_size_unlabelled
 
         # obtain the objective and classification loss for labelled samples
-        if not(all_unlabelled):
+        if not (all_unlabelled):
             x_context_labelled = x_context[labelled_indices]
             y_context_labelled = y_context[labelled_indices]
             x_target_labelled = x_target[labelled_indices]
@@ -134,19 +139,19 @@ class NP(nn.Module):
             # labelled objective
             L = self.labelled_objective(x_context_labelled, y_context_labelled, x_target_labelled, y_target_labelled,
                                         target_labelled_only, num_samples_expectation, std_y)
-            
+
             # update the general loss
             J += torch.sum(L)
-            unsup_loss = -J.item()/(batch_size)
+            unsup_loss = -J.item() / (batch_size)
 
             # classification loss
-            r = self.encoder(x_context_labelled,y_context_labelled)
+            r = self.encoder(x_context_labelled, y_context_labelled)
             logits, probs = self.classifier(r)
             criterion = nn.CrossEntropyLoss(reduction="sum")
-            classification_loss = alpha * criterion(logits,target_labelled_only.type(torch.long))
+            classification_loss = alpha * criterion(logits, target_labelled_only.type(torch.long))
             J = J - classification_loss
 
-            sup_loss = classification_loss.item()/batch_size_labelled
+            sup_loss = classification_loss.item() / batch_size_labelled
 
             # return the accuracy as well
             _, predicted = torch.max(probs, dim=1)
@@ -161,11 +166,12 @@ class NP(nn.Module):
             accuracy = 0
 
         # loss to minimize
-        obj = -J/batch_size
+        obj = -J / batch_size
 
         return obj, sup_loss, unsup_loss, accuracy, total
 
-    def unlabelled_objective(self, x_context_unlabelled, y_context_unlabelled, x_target_unlabelled, y_target_unlabelled, num_samples_expectation=16, std_y = 0.1, parallel=False):
+    def unlabelled_objective(self, x_context_unlabelled, y_context_unlabelled, x_target_unlabelled, y_target_unlabelled,
+                             num_samples_expectation=16, std_y=0.1, parallel=False):
         """ Evaluate the unlabelled objective, by marginalizing over the class latent variable
 
         Args:
@@ -182,7 +188,7 @@ class NP(nn.Module):
 
         # encoder
         r = self.encoder(x_context_unlabelled, y_context_unlabelled)
-    
+
         # classifier
         logits, probs = self.classifier(r)
 
@@ -190,23 +196,25 @@ class NP(nn.Module):
         batch_size = r.shape[0]
         U = 0
         if parallel:
-            classes = torch.ones((batch_size, self.num_classes),device=r.device)
+            classes = torch.ones((batch_size, self.num_classes), device=r.device)
             for i in range(self.num_classes):
-                classes[:,i] = classes[:,i] * i
-            L = self.labelled_objective(x_context_unlabelled,y_context_unlabelled,x_target_unlabelled,y_target_unlabelled,classes,num_samples_expectation,std_y,r=r)
-            U += torch.sum(probs * L,dim=-1)
-            
+                classes[:, i] = classes[:, i] * i
+            L = self.labelled_objective(x_context_unlabelled, y_context_unlabelled, x_target_unlabelled,
+                                        y_target_unlabelled, classes, num_samples_expectation, std_y, r=r)
+            U += torch.sum(probs * L, dim=-1)
+
         else:
             for i in range(self.num_classes):
                 classes = torch.ones(batch_size) * i
-                L = self.labelled_objective(x_context_unlabelled,y_context_unlabelled,x_target_unlabelled,y_target_unlabelled,classes,num_samples_expectation,std_y,r=r)
-                U += probs[:,i] * L
-        H = -torch.sum(probs * torch.log(probs), dim=1) # entropy
+                L = self.labelled_objective(x_context_unlabelled, y_context_unlabelled, x_target_unlabelled,
+                                            y_target_unlabelled, classes, num_samples_expectation, std_y, r=r)
+                U += probs[:, i] * L
+        H = -torch.sum(probs * torch.log(probs), dim=1)  # entropy
         U += H
         return U
 
-
-    def labelled_objective(self,x_context_labelled,y_context_labelled,x_target_labelled,y_target_labelled,class_labels,num_samples_expectation,std_y=0.1,r=None):
+    def labelled_objective(self, x_context_labelled, y_context_labelled, x_target_labelled, y_target_labelled,
+                           class_labels, num_samples_expectation, std_y=0.1, r=None):
         """ Evaluate the labelled objective, so with the class label given
 
             Args:
@@ -222,42 +230,46 @@ class NP(nn.Module):
                 (tensor): value of the labelled objective
             """
         if r == None:
-            r = self.encoder(x_context_labelled,y_context_labelled)
+            r = self.encoder(x_context_labelled, y_context_labelled)
 
         # one hot encoding of the class labels
         one_hot = torch.nn.functional.one_hot(class_labels.type(torch.int64), num_classes=self.num_classes).to(r.device)
 
         # if running the marginalization over classes in parallel extend the representation
         if one_hot.shape[:-1] != r.shape[:-1]:
-            r = torch.unsqueeze(r,dim=1)
-            r = r.repeat(1,self.num_classes,1)
-            x_target_labelled = torch.unsqueeze(x_target_labelled,dim=1)
-            x_target_labelled = x_target_labelled.repeat(1,self.num_classes,1,1)
-            y_target_labelled = torch.unsqueeze(y_target_labelled ,dim=1)
-            y_target_labelled = y_target_labelled.repeat(1,self.num_classes,1,1)
+            r = torch.unsqueeze(r, dim=1)
+            r = r.repeat(1, self.num_classes, 1)
+            x_target_labelled = torch.unsqueeze(x_target_labelled, dim=1)
+            x_target_labelled = x_target_labelled.repeat(1, self.num_classes, 1, 1)
+            y_target_labelled = torch.unsqueeze(y_target_labelled, dim=1)
+            y_target_labelled = y_target_labelled.repeat(1, self.num_classes, 1, 1)
 
         # get the parameter of the distribution over the continuous latent variables
         mean_latent, std_latent = self.latent_network(r, one_hot)
 
         # compute the KL divergence
         posterior = Normal(loc=mean_latent, scale=std_latent)
-        kl = kl_divergence(posterior,self.prior)
+        kl = kl_divergence(posterior, self.prior)
 
         # sample from the contiuous latent distribution
-        list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent),dim=-2) for i in range(num_samples_expectation)]
+        list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent), dim=-2) for i in
+                        range(num_samples_expectation)]
         z = torch.cat(list_samples, dim=-2)
 
         # pass through the decoder
-        one_hot_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(one_hot,dim=-2)], dim=-2)
-        x_target_labelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(x_target_labelled,dim=-3)], dim=-3)
+        one_hot_repeated = torch.cat([torch.unsqueeze(one_hot, dim=-2) for x in range(num_samples_expectation)], dim=-2)
+        x_target_labelled_repeated = torch.cat(
+            [torch.unsqueeze(x_target_labelled, dim=-3) for i in range(num_samples_expectation)], dim=-3)
         output = self.decoder(x_target_labelled_repeated, z, one_hot_repeated)
 
         # compute the likelihood
-        y_target_labelled_repeated = torch.cat(num_samples_expectation * [torch.unsqueeze(y_target_labelled,dim=-3)], dim=-3)
+        y_target_labelled_repeated = torch.cat(
+            [torch.unsqueeze(y_target_labelled, dim=-3) for i in range(num_samples_expectation)], dim=-3)
         start_idx_sum = -2
         likelihood = gaussian_logpdf(y_target_labelled_repeated, output, std_y, 'samples_mean', start_idx_sum)
 
         return likelihood - kl.sum(dim=-1)
+
 
 class Encoder(nn.Module):
     """Encoder used for standard NP model.
@@ -266,16 +278,16 @@ class Encoder(nn.Module):
             encoder_layer_widths (list of int): list with the dimensionality of the layers up to the representation r (first entry is input_dim_x+input_dim_y)
     """
 
-    def __init__(self,encoder_layer_widths):
-       super(Encoder,self).__init__()
-       l = len(encoder_layer_widths)
-       h = nn.ModuleList([]) # store the hidden layers as a list
-       for i in range(0,l-1):
-           h.append(nn.Linear(encoder_layer_widths[i],encoder_layer_widths[i+1]))
-           h.append(nn.ReLU())
-       self.pre_pooling = nn.Sequential(*h)
+    def __init__(self, encoder_layer_widths):
+        super(Encoder, self).__init__()
+        l = len(encoder_layer_widths)
+        h = nn.ModuleList([])  # store the hidden layers as a list
+        for i in range(0, l - 1):
+            h.append(nn.Linear(encoder_layer_widths[i], encoder_layer_widths[i + 1]))
+            h.append(nn.ReLU())
+        self.pre_pooling = nn.Sequential(*h)
 
-    def forward(self,x_context,y_context):
+    def forward(self, x_context, y_context):
         """Forward pass through the encoder
 
         Args:
@@ -294,8 +306,9 @@ class Encoder(nn.Module):
         x = torch.cat((x_context, y_context), dim=-1)
         x = self.pre_pooling(x)
         r = torch.mean(x, dim=-2, keepdim=False)
-        
+
         return r
+
 
 class Classifier(nn.Module):
     """ Classifier mapping r to the probabilities for the different classes
@@ -314,7 +327,7 @@ class Classifier(nn.Module):
         self.classifier = nn.Sequential(*h_classifier)
         self.classifier_activation = nn.Softmax(dim=-1)
 
-    def forward(self,r):
+    def forward(self, r):
         """ Forward pass through the classifier
 
         Args:
@@ -336,7 +349,7 @@ class LatentNetwork(nn.Module):
          latent_network_layer_widths (list of int): list with teh dimensionality of the layers form the aggregate r to the continuous latent parameters
     """
 
-    def __init__(self,latent_network_layer_widths):
+    def __init__(self, latent_network_layer_widths):
         super(LatentNetwork, self).__init__()
 
         self.latent_dim = latent_network_layer_widths[-1]
@@ -350,7 +363,7 @@ class LatentNetwork(nn.Module):
                 h_latent.append(nn.ReLU())
         self.latent_embedding = nn.Sequential(*h_latent)
 
-    def forward(self,r_repeated,one_hot):
+    def forward(self, r_repeated, one_hot):
         """ Foward pass through the latent network giving the parametrisation of the distribution over the continuous latent variables
 
         Args:
@@ -361,12 +374,13 @@ class LatentNetwork(nn.Module):
             tensor: parametrization of the distribution of the continuous latent variable (batch * num_samples, 2 * latent_dim_size)
         """
 
-        x = torch.cat((r_repeated,one_hot), dim = -1)
+        x = torch.cat((r_repeated, one_hot), dim=-1)
         parameters = self.latent_embedding(x)
-        mean, log_std = torch.split(parameters,self.latent_dim//2,dim=-1)
+        mean, log_std = torch.split(parameters, self.latent_dim // 2, dim=-1)
         std = torch.exp(log_std)
 
         return mean, std
+
 
 class Decoder(nn.Module):
     """Decoder used for the NP model.
@@ -375,8 +389,9 @@ class Decoder(nn.Module):
             decoder_layer_widths (list of int): list with the dimensionality of the layers (first entry is the dimension input_dim_x)
             laten_dim (int): size of the latent representation (i.e. output of the encoder)
     """
-    def __init__(self,decoder_layer_widths,latent_dim):
-        super(Decoder,self).__init__()
+
+    def __init__(self, decoder_layer_widths, latent_dim):
+        super(Decoder, self).__init__()
         l = len(decoder_layer_widths)
         self.output_dim = decoder_layer_widths[-1]
         h = nn.ModuleList([])  # store the hidden layers as a list
@@ -385,7 +400,7 @@ class Decoder(nn.Module):
                 h.append(nn.Linear(decoder_layer_widths[i] + latent_dim, decoder_layer_widths[i + 1]))
             else:
                 h.append(nn.Linear(decoder_layer_widths[i], decoder_layer_widths[i + 1]))
-            if i != l-2: # no ReLU for the last layer
+            if i != l - 2:  # no ReLU for the last layer
                 h.append(nn.ReLU())
 
         self.post_pooling = nn.Sequential(*h)
@@ -403,7 +418,7 @@ class Decoder(nn.Module):
 
         # Reshape inputs to model.
 
-        latent = torch.cat((one_hot,z),dim=-1)
+        latent = torch.cat((one_hot, z), dim=-1)
         # Repeat the latent once for each input target points.
         if len(latent.shape) == 2:
             num_target = x_target.shape[1]
@@ -424,6 +439,7 @@ class Decoder(nn.Module):
         x = self.post_pooling(x)
 
         return x
+
 
 class GaussianSampler(nn.Module):
     """ Sampler to sample from a Gaussian posterior distribution with the reparametrization trick
@@ -451,27 +467,28 @@ class GaussianSampler(nn.Module):
 if __name__ == "__main__":
     encoder_layer_widths = [3, 128, 128, 128]
     decoder_layer_widths = [2, 128, 128, 128, 1]
-    classifier_layer_widths = [128,128,10]
-    latent_network_layer_widths = [138,128,128]
+    classifier_layer_widths = [128, 128, 10]
+    latent_network_layer_widths = [138, 128, 128]
     prior = "UnitGaussian"
     model = NP(encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths, prior)
-    summary(model,[(10,2),(10,1),(100,2)])
+    summary(model, [(10, 2), (10, 1), (100, 2)])
 
-    x_context = torch.rand((4,8,2))
-    y_context = torch.rand((4,8,1))
-    x_target = torch.rand((4,20,2))
+    x_context = torch.rand((4, 8, 2))
+    y_context = torch.rand((4, 8, 1))
+    x_target = torch.rand((4, 20, 2))
     y_target = torch.rand((4, 20, 1))
     target_label = torch.round(torch.rand(4) * 9).int()
     target_label[:2] = -1
     num_samples = 10
-    opt = torch.optim.Adam(model.parameters(),1e-4,weight_decay=1e-5)
+    opt = torch.optim.Adam(model.parameters(), 1e-4, weight_decay=1e-5)
     alpha = 0.1
     num_samples_expectation = 2
     parallel = True
     std_y = 0.1
-    J = model.joint_train_step(x_context,y_context,x_target,target_label,y_target,opt,alpha,num_samples_expectation)
-    J = model.joint_loss(x_context,y_context,x_target,target_label,y_target,alpha,num_samples_expectation=16,std_y=std_y,parallel=parallel)
-
+    J = model.joint_train_step(x_context, y_context, x_target, target_label, y_target, opt, alpha,
+                               num_samples_expectation)
+    J = model.joint_loss(x_context, y_context, x_target, target_label, y_target, alpha, num_samples_expectation=16,
+                         std_y=std_y, parallel=parallel)
 
 
 

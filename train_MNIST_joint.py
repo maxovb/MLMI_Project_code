@@ -41,7 +41,7 @@ if __name__ == "__main__":
     if model_name in ["NP_UG"]:
         variational = True
         std_y = 0.1
-        num_samples_expectation = 1
+        num_samples_expectation = 2
         parallel = True
 
     print(model_name, model_size)

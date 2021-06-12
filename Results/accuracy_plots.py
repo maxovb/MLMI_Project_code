@@ -56,6 +56,10 @@ def extract_accuracies_from_list_of_files(list_acc_dir_txt):
                     if i == 0:
                         list_num_samples.append(float(sam))
                     accuracies[i].append(float(acc))
+    indices = sorted(range(len(list_num_samples)), key=lambda x: list_num_samples[x])
+    for j in range(len(accuracies)):
+        accuracies[j] = [accuracies[j][i] for i in indices]
+    list_num_samples = [list_num_samples[i] for i in indices]
 
     return accuracies, list_num_samples
 
@@ -187,6 +191,25 @@ if __name__ == "__main__":
                 for x in list_num_samples:
                     labels.append(str(x) + " samples")
                 plot_accuracy_vs_layer_num(accuracies_transposed, list(range(len(accuracies))), acc_dir_plot, labels)
+
+    # Joint training
+    list_acc_dir_txt = []
+    labels = []
+    acc_dir_plot = "figures/accuracies_joint" + ("_semantics" if semantics else "") + ".svg"
+    for model_name in ["UNetCNP_restrained"]:
+        for model_size in ["LR"]:
+            for pooling in ["average"]:
+                if model_name in ["UNetCNP_restrained"]:
+                    layer_num = 4
+                accuracies_dir_txt = "../saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") \
+                                     + "accuracies/" + model_name + "_" + model_size + "_" + str(layer_num) + "L" \
+                                     + "_" + pooling + ".txt"
+                list_acc_dir_txt.append(accuracies_dir_txt)
+                labels.append(model_name + " " + model_size + " " + pooling + " " + str(layer_num) + "L")
+    accuracies, list_num_samples = extract_accuracies_from_list_of_files(list_acc_dir_txt)
+    plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels)
+
+
 
 
 
