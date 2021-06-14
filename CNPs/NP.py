@@ -210,7 +210,8 @@ class NP(nn.Module):
                                             y_target_unlabelled, classes, num_samples_expectation, std_y, r=r)
                 U += probs[:, i] * L
         H = -torch.sum(probs * torch.log(probs), dim=1)  # entropy
-        U += H
+        # TODO: uncomment (debugging)
+        #U += H
         return U
 
     def labelled_objective(self, x_context_labelled, y_context_labelled, x_target_labelled, y_target_labelled,
@@ -247,14 +248,17 @@ class NP(nn.Module):
         # get the parameter of the distribution over the continuous latent variables
         mean_latent, std_latent = self.latent_network(r, one_hot)
 
+        # TODO: uncomment and remove last line (debugging)
         # compute the KL divergence
-        posterior = Normal(loc=mean_latent, scale=std_latent)
-        kl = kl_divergence(posterior, self.prior)
+        #posterior = Normal(loc=mean_latent, scale=std_latent)
+        #kl = kl_divergence(posterior, self.prior)
+        kl = 0
 
+        # TODO: uncomment and remove last line (debugging)
         # sample from the contiuous latent distribution
-        list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent), dim=-2) for i in
-                        range(num_samples_expectation)]
-        z = torch.cat(list_samples, dim=-2)
+        #list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent), dim=-2) for i in range(num_samples_expectation)]
+        #z = torch.cat(list_samples, dim=-2)
+        z = torch.unsqueeze(mean_latent, dim=-2)
 
         # pass through the decoder
         one_hot_repeated = torch.cat([torch.unsqueeze(one_hot, dim=-2) for x in range(num_samples_expectation)], dim=-2)
@@ -268,7 +272,8 @@ class NP(nn.Module):
         start_idx_sum = -2
         likelihood = gaussian_logpdf(y_target_labelled_repeated, output, std_y, 'samples_mean', start_idx_sum)
 
-        return likelihood - kl.sum(dim=-1)
+        # TODO: uncomment (debugging)
+        return likelihood #- kl.sum(dim=-1)
 
 
 class Encoder(nn.Module):

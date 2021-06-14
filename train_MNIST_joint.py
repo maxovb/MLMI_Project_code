@@ -41,18 +41,18 @@ if __name__ == "__main__":
     if model_name in ["NP_UG"]:
         variational = True
         std_y = 0.1
-        num_samples_expectation = 2
+        num_samples_expectation = 1
         parallel = True
 
     print(model_name, model_size)
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
-        epoch_start = 80 # which epoch to start from
+        epoch_start = 300 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -84,8 +84,8 @@ if __name__ == "__main__":
         model.to(device)
     else:
         model, convolutional = create_model(model_name)
-        model.prior.loc = model.prior.loc.to(device)
-        model.prior.scale = model.prior.scale.to(device)
+        model.prior.loc = model.prior.loc.to(device) 
+        model.prior.scale = model.prior.scale.to(device) 
 
     # print a summary of the model
     if convolutional:

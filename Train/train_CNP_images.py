@@ -332,6 +332,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
         train_totals = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
+            # TODO: remove this (debugging)
             if batch_idx == 0 and i == 0:
                 x = data
                 y = target
@@ -346,6 +347,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             # TODO: remove this (debugging):
             num_context_points = 784
             target = target.to(device)
+            
             # TODO: add variational conv
             if convolutional:
                 mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
@@ -442,11 +444,13 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             # TODO: remove this (debugging)
             mean = model(x_context,y_context, x_target)
             mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,1))
+            plt.figure()
             plt.imshow(mean[0])
-            plt.savefig("tmp_mean.svg")
+            plt.savefig("tmp/tmp_mean" + str(i) + ".svg")
+            plt.figure()
             context_img = format_context_points_image(x_context,y_context,img_height,img_width)
             plt.imshow(context_img[0])
-            plt.savefig("ctxt.svg")
+            plt.savefig("tmp/tmp_ctxt" + str(i) + ".svg")
 
             epoch_avg_validation_joint_loss = np.array(validation_losses[0]).mean()
             epoch_avg_validation_unsup_loss = np.array(validation_losses[1]).mean()
@@ -497,6 +501,8 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                         # create directories if it doesn't exist yet
                         dir_to_create = "".join(visualisation_dir[:3])
                         os.makedirs(dir_to_create, exist_ok=True)
+                        # TODO: remove this (debugging)
+                        """
                         if num_context_points == img_height * img_width:
                             qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
                                                           device=device,
@@ -507,6 +513,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                                                           device=device,
                                                           save_dir=img_output_dir, convolutional=convolutional,
                                                           semantic_blocks=semantic_blocks, variational=variational)
+                        """
 
 
         if n_best_checkpoint:
