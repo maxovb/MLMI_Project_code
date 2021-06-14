@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torchsummary import summary
-from Utils.helper_loss import gaussian_logpdf
+from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf
 
 class OnTheGridConvCNP(nn.Module):
     """On-the-grid version of the Convolutional Conditional Neural Process
@@ -23,9 +23,15 @@ class OnTheGridConvCNP(nn.Module):
             num_of_filters_top_UNet (int): number of filters for the top UNet layer (doubles all the way down)
             pooling_size (int): pooling size for the UNet
             max_size (int or None): maximum number of features in the UNet
+            is_gmm (bool), optional: whether the predictive distribution is a GMM
+            classifier_layer_widths (list of int): size of the dense layers in the classifier network in the GMM case
+            num_classes (int): number of classes to classify as in the GMM case
+
     """
-    def __init__(self, type_CNN, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_convolutions_per_block, num_dense_layers, num_units_dense_layer, num_residual_blocks = None, num_down_blocks=None, num_of_filters_top_UNet=None, pooling_size=None, max_size = None):
+    def __init__(self, type_CNN, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_convolutions_per_block, num_dense_layers, num_units_dense_layer, num_residual_blocks = None, num_down_blocks=None, num_of_filters_top_UNet=None, pooling_size=None, max_size = None, is_gmm = False, num_classes = None, classifier_layer_widths = None):
         super(OnTheGridConvCNP, self).__init__()
+
+        self.is_gmm = is_gmm
 
         self.encoder = OnTheGridConvCNPEncoder(num_input_channels,num_of_filters,kernel_size_first_convolution)
 
@@ -35,9 +41,12 @@ class OnTheGridConvCNP(nn.Module):
 
         elif type_CNN == "UNet":
             assert num_down_blocks and num_of_filters_top_UNet and pooling_size, "Arguments num_down_blocks, num_of_filters_top_UNet and pooling_size should be passed as integers when using the UNet ConvCNP"
-            self.CNN = OnTheGridConvCNPUNet(num_of_filters_top_UNet, 2 * num_of_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size)
+            self.CNN = OnTheGridConvCNPUNet(num_of_filters_top_UNet, 2 * num_of_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size, is_gmm, classifier_layer_widths, num_classes)
 
-        self.decoder = OnTheGridConvCNPDecoder(num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels)
+        self.decoder = OnTheGridConvCNPDecoder(num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels,is_gmm=is_gmm)
+
+        if self.is_gmm:
+            self.num_classes = num_classes
 
     def forward(self,mask,context_image):
         """Forward pass through the on-the-grid ConvCNP
@@ -50,9 +59,14 @@ class OnTheGridConvCNP(nn.Module):
             tensor: predicted standard deviation for all pixels (batch, img_height, img_width, num_output_channels)
         """
         encoder_output = self.encoder(mask,context_image)
-        x = self.CNN(encoder_output)
-        mean, std = self.decoder(x)
-        return mean, std
+        if not(self.is_gmm):
+            x = self.CNN(encoder_output)
+            mean, std = self.decoder(x)
+            return mean, std
+        else:
+            x, logits, probs = self.CNN(encoder_output)
+            mean, std = self.decoder(x)
+            return mean, std, logits, probs
 
     def loss(self,mean,std,target):
         obj = -gaussian_logpdf(target, mean, std, 'batched_mean')
@@ -68,6 +82,142 @@ class OnTheGridConvCNP(nn.Module):
         opt.zero_grad()
 
         return obj.item() # report the loss as a float
+
+    def joint_train_step(self, mask, context_img, target_label, target_img, opt,alpha=1):
+        # computing the losses
+        if self.is_gmm:
+            obj, sup_loss, unsup_loss, accuracy, total = self.joint_gmm_loss(mask, context_img, target_img, target_label, alpha=alpha)
+        else:
+            raise RuntimeError("For joint training of the ConvCNP, use a GMM type, or otherwise use the classifier version")
+
+        # Optimization
+        obj.backward()
+        opt.step()
+        opt.zero_grad()
+
+        return obj.item(), sup_loss, unsup_loss, accuracy, total
+
+    def joint_gmm_loss(self,mask,context_img,target_img,target_label,alpha=1):
+
+        # obtain the batch size
+        batch_size = mask.shape[0]
+
+        # split into labelled and unlabelled
+        labelled_indices = target_label != -1
+        unlabelled_indices = torch.logical_not(labelled_indices)
+
+        # check if it is a batch where all samples or all labelled or are all unlabelled
+        if torch.all(unlabelled_indices):
+            all_unlabelled = True
+        else:
+            all_unlabelled = False
+        if torch.all(labelled_indices):
+            all_labelled = True
+        else:
+            all_labelled = False
+
+        # general objective
+        J = 0
+
+        if not (all_labelled):
+
+            # split to obtain the unlabelled samples
+            mask_unlabelled = mask[unlabelled_indices]
+            context_img_unlabelled = context_img[unlabelled_indices]
+            target_img_unlabelled = target_img[unlabelled_indices]
+
+            if len(mask_unlabelled.shape) == 3:
+                mask_unlabelled = torch.unsqueeze(mask_unlabelled,dim=1)
+                context_img_unlabelled = torch.unsqueeze(context_img_unlabelled, dim=1)
+                target_img_unlabelled = torch.unsqueeze(target_img_unlabelled, dim=1)
+
+            # unlabelled batch size
+            batch_size_unlabelled = mask.shape[0]
+
+            # calculate the loss
+            unsup_logp = self.unsupervised_gmm_logp(mask_unlabelled,context_img_unlabelled,target_img_unlabelled)
+
+            J += unsup_logp
+            unsup_loss = - unsup_logp.item()/batch_size_unlabelled
+
+        if not (all_unlabelled):
+
+            # split to obtain the unlabelled samples
+            mask_labelled = mask[labelled_indices]
+            context_img_labelled = context_img[labelled_indices]
+            target_img_labelled = target_img[labelled_indices]
+            target_labelled_only = target_label[labelled_indices]
+
+            if len(mask_labelled.shape) == 3:
+                mask_labelled = torch.unsqueeze(mask_labelled,dim=1)
+                context_img_labelled = torch.unsqueeze(context_img_labelled, dim=1)
+                target_img_labelled = torch.unsqueeze(target_img_labelled, dim=1)
+
+            # unlabelled batch size
+            batch_size_labelled = mask.shape[0]
+
+            # calculate the loss
+            unsup_logp, sup_logp, accuracy, total = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only)
+
+            J += unsup_logp
+            unsup_loss = (-J).item()/batch_size
+            J += alpha * sup_logp
+            sup_loss = (-alpha * sup_logp).item() / batch_size_labelled
+
+        else:
+            sup_loss = None
+            total = 0
+            accuracy = 0
+
+        joint_loss = -J
+
+        return joint_loss, sup_loss, unsup_loss, accuracy, total
+
+    def unsupervised_gmm_logp(self,mask,context_img_unlabelled,target_img):
+        mean, std, logits, probs = self(mask,context_img_unlabelled)
+
+        # permute the tensors to have the number of components as the last batch dimension
+        mean = mean.permute(0, 2, 3, 4, 1)
+        std = std.permute(0, 2, 3, 4, 1)
+
+        # repeat the component probabilities to match the shape of the mean and std
+        probs_reshaped = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(probs, dim=(-1)), dim=-1), dim=-1)
+        probs_reshaped = probs_reshaped.repeat(1, 1, mean.shape[1], mean.shape[2], mean.shape[3])
+        probs_reshaped = probs_reshaped.permute(0, 2, 3, 4, 1)
+
+        logp = mixture_of_gaussian_logpdf(target_img,mean,std,probs_reshaped,reduction="sum")
+        return logp
+
+    def supervised_gmm_logp(self,mask,context_img_unlabelled,target_img,target_label):
+
+        # reconstruction loss
+        mean, std, logits, probs = self(mask, context_img_unlabelled)
+
+        # permute the tensors to have the number of components as the last batch dimension
+        mean = mean.permute(0,2,3,4,1)
+        std = std.permute(0,2,3,4,1)
+
+        # repeat the component probabilities to match the shape of the mean and std
+        forced_probs = torch.nn.functional.one_hot(target_label.type(torch.int64), num_classes=self.num_classes)
+        forced_probs_reshaped = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(forced_probs,dim=(-1)),dim=-1),dim=-1)
+        forced_probs_reshaped = forced_probs_reshaped.repeat(1,1,mean.shape[1],mean.shape[2],mean.shape[3])
+        forced_probs_reshaped = forced_probs_reshaped.permute(0,2,3,4,1)
+
+        logp = mixture_of_gaussian_logpdf(target_img, mean, std, forced_probs_reshaped, reduction="sum")
+
+        # classification loss
+        criterion = nn.CrossEntropyLoss(reduction="sum")
+        classification_logp = - criterion(logits, target_label.type(torch.long))
+
+        # compute the accuracy
+        _, predicted = torch.max(probs, dim=1)
+        total = len(target_label)
+        if total != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+
+        return logp, classification_logp, accuracy, total
 
     @property
     def num_params(self):
@@ -161,15 +311,23 @@ class OnTheGridConvCNPUNet(nn.Module):
             num_down_blocks (int): number of blocks until the bottleneck
             num_convolutions_per_block (int): number of convolutional layers per residual blocks in the CNN
             pooling_size (int): size of the maxpooling layers
+            is_gmm (bool): whether the predictive distribution is a GMM
+            classifier_layer_widths (list of int): widht of the classification layers
+            num_classes (int): number of classes to classify as
     """
-    def __init__(self, num_of_filters, num_in_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size=None):
+    def __init__(self, num_of_filters, num_in_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size=None, is_gmm = False, classifier_layer_widths = None, num_classes=None):
         super(OnTheGridConvCNPUNet, self).__init__()
+
+        self.is_gmm = is_gmm
 
         # store some variables
         self.num_down_blocks = num_down_blocks
 
         self.pool = torch.nn.MaxPool2d(pooling_size)
-        self.upsample = torch.nn.Upsample(scale_factor=pooling_size)
+        if not(is_gmm):
+            self.upsample = torch.nn.Upsample(scale_factor=(pooling_size,pooling_size))
+        else:
+            self.upsample = torch.nn.Upsample(scale_factor=(1,pooling_size,pooling_size))
         self.h_down = nn.ModuleList([])
         for i in range(num_down_blocks):
             if i == 0:  # do not use residual blocks for the first block because the number of channel changes
@@ -197,7 +355,7 @@ class OnTheGridConvCNPUNet(nn.Module):
 
         self.h_up = nn.ModuleList([])
         for j in range(num_down_blocks-1,-1,-1):
-            if j == 0: # no skip connection at the bottom
+            if j == 0: # no skip connection at the top
                 if max_size:
                     num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size)
                 else:
@@ -206,10 +364,10 @@ class OnTheGridConvCNPUNet(nn.Module):
                                            is_residual = False))
             else:
                 if max_size:
-                    num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size)
+                    num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size) + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
                     num_out = min((2 ** (j-1)) * num_of_filters, max_size)
                 else:
-                    num_in = (2 ** (j + 1)) * num_of_filters
+                    num_in = (2 ** (j + 1)) * num_of_filters + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
                     num_out = (2 ** (j-1)) * num_of_filters
                 self.h_up.append(ConvBlock(num_in, num_out, kernel_size_CNN,num_convolutions_per_block,
                                            is_residual = False))
@@ -217,6 +375,98 @@ class OnTheGridConvCNPUNet(nn.Module):
         self.connections = nn.ModuleList([])
         for k in range(num_down_blocks+1):
             self.connections.append(torch.nn.Identity())
+
+        if is_gmm:
+            assert num_classes and classifier_layer_widths, "num classes and classifier layers widths should be defined if using the GMM version of the UNetCNP"
+            self.num_classes = num_classes
+
+            h_classifier = nn.ModuleList([])
+            l = len(classifier_layer_widths)
+            for i in range(len(classifier_layer_widths)-1):
+                h_classifier.append(nn.Linear(classifier_layer_widths[i], classifier_layer_widths[i + 1]))
+                if i < l - 2:
+                    h_classifier.append(nn.ReLU())
+            self.classifier = nn.Sequential(*h_classifier)
+            self.classifier_activation = nn.Softmax(dim=-1)
+
+
+    def down(self,input,layers=[]):
+
+        # Down
+        x = input
+        for i in range(self.num_down_blocks):
+            x = self.h_down[i](x)
+            layers.append(x)
+            x = self.pool(x)
+        return x, layers
+
+    def up(self,input,layers=[]):
+        # Up
+        x = input
+        for i in range(self.num_down_blocks):
+            # upsample
+            x = self.upsample(x)
+
+            # pad if necessary and concatenate
+            res = layers[self.num_down_blocks - i - 1]
+            res = self.connections[self.num_down_blocks - i - 1](res)
+            h_diff, w_diff = res.shape[-2] - x.shape[-2], res.shape[-1] - x.shape[-1]
+            x = torch.nn.functional.pad(x, (0, w_diff, 0, h_diff))
+
+            if self.is_gmm:
+                # add the class dimension to the residual connection if GMM type of predictions
+                res = self.expand_repeat_with_all_classes(res)
+
+            x = torch.cat([x, res], dim=-3)
+
+            # reshape to have only one batch dimension if GMM type of network
+            if self.is_gmm:
+                batch_size, num_extra_dim, num_channels, img_height, img_width = x.shape[0], x.shape[1], x.shape[2], x.shape[3], x.shape[4]
+                x = x.view(-1,num_channels, img_height, img_width)
+
+            # feed through conv block
+            x = self.h_up[i](x)
+
+            # reshape to recover the class dimension if GMM type of network
+            if self.is_gmm:
+                num_channels = x.shape[1]
+                x = x.view(batch_size, num_extra_dim, num_channels, img_height, img_width)
+
+            layers.append(x)
+
+        return x, layers
+
+    def classify(self,x):
+        r = torch.mean(x, dim=(-2, -1))
+        logits = self.classifier(r)
+        probs = self.classifier_activation(logits)
+        return logits,probs
+
+    def expand_and_concatenate_with_all_classes(self,x):
+
+        # create the tensor with all classes
+        batch_size, img_height, img_width = x.shape[0], x.shape[2],x.shape[3]
+        classes = torch.ones((batch_size,self.num_classes,img_height,img_width))
+        for i in range(self.num_classes):
+            classes[:, i,:,:] = classes[:, i,:,:] * i
+
+        # one_hot encoding
+        one_hot = torch.nn.functional.one_hot(classes.type(torch.int64), num_classes=self.num_classes)
+        one_hot = one_hot.permute(0,1,4,2,3)
+
+        # repeat x to concatenate to the one_hot encoding
+        x = self.expand_repeat_with_all_classes(x)
+
+        # concatenate x and the class one-hot encoding
+        x = torch.cat([x, one_hot], dim=2)
+
+        return x
+
+    def expand_repeat_with_all_classes(self,x):
+        # repeat x to concatenate to the one_hot encoding
+        repeat_size = (1, self.num_classes, 1, 1, 1)
+        x = torch.unsqueeze(x, dim=1).repeat(repeat_size)
+        return x
 
     def forward(self,input, layer_id=-1):
         """Forward pass through the UNet for the on-the-grid CNN
@@ -227,38 +477,27 @@ class OnTheGridConvCNPUNet(nn.Module):
         Returns:
             tensor: output map of the UNet
         """
-        layers = []
-        #layers.append(input)
-        # Down
-        x = input
-        for i in range(self.num_down_blocks):
-            x = self.h_down[i](x)
-            layers.append(x)
-            x = self.pool(x)
+        x, layers = self.down(input)
 
         # Bottleneck
         x = self.h_bottom(x)
         x = self.connections[self.num_down_blocks](x)
+
+        # classifier if GMM type
+        if self.is_gmm:
+            # classify
+            logits, probs = self.classify(x)
+
+            # expand and concatenate with the possible classes
+            x = self.expand_and_concatenate_with_all_classes(x)
+
         layers.append(x)
 
-        # Up
-        for i in range(self.num_down_blocks):
-
-            # upsample
-            x = self.upsample(x)
-
-            # pad if necessary and concatenate
-            res = layers[self.num_down_blocks - i - 1]
-            res = self.connections[self.num_down_blocks-i-1](res)
-            h_diff, w_diff = res.shape[-2] - x.shape[-2], res.shape[-1] - x.shape[-1]
-            x = torch.nn.functional.pad(x, (0, w_diff, 0, h_diff))
-            x = torch.cat([x, res], dim=1)
-
-            # feed through conv block
-            x = self.h_up[i](x)
-            layers.append(x)
-
-        return layers[layer_id]
+        x, layers= self.up(x,layers)
+        if not(self.is_gmm):
+            return layers[layer_id]
+        else:
+            return layers[layer_id], logits, probs
 
 
 class OnTheGridConvCNPDecoder(nn.Module):
@@ -271,9 +510,10 @@ class OnTheGridConvCNPDecoder(nn.Module):
         num_output_channels (int): number of output channels, i.e. 2 (mean+std) for BW and 3 for RGB
     """
 
-    def __init__(self,num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels):
+    def __init__(self,num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels, is_gmm=False):
         super(OnTheGridConvCNPDecoder, self).__init__()
 
+        self.is_gmm = is_gmm
         self.num_output_channels = num_output_channels
 
         # store the layers as a list
@@ -298,8 +538,28 @@ class OnTheGridConvCNPDecoder(nn.Module):
             tensor: predicted mean for all pixels (batch, img_height, img_width, num_output_channels)
             tensor: predicted standard deviation for all pixels (batch, img_height, img_width, num_output_channels)
         """
-        x = self.dense_network(input)
-        x = x.permute(0,2,3,1)
+        x = input
+
+        # reshape to have only one batch dimension if GMM type of network
+        if self.is_gmm:
+            batch_size, num_extra_dim, num_channels, img_height, img_width = x.shape[0], x.shape[1], x.shape[2], x.shape[3], x.shape[4]
+            x = x.view(-1, num_channels, img_height, img_width)
+
+        # pass through the network
+        x = self.dense_network(x)
+
+        # reshape to recover the class dimension if GMM type of network
+        if self.is_gmm:
+            num_channels = x.shape[1]
+            x = x.view(batch_size, num_extra_dim, num_channels, img_height, img_width)
+
+        if len(x.shape) == 4:
+            x = x.permute(0, 2, 3, 1)
+        elif len(x.shape) == 5:
+            x = x.permute(0, 1, 3, 4, 2)
+        else:
+            raise RuntimeError("x shape at the output of the encoder is invalid: " + str(x.shape))
+
         mean, std = torch.split(x, self.num_output_channels // 2, dim=-1)
         std = 0.01 + 0.99 * nn.functional.softplus(std)
 
@@ -371,15 +631,14 @@ class ConvCNPClassifier(nn.Module):
         criterion = nn.CrossEntropyLoss(reduction=reduction)
         return criterion(output_logit,target_label)
 
-    def joint_loss(self,output_logit,target_label,mean,std,target_image,l_sup=10,l_unsup=1):
+    def joint_loss(self,output_logit,target_label,mean,std,target_image,alpha=10):
         target_label = target_label.detach().clone()
         select_labelled = target_label != -1
         target_label[target_label == -1] = 0
-        sup_loss = select_labelled.float() * l_sup * self.loss(output_logit,target_label, reduction='none')
+        sup_loss = select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none')
         sup_loss = sup_loss.mean()
-        unsup_loss = l_unsup * self.loss_unsup(mean,std,target_image)
+        unsup_loss =  self.loss_unsup(mean,std,target_image)
         return sup_loss + unsup_loss, sup_loss, unsup_loss
-
 
     def train_step(self,mask,context_img,target_label,opt):
         output_logit, output_probs = self.forward(mask,context_img,joint=False)
@@ -400,9 +659,9 @@ class ConvCNPClassifier(nn.Module):
 
         return obj.item(), accuracy, total
 
-    def joint_train_step(self,mask,context_img,target_label,target_image,opt,l_sup=10,l_unsup=1):
+    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1):
         output_logit, output_probs, mean, std = self.forward(mask,context_img,joint=True)
-        obj, sup_loss, unsup_loss = self.joint_loss(output_logit,target_label,mean,std,target_image,l_sup=l_sup,l_unsup=l_unsup)
+        obj, sup_loss, unsup_loss = self.joint_loss(output_logit,target_label,mean,std,target_image,alpha=alpha)
 
         # Optimization
         obj.backward()
@@ -600,6 +859,7 @@ if __name__ == "__main__":
     num_of_filters_top_UNet =  64
     pooling_size = 2
     max_size = 64
+    """
     model = OnTheGridConvCNP(type_CNN=type_CNN,num_input_channels=num_input_channels,num_output_channels=num_output_channels,
                              num_of_filters=num_of_filters,kernel_size_first_convolution=kernel_size_first_convolution,
                              kernel_size_CNN=kernel_size_CNN, num_convolutions_per_block=num_convolutions_per_block,
@@ -607,14 +867,14 @@ if __name__ == "__main__":
                              num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                              num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                              max_size=max_size)
+    
     summary(model, [(1, img_height, img_width), (1, img_height, img_width)])
 
     # model to extract the representations
     layer_id = 6
-    pooling = "max"
+    pooling = "average"
     model_r = ConvCNPExtractRepresentation(model,layer_id,pooling)
     summary(model_r, [(1, img_height, img_width), (1, img_height, img_width)])
-
 
     # Classfication ConvCNP
     dense_layer_widths = [128,64,64,10]
@@ -626,7 +886,30 @@ if __name__ == "__main__":
         param.requires_grad = False
 
     summary(classification_model, [(1, img_height, img_width), (1, img_height, img_width)])
+    """
+    # GMM model
+    is_gmm = True
+    num_classes = 10
+    classifier_layer_widths = [64,64,64,10]
+    gmm_model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
+                             num_output_channels=num_output_channels,
+                             num_of_filters=num_of_filters, kernel_size_first_convolution=kernel_size_first_convolution,
+                             kernel_size_CNN=kernel_size_CNN, num_convolutions_per_block=num_convolutions_per_block,
+                             num_dense_layers=num_dense_layers, num_units_dense_layer=num_units_dense_layers,
+                             num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
+                             num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
+                             max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
+                             num_classes=num_classes)
+    #summary(gmm_model, [(1, img_height, img_width), (1, img_height, img_width)])
+    mask = torch.randn((6, 1, img_height, img_width))
+    context_img = torch.randn((6, 1, img_height, img_width))
+    target_img = torch.randn((6, 1, img_height, img_width))
+    target_label = torch.ones((6,1))
+    out = gmm_model(mask,context_img)
 
+    # define the optimizer
+    opt = torch.optim.Adam(gmm_model.parameters(), 1e-4, weight_decay=1e-5)
+    joint_loss, sup_loss, unsup_loss, accuracy, total = gmm_model.joint_gmm_train_step(mask, context_img, target_img, opt, target_label=target_label, alpha=1)
 
 
 
