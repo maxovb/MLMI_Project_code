@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.distributions import Categorical
 from torchsummary import summary
 from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf
 
@@ -220,6 +221,31 @@ class OnTheGridConvCNP(nn.Module):
             accuracy = 0
 
         return logp, classification_logp, accuracy, total
+
+    def sample_one_component(self,mask,context_image):
+        """ Function to pass through model predicting a GMM and outputing the mean and std from one of the component, sampling with a Categorical distribution from the component weights
+
+        Args:
+            mask (tensor): binary tensor indicating context pixels with a 1 (batch,img_height,img_width,1)
+            context_image (tensor): masked image with 0 everywhere except at context pixels (batch, img_height, img_width, num_input_channels)
+        
+        Return:
+            tensor: mean of the sampled component
+            tensor: std of the sampled component
+        """
+
+        # get the means, std and weights of the components
+        means, stds, logits, probs = self(mask,context_image)
+
+        # sample one of the component
+        dist_component = Categorical(probs)
+        sample = dist_component.sample()
+
+        mean = means[sample]
+        std = stds[sample]
+
+        return mean, std, probs
+
 
     @property
     def num_params(self):

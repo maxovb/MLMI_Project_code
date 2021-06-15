@@ -146,10 +146,17 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         if convolutional:
             mask, context_img = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
             if not(variational):
-                mean, std = model(mask,context_img)
-                mean = mean.detach().cpu().numpy()
-                std = std.detach().cpu().numpy()
-                img1, img2 = mean, std
+                if not(model.is_gmm):
+                    mean, std = model(mask,context_img)
+                    mean = mean.detach().cpu().numpy()
+                    std = std.detach().cpu().numpy()
+                    img1, img2 = mean, std
+                else:
+                    mean, std, probs = model.sample_one_component(mask,context_img)
+                    mean = mean.detach().cpu().numpy()
+                    std = std.detach().cpu().numpy()
+                    img1, img2 = mean, std
+
             else:
                 sample1 = model(mask,context_img).detach().cpu().numpy()
                 sample2 = model(mask,context_img).detach().cpu().numpy()
@@ -158,10 +165,16 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         else:
             x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
             if not(variational):
-                mean,std = model(x_context,y_context,x_target)
-                mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
-                std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
-                img1, img2 = mean, std
+                if not(model.is_gmm):
+                    mean,std = model(x_context,y_context,x_target)
+                    mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                    std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
+                    img1, img2 = mean, std
+                else:
+                    mean, std, probs = model.sample_one_component(x_context,y_context,x_target)
+                    mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                    std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
+                    img1, img2 = mean, std
             else:
                 sample1 = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
                 sample2 = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))

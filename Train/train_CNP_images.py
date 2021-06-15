@@ -39,11 +39,11 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
             # TODO: remove this (debugging)
-            if batch_idx == 1:
-                x = data
-                y = target
-            data = x
-            target = y
+            #if batch_idx == 1:
+                #x = data
+                #y = target
+            #data = x
+            #target = y
             # either select nbr of context pts between 2 and max_percentage_context, or uniformly between 2 and 1/3 with probability 1/2 and between 1/3 and 1 with probability 1/2
             if max_percentage_context:
                 num_context_points = np.random.randint(min_context_points,int(img_height * img_width * max_percentage_context))
@@ -400,8 +400,8 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             validation_totals = []
             for batch_idx, (data, target) in enumerate(validation_data):
                 # TODO: remove this (debugging)
-                data = x
-                target = y
+                #data = x
+                #target = y
 
                 target = target.to(device)
                 # TODO: add variational conv
@@ -442,6 +442,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 validation_totals.append(total)
 
             # TODO: remove this (debugging)
+            """
             mean = model(x_context,y_context, x_target)
             mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,1))
             plt.figure()
@@ -451,6 +452,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             context_img = format_context_points_image(x_context,y_context,img_height,img_width)
             plt.imshow(context_img[0])
             plt.savefig("tmp/tmp_ctxt" + str(i) + ".svg")
+            """
 
             epoch_avg_validation_joint_loss = np.array(validation_losses[0]).mean()
             epoch_avg_validation_unsup_loss = np.array(validation_losses[1]).mean()
@@ -502,7 +504,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                         dir_to_create = "".join(visualisation_dir[:3])
                         os.makedirs(dir_to_create, exist_ok=True)
                         # TODO: remove this (debugging)
-                        """
+
                         if num_context_points == img_height * img_width:
                             qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
                                                           device=device,
@@ -513,7 +515,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                                                           device=device,
                                                           save_dir=img_output_dir, convolutional=convolutional,
                                                           semantic_blocks=semantic_blocks, variational=variational)
-                        """
+
 
 
         if n_best_checkpoint:

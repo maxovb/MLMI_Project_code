@@ -23,9 +23,26 @@ if __name__ == "__main__":
     model_name = "UNetCNP_restrained_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "LR" # one of ["LR","small","medium","large"]
 
-    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     validation_split = 0.1
     min_context_points = 2
+
+
+    # for continued supervised training
+    train = True
+    load = False
+    save = False
+    evaluate = True
+    if load:
+        epoch_start = 300 # which epoch to start from
+    else:
+        epoch_start = 0
+
+    batch_size = 64
+    learning_rate = 1e-4
+    epochs = 400
+    save_freq = 20
+
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
@@ -56,16 +73,6 @@ if __name__ == "__main__":
 
     print(model_name, model_size)
 
-    # for continued supervised training
-    train = True
-    load = False
-    save = False
-    evaluate = True
-    if load:
-        epoch_start = 300 # which epoch to start from
-    else:
-        epoch_start = 0
-
     # training parameters
     num_training_samples = [10,20,40,60,80,100,600,1000,3000]
 
@@ -80,11 +87,6 @@ if __name__ == "__main__":
     else:
         alpha = 1 * (60000 * (1-validation_split))/num_samples
         alpha_validation = 1
-
-    batch_size = 64
-    learning_rate = 1e-4
-    epochs = 300
-    save_freq = 20
 
     # load the supervised set
     train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)
