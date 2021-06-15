@@ -58,7 +58,9 @@ class OnTheGridConvCNP(nn.Module):
             tensor: predicted mean for all pixels (batch, img_height, img_width, num_output_channels)
             tensor: predicted standard deviation for all pixels (batch, img_height, img_width, num_output_channels)
         """
+
         encoder_output = self.encoder(mask,context_image)
+
         if not(self.is_gmm):
             x = self.CNN(encoder_output)
             mean, std = self.decoder(x)
@@ -173,8 +175,8 @@ class OnTheGridConvCNP(nn.Module):
 
         return joint_loss, sup_loss, unsup_loss, accuracy, total
 
-    def unsupervised_gmm_logp(self,mask,context_img_unlabelled,target_img):
-        mean, std, logits, probs = self(mask,context_img_unlabelled)
+    def unsupervised_gmm_logp(self,mask,context_img,target_img):
+        mean, std, logits, probs = self(mask,context_img)
 
         # permute the tensors to have the number of components as the last batch dimension
         mean = mean.permute(0, 2, 3, 4, 1)
@@ -188,10 +190,10 @@ class OnTheGridConvCNP(nn.Module):
         logp = mixture_of_gaussian_logpdf(target_img,mean,std,probs_reshaped,reduction="sum")
         return logp
 
-    def supervised_gmm_logp(self,mask,context_img_unlabelled,target_img,target_label):
+    def supervised_gmm_logp(self,mask,context_img,target_img,target_label):
 
         # reconstruction loss
-        mean, std, logits, probs = self(mask, context_img_unlabelled)
+        mean, std, logits, probs = self(mask, context_img)
 
         # permute the tensors to have the number of components as the last batch dimension
         mean = mean.permute(0,2,3,4,1)
@@ -324,10 +326,8 @@ class OnTheGridConvCNPUNet(nn.Module):
         self.num_down_blocks = num_down_blocks
 
         self.pool = torch.nn.MaxPool2d(pooling_size)
-        if not(is_gmm):
-            self.upsample = torch.nn.Upsample(scale_factor=(pooling_size,pooling_size))
-        else:
-            self.upsample = torch.nn.Upsample(scale_factor=(1,pooling_size,pooling_size))
+        self.upsample = torch.nn.Upsample(scale_factor=pooling_size)
+
         self.h_down = nn.ModuleList([])
         for i in range(num_down_blocks):
             if i == 0:  # do not use residual blocks for the first block because the number of channel changes
@@ -390,7 +390,10 @@ class OnTheGridConvCNPUNet(nn.Module):
             self.classifier_activation = nn.Softmax(dim=-1)
 
 
-    def down(self,input,layers=[]):
+    def down(self,input,layers=None):
+
+        if not(layers):
+            layers = []
 
         # Down
         x = input
@@ -400,9 +403,20 @@ class OnTheGridConvCNPUNet(nn.Module):
             x = self.pool(x)
         return x, layers
 
-    def up(self,input,layers=[]):
+    def up(self,input,layers=None):
+
+        if not(layers):
+            layers = []
+
         # Up
         x = input
+
+        # reshape to have only one batch dimension if GMM type of network
+        if self.is_gmm:
+            batch_size, num_extra_dim, num_channels, img_height, img_width = x.shape[0], x.shape[1], x.shape[2], \
+                                                                             x.shape[3], x.shape[4]
+            x = x.view(-1, num_channels, img_height, img_width)
+
         for i in range(self.num_down_blocks):
             # upsample
             x = self.upsample(x)
@@ -415,24 +429,27 @@ class OnTheGridConvCNPUNet(nn.Module):
 
             if self.is_gmm:
                 # add the class dimension to the residual connection if GMM type of predictions
+                num_channels_res, res_height, res_width = res.shape[1], res.shape[2], res.shape[3]
                 res = self.expand_repeat_with_all_classes(res)
+                res = res.view(-1, num_channels_res, res_height, res_width)
 
             x = torch.cat([x, res], dim=-3)
-
-            # reshape to have only one batch dimension if GMM type of network
-            if self.is_gmm:
-                batch_size, num_extra_dim, num_channels, img_height, img_width = x.shape[0], x.shape[1], x.shape[2], x.shape[3], x.shape[4]
-                x = x.view(-1,num_channels, img_height, img_width)
 
             # feed through conv block
             x = self.h_up[i](x)
 
             # reshape to recover the class dimension if GMM type of network
             if self.is_gmm:
-                num_channels = x.shape[1]
-                x = x.view(batch_size, num_extra_dim, num_channels, img_height, img_width)
+                num_channels, img_height, img_width = x.shape[1], x.shape[2], x.shape[3]
+                x_copy = x.view(batch_size, num_extra_dim, num_channels, img_height, img_width)
+                layers.append(x_copy)
 
-            layers.append(x)
+        # reshape to recover the class dimension if GMM type of network
+        if self.is_gmm:
+            num_channels, img_height, img_width = x.shape[1], x.shape[2], x.shape[3]
+
+            x = x.view(batch_size, num_extra_dim, num_channels, img_height, img_width)
+
 
         return x, layers
 
@@ -477,7 +494,8 @@ class OnTheGridConvCNPUNet(nn.Module):
         Returns:
             tensor: output map of the UNet
         """
-        x, layers = self.down(input)
+        layers = []
+        x, layers = self.down(input, layers=layers)
 
         # Bottleneck
         x = self.h_bottom(x)
@@ -494,6 +512,7 @@ class OnTheGridConvCNPUNet(nn.Module):
         layers.append(x)
 
         x, layers= self.up(x,layers)
+
         if not(self.is_gmm):
             return layers[layer_id]
         else:
@@ -909,7 +928,8 @@ if __name__ == "__main__":
 
     # define the optimizer
     opt = torch.optim.Adam(gmm_model.parameters(), 1e-4, weight_decay=1e-5)
-    joint_loss, sup_loss, unsup_loss, accuracy, total = gmm_model.joint_gmm_train_step(mask, context_img, target_img, opt, target_label=target_label, alpha=1)
+    joint_loss, sup_loss, unsup_loss, accuracy, total = gmm_model.joint_train_step(mask, context_img, target_label, target_img, opt, alpha=1)
+    joint_loss, sup_loss, unsup_loss, accuracy, total = gmm_model.joint_train_step(mask, context_img, target_label, target_img, opt, alpha=1)
 
 
 

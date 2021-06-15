@@ -20,8 +20,8 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "NP_UG" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
-    model_size = "" # one of ["LR","small","medium","large"]
+    model_name = "UNetCNP_restrained_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_size = "LR" # one of ["LR","small","medium","large"]
 
     semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     validation_split = 0.1
@@ -43,6 +43,16 @@ if __name__ == "__main__":
         std_y = 0.1
         num_samples_expectation = 1
         parallel = True
+    else:
+        std_y = None
+        num_samples_expectation = None
+        parallel = None
+
+    mixture = False
+    model_size_creation = None
+    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM"]:
+        mixture = True
+        model_size_creation = model_size
 
     print(model_name, model_size)
 
@@ -60,10 +70,16 @@ if __name__ == "__main__":
     num_training_samples = [10,20,40,60,80,100,600,1000,3000]
 
     # hyper-parameters
-    l_sup = 1000 * (60000 * (1-validation_split))/num_samples
-    l_unsup = 1
-    alpha = 1 * (60000 * (1-validation_split))/num_samples
-    alpha_validation = 1
+    if not(variational):
+        if not(mixture):
+            alpha = 1000 * (60000 * (1-validation_split))/num_samples
+            alpha_validation = 1000
+        else:
+            alpha = (60000 * (1-validation_split))/num_samples
+            alpha_validation = 1
+    else:
+        alpha = 1 * (60000 * (1-validation_split))/num_samples
+        alpha_validation = 1
 
     batch_size = 64
     learning_rate = 1e-4
@@ -74,24 +90,30 @@ if __name__ == "__main__":
     train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)
 
     if not(variational):
-        # create the model
-        unsupervised_model, convolutional = create_model(model_name,device=device)
+        if not(mixture):
+            # create the model
+            unsupervised_model, convolutional = create_model(model_name)
 
-        # modify the model to act as a classifier
-        model = modify_model_for_classification(unsupervised_model,model_size,convolutional,freeze=False,
-                                                img_height=img_height,img_width=img_width,
-                                                num_channels=num_channels, layer_id=layer_id, pooling=pooling)
-        model.to(device)
+            # modify the model to act as a classifier
+            model = modify_model_for_classification(unsupervised_model,model_size,convolutional,freeze=False,
+                                                    img_height=img_height,img_width=img_width,
+                                                    num_channels=num_channels, layer_id=layer_id, pooling=pooling)
+            model.to(device)
+        else:
+            model, convolutional = create_model(model_name, model_size_creation)
+            model.to(device)
     else:
         model, convolutional = create_model(model_name)
         model.prior.loc = model.prior.loc.to(device) 
         model.prior.scale = model.prior.scale.to(device) 
 
     # print a summary of the model
+    """
     if convolutional:
         summary(model,[(1,28,28),(1,28,28)])
     else:
         summary(model, [(784, 2), (784, 1), (784,2)])
+    """
 
     # define the directories
     model_save_dir = ["saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
@@ -139,7 +161,7 @@ if __name__ == "__main__":
         assert not (os.path.isfile(validation_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + validation_accuracy_dir_txt
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, l_sup=l_sup, l_unsup=l_unsup, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel)
+        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel)
         plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
         plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
         plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)
