@@ -241,8 +241,10 @@ class OnTheGridConvCNP(nn.Module):
         dist_component = Categorical(probs)
         sample = dist_component.sample()
 
-        mean = means[sample]
-        std = stds[sample]
+        indices = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(sample,dim=-1),dim=-1),dim=-1),dim=-1)
+        indices = indices.repeat(1,1,means.shape[-3],means.shape[-2],means.shape[-1])
+        mean = torch.gather(means,1,indices)
+        std = torch.gather(stds, 1, indices)
 
         return mean, std, probs
 
@@ -951,6 +953,7 @@ if __name__ == "__main__":
     target_img = torch.randn((6, 1, img_height, img_width))
     target_label = torch.ones((6,1))
     out = gmm_model(mask,context_img)
+    mean, std, probs = gmm_model.sample_one_component(mask,context_img)
 
     # define the optimizer
     opt = torch.optim.Adam(gmm_model.parameters(), 1e-4, weight_decay=1e-5)
