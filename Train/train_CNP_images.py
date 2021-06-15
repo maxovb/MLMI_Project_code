@@ -332,6 +332,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
         train_totals = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
+
+            target = target.to(device)
+
             # TODO: remove this (debugging)
             #if batch_idx == 0 and i == 0:
             #    x = data
@@ -344,9 +347,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
             else:
                 num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
+            
             # TODO: remove this (debugging):
-            num_context_points = 784
-            target = target.to(device)
+            #num_context_points = 784
             
             # TODO: add variational conv
             if convolutional:
@@ -409,32 +412,22 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                     mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
                                                         semantic_blocks=semantic_blocks, device=device)
                     data = data.to(device)
-                    output_logit, output_probs, mean, std = model(mask,context_img,joint=True)
 
                     # get the losses
-                    joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit,target,mean,std,data,alpha=alpha_validation)
-
+                    joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(mask,context_img,target,data,alpha=alpha_validation)
+                    joint_loss = joint_loss.item()
                 else:
                     x_context, y_context, x_target, y_target = image_processor(data, num_context_points,
                                                                                convolutional=convolutional,
                                                                                semantic_blocks=semantic_blocks,
                                                                                device=device)
                     if not(variational):
-                        output_logit, output_probs, mean, std = model(x_context, y_context, x_target, joint=True)
-                        # return the accuracy as well
-                        _, predicted = torch.max(output_probs, dim=1)
-                        total = (target != -1).sum().item()
-                        if total != 0:
-                            num_correct = ((predicted == target).sum()).item()
-                        else:
-                            num_correct = 0
-                        # get the losses
-                        joint_loss, sup_loss, unsup_loss = model.joint_loss(output_logit, target, mean, std, y_context,alpha=alpha_validation)
-                        joint_loss, unsup_loss = joint_loss.item(), unsup_loss.item()
+                        joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context, y_context, x_target, target, y_target, alpha=alpha_validation)
+                        unsup_loss = joint_loss.item()
                     else:
                         obj, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context,y_context,x_target,target,y_target,alpha_validation,num_samples_expectation,std_y)
                         joint_loss = obj.item()
-                        num_correct = accuracy * total
+                num_correct = accuracy * total
         
                 validation_losses[0].append(joint_loss)
                 validation_losses[1].append(unsup_loss)
@@ -503,7 +496,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                         # create directories if it doesn't exist yet
                         dir_to_create = "".join(visualisation_dir[:3])
                         os.makedirs(dir_to_create, exist_ok=True)
-                        # TODO: remove this (debugging)
 
                         if num_context_points == img_height * img_width:
                             qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,

@@ -187,13 +187,27 @@ class CNPClassifier(nn.Module):
         criterion = nn.CrossEntropyLoss(reduction=reduction)
         return criterion(output_logit,target_label)
 
-    def joint_loss(self,output_logit,target_label,mean,std,y_target,alpha=1):
+    def joint_loss(self,x_context, y_context, x_target, target_label, y_target, alpha):
+
+        # get the output
+        output_logit, output_probs, mean, std = self.forward(x_context,y_context,x_target,joint=True)
+
+        # compute the loss
         target_label = target_label.detach().clone()
         select_labelled = target_label != -1
         sup_loss = select_labelled.float() * alpha * self.loss(output_logit, target_label, reduction='none')
         sup_loss = sup_loss.mean()
-        unsup_loss = l_unsup * self.loss_unsup(mean,std,y_target)
-        return sup_loss + unsup_loss, sup_loss, unsup_loss
+        unsup_loss = self.loss_unsup(mean,std,y_target)
+
+        # compute the accuracy
+        _, predicted = torch.max(output_probs, dim=1)
+        total = (target_label != -1).sum().item()
+        if total.item() != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+
+        return sup_loss + unsup_loss, sup_loss.item(), unsup_loss.item(), accuracy, total
 
     def train_step(self,x_context,y_context,target_label,opt):
         output_logit, output_probs = self.forward(x_context,y_context,joint=False)
@@ -215,21 +229,13 @@ class CNPClassifier(nn.Module):
         return obj.item(), accuracy, total
 
     def joint_train_step(self,x_context,y_context,target_label,y_target,opt,alpha=1):
-        output_logit, output_probs, mean, std = self.forward(x_context,y_context,joint=True)
-        obj, sup_loss, unsup_loss = self.joint_loss(output_logit,target_label,mean,std,y_target,alpha=alpha)
+
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context, y_context, x_target, target_label, y_target, alpha)
 
         # Optimization
         obj.backward()
         opt.step()
         opt.zero_grad()
-
-        # return the accuracy as well
-        _, predicted = torch.max(output_probs, dim=1)
-        total = (target_label != -1).sum().item()
-        if total.item() != 0:
-            accuracy = ((predicted == target_label).sum()).item() / total
-        else:
-            accuracy = 0
 
         return obj.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
 

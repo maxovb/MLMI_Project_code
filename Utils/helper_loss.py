@@ -51,7 +51,7 @@ def mixture_of_gaussian_logpdf(target, mean, std, weights, reduction=None, start
         tensor: Log-density.
     """
 
-    component_weights = Categorical(weights)
+    component_weights = Categorical(weights.type(torch.float))
     component_parameters = Normal(loc=mean,scale=std)
     dist = MixtureSameFamily(component_weights,component_parameters)
     logp = dist.log_prob(target)

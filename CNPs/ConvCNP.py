@@ -88,10 +88,7 @@ class OnTheGridConvCNP(nn.Module):
 
     def joint_train_step(self, mask, context_img, target_label, target_img, opt,alpha=1):
         # computing the losses
-        if self.is_gmm:
-            obj, sup_loss, unsup_loss, accuracy, total = self.joint_gmm_loss(mask, context_img, target_img, target_label, alpha=alpha)
-        else:
-            raise RuntimeError("For joint training of the ConvCNP, use a GMM type, or otherwise use the classifier version")
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha)
 
         # Optimization
         obj.backward()
@@ -99,8 +96,14 @@ class OnTheGridConvCNP(nn.Module):
         opt.zero_grad()
 
         return obj.item(), sup_loss, unsup_loss, accuracy, total
+    
+    def joint_loss(self,mask,context_img,target_label,target_img,alpha=1):
+        if self.is_gmm:
+            return self.joint_gmm_loss(mask,context_img,target_label,target_img,alpha)
+        else:
+            raise RuntimeError("For joint training of the ConvCNP, use a GMM type, or otherwise use the classifier version")
 
-    def joint_gmm_loss(self,mask,context_img,target_img,target_label,alpha=1):
+    def joint_gmm_loss(self,mask,context_img,target_label,target_img,alpha=1):
 
         # obtain the batch size
         batch_size = mask.shape[0]
@@ -172,7 +175,7 @@ class OnTheGridConvCNP(nn.Module):
             total = 0
             accuracy = 0
 
-        joint_loss = -J
+        joint_loss = -J/float(batch_size)
 
         return joint_loss, sup_loss, unsup_loss, accuracy, total
 
@@ -201,7 +204,7 @@ class OnTheGridConvCNP(nn.Module):
         std = std.permute(0,2,3,4,1)
 
         # repeat the component probabilities to match the shape of the mean and std
-        forced_probs = torch.nn.functional.one_hot(target_label.type(torch.int64), num_classes=self.num_classes)
+        forced_probs = torch.nn.functional.one_hot(target_label.type(torch.int64), num_classes=self.num_classes).to(mean.device)
         forced_probs_reshaped = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(forced_probs,dim=(-1)),dim=-1),dim=-1)
         forced_probs_reshaped = forced_probs_reshaped.repeat(1,1,mean.shape[1],mean.shape[2],mean.shape[3])
         forced_probs_reshaped = forced_probs_reshaped.permute(0,2,3,4,1)
@@ -238,13 +241,13 @@ class OnTheGridConvCNP(nn.Module):
         means, stds, logits, probs = self(mask,context_image)
 
         # sample one of the component
-        dist_component = Categorical(probs)
+        dist_component = Categorical(probs.type(torch.float))
         sample = dist_component.sample()
 
         indices = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(sample,dim=-1),dim=-1),dim=-1),dim=-1)
         indices = indices.repeat(1,1,means.shape[-3],means.shape[-2],means.shape[-1])
-        mean = torch.gather(means,1,indices)
-        std = torch.gather(stds, 1, indices)
+        mean = torch.gather(means,1,indices)[:,0,:,:,:]
+        std = torch.gather(stds, 1, indices)[:,0,:,:,:]
 
         return mean, std, probs
 
@@ -496,7 +499,7 @@ class OnTheGridConvCNPUNet(nn.Module):
             classes[:, i,:,:] = classes[:, i,:,:] * i
 
         # one_hot encoding
-        one_hot = torch.nn.functional.one_hot(classes.type(torch.int64), num_classes=self.num_classes)
+        one_hot = torch.nn.functional.one_hot(classes.type(torch.int64), num_classes=self.num_classes).to(x.device)
         one_hot = one_hot.permute(0,1,4,2,3)
 
         # repeat x to concatenate to the one_hot encoding
@@ -678,14 +681,28 @@ class ConvCNPClassifier(nn.Module):
         criterion = nn.CrossEntropyLoss(reduction=reduction)
         return criterion(output_logit,target_label)
 
-    def joint_loss(self,output_logit,target_label,mean,std,target_image,alpha=10):
+    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1):
+
+        # obtain the predictions
+        output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
+
+        # compute the losses
         target_label = target_label.detach().clone()
         select_labelled = target_label != -1
         target_label[target_label == -1] = 0
         sup_loss = select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none')
         sup_loss = sup_loss.mean()
         unsup_loss =  self.loss_unsup(mean,std,target_image)
-        return sup_loss + unsup_loss, sup_loss, unsup_loss
+
+        # return the accuracy as well
+        _, predicted = torch.max(output_probs, dim=1)
+        total = (target_label != -1).sum().item()
+        if total != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+        
+        return sup_loss + unsup_loss, sup_loss, unsup_loss, accuracy, total
 
     def train_step(self,mask,context_img,target_label,opt):
         output_logit, output_probs = self.forward(mask,context_img,joint=False)
@@ -707,21 +724,13 @@ class ConvCNPClassifier(nn.Module):
         return obj.item(), accuracy, total
 
     def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1):
-        output_logit, output_probs, mean, std = self.forward(mask,context_img,joint=True)
-        obj, sup_loss, unsup_loss = self.joint_loss(output_logit,target_label,mean,std,target_image,alpha=alpha)
+
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha)
 
         # Optimization
         obj.backward()
         opt.step()
         opt.zero_grad()
-
-        # return the accuracy as well
-        _, predicted = torch.max(output_probs, dim=1)
-        total = (target_label != -1).sum().item()
-        if total != 0:
-            accuracy = ((predicted == target_label).sum()).item() / total
-        else:
-            accuracy = 0
 
         return obj.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
 

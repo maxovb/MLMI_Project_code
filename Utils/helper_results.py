@@ -143,6 +143,7 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
 
     for (image,label) in images_to_plot:
         data = image.unsqueeze(0) # add the batch dimension
+        label = label.unsqueeze(0)
         if convolutional:
             mask, context_img = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
             if not(variational):

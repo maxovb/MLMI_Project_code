@@ -87,7 +87,7 @@ if __name__ == "__main__":
     else:
         alpha = 1 * (60000 * (1-validation_split))/num_samples
         alpha_validation = 1
-
+    
     # load the supervised set
     train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)
 
