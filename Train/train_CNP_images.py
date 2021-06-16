@@ -342,9 +342,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             #data = x
             #target = y
 
-            if batch_idx > 1:
-                break
-
             s = np.random.rand()
             if s < 1 / 2:
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
@@ -406,8 +403,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             validation_totals = []
             for batch_idx, (data, target) in enumerate(validation_data):
 
-                if batch_idx > 1:
-                    break
                 # TODO: remove this (debugging)
                 #data = x
                 #target = y
