@@ -108,7 +108,11 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
     num_channels, img_height, img_width= data.dataset[0][0].shape[0], data.dataset[0][0].shape[1], data.dataset[0][0].shape[2]
 
     # get the data to plot (one for every class)
-    num_classes = max(data.dataset.dataset.targets).item() + 1
+    try:
+        num_classes = max(data.dataset.dataset.targets).item() + 1
+    except AttributeError:
+        list_targets = [x[1] for x in data.dataset]
+        num_classes = max(list_targets) + 1
 
     # get one data image per class
     selected_classes = [False for _ in range(num_classes)]

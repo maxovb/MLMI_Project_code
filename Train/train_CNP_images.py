@@ -342,6 +342,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             #data = x
             #target = y
 
+            if batch_idx > 1:
+                break
+
             s = np.random.rand()
             if s < 1 / 2:
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
@@ -402,6 +405,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             validation_num_correct= []
             validation_totals = []
             for batch_idx, (data, target) in enumerate(validation_data):
+
+                if batch_idx > 1:
+                    break
                 # TODO: remove this (debugging)
                 #data = x
                 #target = y
@@ -491,43 +497,46 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                         visualisation_dir = visualisation_dir.copy()
                         visualisation_dir[5] = str(epoch_start + i + 1)
                         visualisation_dir[-2] = str(num_context_points)
-                        img_output_dir = "".join(visualisation_dir)
-
-                        # create directories if it doesn't exist yet
-                        dir_to_create = "".join(visualisation_dir[:3])
-                        os.makedirs(dir_to_create, exist_ok=True)
 
                         # train data
                         visualisation_dir_train = visualisation_dir.copy()
                         visualisation_dir_train[2] += "train/"
+                        img_output_dir_train = "".join(visualisation_dir_train)
+
+                        # create directories if it doesn't exist yet
+                        dir_to_create = "".join(visualisation_dir_train[:3])
+                        os.makedirs(dir_to_create, exist_ok=True)
 
                         if num_context_points == img_height * img_width:
                             qualitative_evaluation_images(model, train_data, num_context_points=num_context_points,
                                                           device=device,
-                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          save_dir=img_output_dir_train, convolutional=convolutional,
                                                           semantic_blocks=["random"], variational=variational)
                         else:
                             qualitative_evaluation_images(model, train_data, num_context_points=num_context_points,
                                                           device=device,
-                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          save_dir=img_output_dir_train, convolutional=convolutional,
                                                           semantic_blocks=semantic_blocks, variational=variational)
 
                         # validation data
                         visualisation_dir_validation = visualisation_dir.copy()
                         visualisation_dir_validation[2] += "validation/"
+                        img_output_dir_validation = "".join(visualisation_dir_validation)
+
+                        # create directories if it doesn't exist yet
+                        dir_to_create = "".join(visualisation_dir_validation[:3])
+                        os.makedirs(dir_to_create, exist_ok=True)
 
                         if num_context_points == img_height * img_width:
                             qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
                                                           device=device,
-                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          save_dir=img_output_dir_validation, convolutional=convolutional,
                                                           semantic_blocks=["random"], variational=variational)
                         else:
                             qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
                                                           device=device,
-                                                          save_dir=img_output_dir, convolutional=convolutional,
+                                                          save_dir=img_output_dir_validation, convolutional=convolutional,
                                                           semantic_blocks=semantic_blocks, variational=variational)
-
-
 
         if n_best_checkpoint:
             pass
