@@ -2,6 +2,7 @@ import torch
 from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
 from torch.distributions.mixture_same_family import MixtureSameFamily
+from torch.distributions.independent import Independent
 
 def gaussian_logpdf(target, mean, std, reduction=None, start_idx_sum=1):
     """Gaussian log-density. (copied from https://github.com/cambridge-mlg/convcnp.git)
@@ -53,7 +54,10 @@ def mixture_of_gaussian_logpdf(target, mean, std, weights, reduction=None, start
 
     component_weights = Categorical(weights.type(torch.float))
     component_parameters = Normal(loc=mean,scale=std)
-    dist = MixtureSameFamily(component_weights,component_parameters)
+    event_dim = len(mean.shape) - 2
+    component_parameters_multivariate = Independent(component_parameters,event_dim)
+
+    dist = MixtureSameFamily(component_weights,component_parameters_multivariate)
     logp = dist.log_prob(target)
 
     # number of dimensions

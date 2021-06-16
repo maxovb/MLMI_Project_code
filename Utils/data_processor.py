@@ -243,8 +243,8 @@ def context_indices_blocks(img,blocks_per_dim=4,convolutional=False, device=torc
         context_indices = (mask == 1).nonzero(as_tuple=False)
         context_indices = torch.reshape(context_indices[:, 2:], (batch_size, -1, 2))
         y_ctxt = img[mask.bool()]
-        y_ctxt = torch.reshape(y_ctxt, (batch_size, -1, 2))
-        rescale = torch.zeros((batch_size, -1, 2), device=device)
+        y_ctxt = torch.reshape(y_ctxt, (batch_size, -1, img.shape[1]))
+        rescale = torch.zeros((batch_size, y_ctxt.shape[1], 2), device=device)
         rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
         return context_indices / rescale, y_ctxt
 
@@ -284,8 +284,8 @@ def context_indices_cut(img,convolutional=False, device=torch.device('cpu')):
         context_indices = (mask == 1).nonzero(as_tuple=False)
         context_indices = torch.reshape(context_indices[:, 2:], (batch_size, -1, 2))
         y_ctxt = img[mask.bool()]
-        y_ctxt = torch.reshape(y_ctxt, (batch_size, -1, 2))
-        rescale = torch.zeros((batch_size, -1, 2), device=device)
+        y_ctxt = torch.reshape(y_ctxt, (batch_size, -1,  img.shape[1]))
+        rescale = torch.zeros((batch_size, y_ctxt.shape[1], 2), device=device)
         rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
         return context_indices / rescale, y_ctxt
 
@@ -354,8 +354,8 @@ def context_indices_pizza(img,convolutional=False, device=torch.device('cpu'),pe
         context_indices = (mask == 1).nonzero(as_tuple=False)
         context_indices = torch.reshape(context_indices[:, 2:], (batch_size, -1, 2))
         y_ctxt = img[mask.bool()]
-        y_ctxt = torch.reshape(y_ctxt, (batch_size, -1, 1))
-        rescale = torch.zeros((batch_size, -1, 2), device=device)
+        y_ctxt = torch.reshape(y_ctxt, (batch_size, -1, img.shape[1]))
+        rescale = torch.zeros((batch_size, y_ctxt.shape[1], 2), device=device)
         rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
         return context_indices / rescale, y_ctxt
 
@@ -394,7 +394,7 @@ def context_indices_random(img,num_context_points,convolutional=False, device=to
         context_indices = (mask == 1).nonzero(as_tuple=False)
         context_indices = torch.reshape(context_indices[:, 2:], (batch_size, num_context_points, 2))
         y_ctxt = img[mask.bool()]
-        y_ctxt = torch.reshape(y_ctxt, (batch_size, num_context_points, 1))
+        y_ctxt = torch.reshape(y_ctxt, (batch_size, num_context_points,  img.shape[1]))
         rescale = torch.zeros((batch_size,num_context_points,2), device=device)
         rescale[:,:,0], rescale[:,:,1]= img_height - 1, img_width - 1
         return context_indices / rescale, y_ctxt

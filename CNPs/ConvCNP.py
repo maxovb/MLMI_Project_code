@@ -183,15 +183,15 @@ class OnTheGridConvCNP(nn.Module):
         mean, std, logits, probs = self(mask,context_img)
 
         # permute the tensors to have the number of components as the last batch dimension
-        mean = mean.permute(0, 2, 3, 4, 1)
-        std = std.permute(0, 2, 3, 4, 1)
+        mean = mean.permute(0, 1, 4, 2, 3)
+        std = std.permute(0, 1, 4, 2, 3)
 
         # repeat the component probabilities to match the shape of the mean and std
-        probs_reshaped = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(probs, dim=(-1)), dim=-1), dim=-1)
-        probs_reshaped = probs_reshaped.repeat(1, 1, mean.shape[1], mean.shape[2], mean.shape[3])
-        probs_reshaped = probs_reshaped.permute(0, 2, 3, 4, 1)
+        #probs_reshaped = torch.unsqueeze(torch.unsqueeze(torch.unsqueeze(probs, dim=(-1)), dim=-1), dim=-1)
+        #probs_reshaped = probs_reshaped.repeat(1, 1, mean.shape[1], mean.shape[2], mean.shape[3])
+        #probs_reshaped = probs_reshaped.permute(0, 2, 3, 4, 1)
 
-        logp = mixture_of_gaussian_logpdf(target_img,mean,std,probs_reshaped,reduction="sum")
+        logp = mixture_of_gaussian_logpdf(target_img,mean,std,probs,reduction="sum")
         return logp
 
     def supervised_gmm_logp(self,mask,context_img,target_img,target_label):

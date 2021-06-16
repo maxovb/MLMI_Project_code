@@ -181,7 +181,7 @@ class NP(nn.Module):
             y_target_unlabelled (tensor): y values of the target points (batch,num_target,y_dim)
             num_samples_expectation (int): number of samples for the monte carlo approximation of the expectation of the reconstruction loss
             std_y (int), optional: standard deviation of the likelihood (default 0.1)
-            summing (bool), optional: whether the marginalization should be done in parallel or not (parallel is faster but takes more GPU memory)
+            parallel (bool), optional: whether the marginalization should be done in parallel or not (parallel is faster but takes more GPU memory)
         Returns:
             (tensor): value of the unlabelled objective
         """
@@ -237,7 +237,7 @@ class NP(nn.Module):
         one_hot = torch.nn.functional.one_hot(class_labels.type(torch.int64), num_classes=self.num_classes).to(r.device)
 
         # if running the marginalization over classes in parallel extend the representation
-        if one_hot.shape[:-1] != r.shape[:-1]:
+        if len(one_hot.shape) != len(r.shape[:-1]):
             r = torch.unsqueeze(r, dim=1)
             r = r.repeat(1, self.num_classes, 1)
             x_target_labelled = torch.unsqueeze(x_target_labelled, dim=1)
@@ -248,17 +248,13 @@ class NP(nn.Module):
         # get the parameter of the distribution over the continuous latent variables
         mean_latent, std_latent = self.latent_network(r, one_hot)
 
-        # TODO: uncomment and remove last line (debugging)
         # compute the KL divergence
-        #posterior = Normal(loc=mean_latent, scale=std_latent)
-        #kl = kl_divergence(posterior, self.prior)
-        kl = 0
+        posterior = Normal(loc=mean_latent, scale=std_latent)
+        kl = kl_divergence(posterior, self.prior)
 
-        # TODO: uncomment and remove last line (debugging)
         # sample from the contiuous latent distribution
-        #list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent), dim=-2) for i in range(num_samples_expectation)]
-        #z = torch.cat(list_samples, dim=-2)
-        z = torch.unsqueeze(mean_latent, dim=-2)
+        list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent), dim=-2) for i in range(num_samples_expectation)]
+        z = torch.cat(list_samples, dim=-2)
 
         # pass through the decoder
         one_hot_repeated = torch.cat([torch.unsqueeze(one_hot, dim=-2) for x in range(num_samples_expectation)], dim=-2)
