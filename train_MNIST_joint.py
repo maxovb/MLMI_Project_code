@@ -30,17 +30,17 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = False
+    load = True
     save = False
     evaluate = True
     if load:
-        epoch_start = 300 # which epoch to start from
+        epoch_start = 200 # which epoch to start from
     else:
         epoch_start = 0
 
     batch_size = 64
     learning_rate = 1e-4
-    epochs = 400
+    epochs = 200
     save_freq = 20
 
 
