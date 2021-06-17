@@ -189,7 +189,7 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         ax[row,col].imshow(data[0].permute(1,2,0).detach().cpu().numpy())
         ax[row+1,col].imshow(context_img[0])
         ax[row+2,col].imshow(img1[0]) # mean for CNP and sample 1 for NP
-        ax[row+3,col].imshow(img1[0]) # std for CNP and sample 1 for NP
+        ax[row+3,col].imshow(img2[0]) # std for CNP and sample 1 for NP
         row += num_img_per_class
         if row >= num_rows:
             row = 0
