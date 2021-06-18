@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import time
 
-def image_processor(data,num_context_points,convolutional=False,semantic_blocks=None,device=torch.device('cpu')):
+def image_processor(data,num_context_points,convolutional=False,semantic_blocks=None,device=torch.device('cpu'), return_num_points=False):
     """ Process the image to generate the context and target points
 
     Args:
@@ -11,6 +11,8 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
         convolutional (bool): if the model is a ConvCNP or not
         semantic_blocks (list of strings or None): the type of way to create context, could be any subset of ["blocks", "cut", "pizza", "random"], if None: random
         device (torch.device): device to load the tensors on, i.e. CPU or GPU
+        return_num_points (bool): whether to return the number of context and target points
+        num_sets_of_context (int): number of sets of context sets to return for every data sample (every batch of set is concatenated so [ set1 (whole batch), set2 (whole batch), ... ])
     Returns:
         if convolutional == False:
             x_context (tensor): x values of the context points (batch,num_context,input_dim_x)
@@ -20,10 +22,14 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
         if convolution == True:
             mask (tensor): binary mask indicating the postion of context points (batch, 1, img_height, img_width)
             context_img (tensor): context img, i.e. the masked image (batch, num_channels, img_height, img_width)
+        if return_num_points == True:
+            num_context_points (int): number of context points
+            num_target_ppoints (int): number of target points
        """
 
     # grab shapes
     batch_size, num_channels, img_height, img_width = data.shape[0], data.shape[1], data.shape[2], data.shape[3]
+    num_target_points = img_height * img_width
 
     # normalise pixel values
     if torch.max(data) > 1:
@@ -62,7 +68,11 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
         x_target = torch.from_numpy(x_target).type(torch.float).to(device)
         y_target = y_target.to(device)
 
-        return x_context, y_context, x_target, y_target
+        if return_num_points:
+            num_context_points = x_context.shape[1]
+            return x_context, y_context, x_target, y_target, num_context_points, num_target_points
+        else:
+            return x_context, y_context, x_target, y_target
 
     else:
         if not semantic_blocks:
@@ -79,54 +89,11 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
                 percentage_active_slices = None
             masks, image_context = get_context_indices_semantic(data.to(device), type_block, num_context_points, convolutional=convolutional, device=device, percentage_active_blocks=percentage_active_blocks, percentage_active_slices=percentage_active_slices)
 
-        return masks, image_context
-
-
-
-    """
-    if not convolutional:
-        # create shell containing all indices (this is the full x data)
-        image_indices = np.array([[i, j] for i in range(img_width) for j in range(img_height)])
-
-        x_target = np.repeat(image_indices[np.newaxis, :], batch_size, axis=0)
-        # normalize the x values in [0,1]
-        x_target = x_target / np.array([img_height - 1, img_width - 1])
-
-        # flatten image into vector (this is the full y data)
-        y_target = torch.flatten(data, start_dim=2, end_dim=3)
-        y_target = y_target.permute(0, 2, 1)
-
-        # choose context points
-        context_indices = np.zeros((batch_size, num_context_points), dtype=np.int32) # memory pre allocation for the context indices
-        if not(semantic_blocks):
-            for i in range(batch_size):
-                context_indices[i, :] = np.random.choice(int(img_height * img_width), size=num_context_points, replace=False)
-        if semantic_blocks:
-            type_block = np.random.choice(semantic_blocks,1, replace=False)
-            for i in range(batch_size):
-                context_indices[i, :] = get_context_indices_semantic(data[i],type_block)
-
-        # extract the context poitns form the target points
-        x_context = x_target[np.arange(batch_size).reshape(-1, 1),context_indices,:]
-        y_context = y_target[np.arange(batch_size).reshape(-1, 1),context_indices,:]
-
-        return torch.from_numpy(x_context).type(torch.float).to(device), y_context.to(device), torch.from_numpy(x_target).type(torch.float).to(device), y_target.to(device)
-
-    else:
-        # move image to GPU if available
-        data = data.to(device)
-
-        # calculate the percentage of context points:
-        percentage_context_points = num_context_points/(img_height*img_width)
-        mask = torch.rand((batch_size, 1, img_height, img_width), device = device) < percentage_context_points
-        mask = mask.type(torch.float)
-
-
-        # obtain the masked image
-        image_context = mask * data
-
-        return mask, image_context
-    """
+        if return_num_points:
+            num_context_points = torch.sum(masks[0]).item()
+            return masks, image_context, num_context_points, num_target_points
+        else:
+            return masks, image_context
 
 def format_context_points_image(x_context,y_context,img_height,img_width):
     """ Convert the context data to an RGB image with blue pixels for missing pixels

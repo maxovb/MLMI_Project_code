@@ -20,17 +20,20 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP_restrained_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_restrained_GMM_blocked" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "LR" # one of ["LR","small","medium","large"]
+    block_connections = True  # whether to block the skip connections at the middle layers of the UNet
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    weight_ratio = True # weight the loss with the ratio of context pixels present in the image
+    consistency_regularization = True # whether to use consistency regularization or not
     validation_split = 0.1
     min_context_points = 2
 
 
     # for continued supervised training
-    train = False
-    load = True
+    train = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -67,7 +70,7 @@ if __name__ == "__main__":
 
     mixture = False
     model_size_creation = None
-    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM"]:
+    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked"]:
         mixture = True
         model_size_creation = model_size
 
@@ -118,18 +121,20 @@ if __name__ == "__main__":
     """
 
     # define the directories
-    model_save_dir = ["saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/", model_name, "/",model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
-    train_joint_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
-    train_unsup_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_unsup.txt"
-    train_accuracy_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_accuracy.txt"
-    validation_joint_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_joint.txt"
-    validation_unsup_loss_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_unsup.txt"
-    validation_accuracy_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_accuracy.txt"
-    joint_loss_dir_plot = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "joint.svg"
-    unsup_loss_dir_plot = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "unsup.svg"
-    accuracy_dir_plot = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "acc.svg"
+    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons/" if consistency_regularization else "/") + str(num_samples) + "S/", model_name, "/"]
+    experiment_dir_txt = "".join(experiment_dir_list)
+    model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
+    train_joint_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
+    train_unsup_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_unsup.txt"
+    train_accuracy_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_accuracy.txt"
+    validation_joint_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_joint.txt"
+    validation_unsup_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_unsup.txt"
+    validation_accuracy_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_accuracy.txt"
+    joint_loss_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "joint.svg"
+    unsup_loss_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "unsup.svg"
+    accuracy_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "acc.svg"
+    visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/")  + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
-    visualisation_dir = ["saved_models/MNIST/joint", ("_semantics/" if semantics else "/") + str(num_samples) + "S/" + model_name, "/visualisation/",model_name,"_","","E_","","C.svg"]
 
     # create directories for the checkpoints and loss files if they don't exist yet
     dir_to_create = "".join(model_save_dir[:3]) + "loss/"
@@ -163,7 +168,7 @@ if __name__ == "__main__":
         assert not (os.path.isfile(validation_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + validation_accuracy_dir_txt
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel)
+        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, weight_ratio=weight_ratio, consistency_regularization=consistency_regularization)
         plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
         plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
         plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)

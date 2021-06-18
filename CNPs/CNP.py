@@ -187,7 +187,7 @@ class CNPClassifier(nn.Module):
         criterion = nn.CrossEntropyLoss(reduction=reduction)
         return criterion(output_logit,target_label)
 
-    def joint_loss(self,x_context, y_context, x_target, target_label, y_target, alpha):
+    def joint_loss(self,x_context, y_context, x_target, target_label, y_target, alpha, scale_sup=1, scale_unsup=1):
 
         # get the output
         output_logit, output_probs, mean, std = self.forward(x_context,y_context,x_target,joint=True)
@@ -195,9 +195,9 @@ class CNPClassifier(nn.Module):
         # compute the loss
         target_label = target_label.detach().clone()
         select_labelled = target_label != -1
-        sup_loss = select_labelled.float() * alpha * self.loss(output_logit, target_label, reduction='none')
+        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit, target_label, reduction='none')
         sup_loss = sup_loss.mean()
-        unsup_loss = self.loss_unsup(mean,std,y_target)
+        unsup_loss = scale_unsup * self.loss_unsup(mean,std,y_target)
 
         # compute the accuracy
         _, predicted = torch.max(output_probs, dim=1)
@@ -228,9 +228,9 @@ class CNPClassifier(nn.Module):
 
         return obj.item(), accuracy, total
 
-    def joint_train_step(self,x_context,y_context,target_label,y_target,opt,alpha=1):
+    def joint_train_step(self,x_context,y_context,target_label,y_target,opt,alpha=1,scale_sup=1,scale_unsup=1):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context, y_context, x_target, target_label, y_target, alpha)
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context, y_context, x_target, target_label, y_target, alpha, scale_sup=scale_sup, scale_unsup=scale_unsup)
 
         # Optimization
         obj.backward()

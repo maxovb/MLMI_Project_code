@@ -29,10 +29,11 @@ class OnTheGridConvCNP(nn.Module):
             num_classes (int): number of classes to classify as in the GMM case
 
     """
-    def __init__(self, type_CNN, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_convolutions_per_block, num_dense_layers, num_units_dense_layer, num_residual_blocks = None, num_down_blocks=None, num_of_filters_top_UNet=None, pooling_size=None, max_size = None, is_gmm = False, num_classes = None, classifier_layer_widths = None):
+    def __init__(self, type_CNN, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_convolutions_per_block, num_dense_layers, num_units_dense_layer, num_residual_blocks = None, num_down_blocks=None, num_of_filters_top_UNet=None, pooling_size=None, max_size = None, is_gmm = False, num_classes = None, classifier_layer_widths = None, block_center_connections=False):
         super(OnTheGridConvCNP, self).__init__()
 
         self.is_gmm = is_gmm
+        self.block_center_connections = block_center_connections
 
         self.encoder = OnTheGridConvCNPEncoder(num_input_channels,num_of_filters,kernel_size_first_convolution)
 
@@ -42,7 +43,7 @@ class OnTheGridConvCNP(nn.Module):
 
         elif type_CNN == "UNet":
             assert num_down_blocks and num_of_filters_top_UNet and pooling_size, "Arguments num_down_blocks, num_of_filters_top_UNet and pooling_size should be passed as integers when using the UNet ConvCNP"
-            self.CNN = OnTheGridConvCNPUNet(num_of_filters_top_UNet, 2 * num_of_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size, is_gmm, classifier_layer_widths, num_classes)
+            self.CNN = OnTheGridConvCNPUNet(num_of_filters_top_UNet, 2 * num_of_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size, is_gmm, classifier_layer_widths, num_classes, block_center_connections)
 
         self.decoder = OnTheGridConvCNPDecoder(num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels,is_gmm=is_gmm)
 
@@ -86,9 +87,9 @@ class OnTheGridConvCNP(nn.Module):
 
         return obj.item() # report the loss as a float
 
-    def joint_train_step(self, mask, context_img, target_label, target_img, opt,alpha=1):
+    def joint_train_step(self, mask, context_img, target_label, target_img, opt,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1):
         # computing the losses
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha)
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
 
         # Optimization
         obj.backward()
@@ -97,13 +98,13 @@ class OnTheGridConvCNP(nn.Module):
 
         return obj.item(), sup_loss, unsup_loss, accuracy, total
     
-    def joint_loss(self,mask,context_img,target_label,target_img,alpha=1):
+    def joint_loss(self,mask,context_img,target_label,target_img,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1):
         if self.is_gmm:
-            return self.joint_gmm_loss(mask,context_img,target_label,target_img,alpha)
+            return self.joint_gmm_loss(mask,context_img,target_label,target_img,alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context)
         else:
             raise RuntimeError("For joint training of the ConvCNP, use a GMM type, or otherwise use the classifier version")
 
-    def joint_gmm_loss(self,mask,context_img,target_label,target_img,alpha=1):
+    def joint_gmm_loss(self,mask,context_img,target_label,target_img,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1):
 
         # obtain the batch size
         batch_size = mask.shape[0]
@@ -141,10 +142,10 @@ class OnTheGridConvCNP(nn.Module):
             batch_size_unlabelled = mask.shape[0]
 
             # calculate the loss
-            unsup_logp = self.unsupervised_gmm_logp(mask_unlabelled,context_img_unlabelled,target_img_unlabelled)
+            unsup_logp = self.unsupervised_gmm_logp(mask_unlabelled,context_img_unlabelled,target_img_unlabelled, consistency_regularization, num_sets_of_context)
 
-            J += unsup_logp
-            unsup_loss = - unsup_logp.item()/batch_size_unlabelled
+            J += scale_unsup * unsup_logp
+            unsup_loss = - scale_unsup * unsup_logp.item()/batch_size_unlabelled
 
         if not (all_unlabelled):
 
@@ -163,12 +164,12 @@ class OnTheGridConvCNP(nn.Module):
             batch_size_labelled = mask.shape[0]
 
             # calculate the loss
-            unsup_logp, sup_logp, accuracy, total = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only)
+            unsup_logp, sup_logp, accuracy, total = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only, consistency_regularization, num_sets_of_context)
 
-            J += unsup_logp
+            J += scale_unsup * unsup_logp
             unsup_loss = (-J).item()/batch_size
-            J += alpha * sup_logp
-            sup_loss = (-alpha * sup_logp).item() / batch_size_labelled
+            J += scale_sup * alpha * sup_logp
+            sup_loss = scale_sup * (-alpha * sup_logp).item() / batch_size_labelled
 
         else:
             sup_loss = None
@@ -179,7 +180,7 @@ class OnTheGridConvCNP(nn.Module):
 
         return joint_loss, sup_loss, unsup_loss, accuracy, total
 
-    def unsupervised_gmm_logp(self,mask,context_img,target_img):
+    def unsupervised_gmm_logp(self,mask,context_img,target_img, consistency_regularization=False, num_sets_of_context=1):
         mean, std, logits, probs = self(mask,context_img)
 
         # permute the tensors to have the number of components as the last batch dimension
@@ -187,9 +188,13 @@ class OnTheGridConvCNP(nn.Module):
         std = std.permute(0, 1, 4, 2, 3)
 
         logp = mixture_of_gaussian_logpdf(target_img,mean,std,probs,reduction="sum")
+
+        if consistency_regularization:
+            logp += self.gmm_consistency_loss(mean,std,probs,target_img,num_sets_of_context)
+
         return logp
 
-    def supervised_gmm_logp(self,mask,context_img,target_img,target_label):
+    def supervised_gmm_logp(self,mask,context_img,target_img,target_label, consistency_regularization=False, num_sets_of_context=1):
 
         # reconstruction loss
         mean, std, logits, probs = self(mask, context_img)
@@ -204,6 +209,9 @@ class OnTheGridConvCNP(nn.Module):
         # calculate the log-likelihood
         logp = mixture_of_gaussian_logpdf(target_img, mean, std, forced_probs, reduction="sum")
 
+        if consistency_regularization:
+            logp += self.gmm_consistency_loss(mean,std,probs,target_img,num_sets_of_context)
+
         # classification loss
         criterion = nn.CrossEntropyLoss(reduction="sum")
         classification_logp = - criterion(logits, target_label.type(torch.long))
@@ -217,6 +225,32 @@ class OnTheGridConvCNP(nn.Module):
             accuracy = 0
 
         return logp, classification_logp, accuracy, total
+
+    def gmm_consistency_loss(self,mean,std,probs,target_img,num_sets_of_context):
+        """ Consistency loss with a GMM predictive, evaluate the liklihood of a prediction with the component weights
+            given by another set of context pixels from the same original function
+
+        Args:
+            mean (tensor): predicted mean for every component (batch, num_components, num_channels, img_height, img_width)
+            std (tensor): predicted std for every component (batch, num_components, num_channels, img_height, img_width)
+            probs (tensor): component weight for every GMM component (batch, num_components)
+            target_img (tensor): target image to predict (batch, num_channels, img_height, img_width)
+            num_sets_of_context (int): number of context sets used for computing the consistency loss
+
+        Returns:
+
+        """
+        assert num_sets_of_context == 2, "GMM consistency loss does not handle other number of context sets than 2 at the moment"
+
+        single_set_batch_size = mean.shape[0] / num_sets_of_context
+        assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
+        single_set_batch_size = int(single_set_batch_size)
+
+        probs_set1, probs_set2 = torch.split(probs, single_set_batch_size, dim=0)
+        probs_reordered = torch.cat([probs_set2,probs_set1],dim=0)
+        logp = mixture_of_gaussian_logpdf(target_img, mean, std, probs_reordered, reduction="sum")
+
+        return logp
 
     def sample_one_component(self,mask,context_image):
         """ Function to pass through model predicting a GMM and outputing the mean and std from one of the component, sampling with a Categorical distribution from the component weights
@@ -355,10 +389,11 @@ class OnTheGridConvCNPUNet(nn.Module):
             classifier_layer_widths (list of int): widht of the classification layers
             num_classes (int): number of classes to classify as
     """
-    def __init__(self, num_of_filters, num_in_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size=None, is_gmm = False, classifier_layer_widths = None, num_classes=None):
+    def __init__(self, num_of_filters, num_in_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size=None, is_gmm = False, classifier_layer_widths = None, num_classes=None, block_center_connections=False):
         super(OnTheGridConvCNPUNet, self).__init__()
 
         self.is_gmm = is_gmm
+        self.block_center_connections = block_center_connections
 
         # store some variables
         self.num_down_blocks = num_down_blocks
@@ -401,14 +436,22 @@ class OnTheGridConvCNPUNet(nn.Module):
                 self.h_up.append(ConvBlock(num_in , num_in_filters//2, kernel_size_CNN, num_convolutions_per_block,
                                            is_residual = False))
             else:
+                has_residual_connection = (j == 0) or  not(block_center_connections)
                 if max_size:
-                    num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size) + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
-                    num_out = min((2 ** (j-1)) * num_of_filters, max_size)
+                    if has_residual_connection:
+                        num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size) + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
+                        num_out = min((2 ** (j-1)) * num_of_filters, max_size)
+                    else:
+                        num_in = min((2 ** (j)) * num_of_filters, max_size) + (num_classes if (is_gmm and j == num_down_blocks - 1) else 0)
+                        num_out = min((2 ** (j - 1)) * num_of_filters, max_size)
                 else:
-                    num_in = (2 ** (j + 1)) * num_of_filters + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
-                    num_out = (2 ** (j-1)) * num_of_filters
-                self.h_up.append(ConvBlock(num_in, num_out, kernel_size_CNN,num_convolutions_per_block,
-                                           is_residual = False))
+                    if has_residual_connection:
+                        num_in = (2 ** (j + 1)) * num_of_filters + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
+                        num_out = (2 ** (j-1)) * num_of_filters
+                    else:
+                        num_in = (2 ** (j)) * num_of_filters + (num_classes if (is_gmm and j == num_down_blocks - 1) else 0)
+                        num_out = (2 ** (j - 1)) * num_of_filters
+                self.h_up.append(ConvBlock(num_in, num_out, kernel_size_CNN,num_convolutions_per_block,is_residual = False))
 
         self.connections = nn.ModuleList([])
         for k in range(num_down_blocks+1):
@@ -456,6 +499,10 @@ class OnTheGridConvCNPUNet(nn.Module):
             x = x.view(-1, num_channels, img_height, img_width)
 
         for i in range(self.num_down_blocks):
+
+            # whether this layer has a residual connection or not
+            has_residual_connection = (i == self.num_down_blocks-1) or not(self.block_center_connections)
+
             # upsample
             x = self.upsample(x)
 
@@ -465,13 +512,13 @@ class OnTheGridConvCNPUNet(nn.Module):
             h_diff, w_diff = res.shape[-2] - x.shape[-2], res.shape[-1] - x.shape[-1]
             x = torch.nn.functional.pad(x, (0, w_diff, 0, h_diff))
 
-            if self.is_gmm:
-                # add the class dimension to the residual connection if GMM type of predictions
-                num_channels_res, res_height, res_width = res.shape[1], res.shape[2], res.shape[3]
-                res = self.expand_repeat_with_all_classes(res)
-                res = res.view(-1, num_channels_res, res_height, res_width)
-
-            x = torch.cat([x, res], dim=-3)
+            if has_residual_connection:
+                if self.is_gmm:
+                    # add the class dimension to the residual connection if GMM type of predictions
+                    num_channels_res, res_height, res_width = res.shape[1], res.shape[2], res.shape[3]
+                    res = self.expand_repeat_with_all_classes(res)
+                    res = res.view(-1, num_channels_res, res_height, res_width)
+                x = torch.cat([x, res], dim=-3)
 
             # feed through conv block
             x = self.h_up[i](x)
@@ -688,7 +735,7 @@ class ConvCNPClassifier(nn.Module):
         criterion = nn.CrossEntropyLoss(reduction=reduction)
         return criterion(output_logit,target_label)
 
-    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1):
+    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1):
 
         # obtain the predictions
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
@@ -697,9 +744,9 @@ class ConvCNPClassifier(nn.Module):
         target_label = target_label.detach().clone()
         select_labelled = target_label != -1
         target_label[target_label == -1] = 0
-        sup_loss = select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none')
+        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none')
         sup_loss = sup_loss.mean()
-        unsup_loss =  self.loss_unsup(mean,std,target_image)
+        unsup_loss =  scale_unsup * self.loss_unsup(mean,std,target_image)
 
         # return the accuracy as well
         _, predicted = torch.max(output_probs, dim=1)
@@ -730,9 +777,9 @@ class ConvCNPClassifier(nn.Module):
 
         return obj.item(), accuracy, total
 
-    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1):
+    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha)
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup)
 
         # Optimization
         obj.backward()

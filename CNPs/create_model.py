@@ -15,7 +15,9 @@ def create_model(model_name, model_size=None):
     """
     #TODO: change model name to UNetCNP_restrained  
 
-    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained", "NP_UG", "UNetCNP_GMM","UNetCNP_restrained_GMM"], "model name: " + model_name + ", not supported"
+    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained", "NP_UG",
+                          "UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked"]\
+                         , "model name: " + model_name + ", not supported"
 
     convolutional = False
 
@@ -194,7 +196,7 @@ def create_model(model_name, model_size=None):
         elif model_size == "medium":
             classifier_layer_widths = [64, 64, 64, 10]
         elif model_size == "large":
-            classificatier_layer_widths = [64, 128, 128, 128, 128, 10]
+            classifier_layer_widths = [64, 128, 128, 128, 128, 10]
 
         model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
                                  num_output_channels=num_output_channels,
@@ -205,6 +207,85 @@ def create_model(model_name, model_size=None):
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
                                  num_classes=num_classes)
+        convolutional = True
+
+    elif model_name == "UNetCNP_GMM_blocked":
+        type_CNN = "UNet"
+        num_input_channels = 1
+        num_output_channels = 2
+        num_of_filters = 128
+        kernel_size_first_convolution = 9
+        kernel_size_CNN = 5
+        num_convolutions_per_block = 1
+        num_dense_layers = 5
+        num_units_dense_layers = 64
+        num_down_blocks = 4
+        num_of_filters_top_UNet = 32
+        pooling_size = 2
+        max_size = None
+        is_gmm = True
+        num_classes = 10
+        block_center_connections = True
+
+        if model_size == "LR":
+            classifier_layer_widths = [64, 10]
+        elif model_size == "small":
+            classifier_layer_widths = [64, 10, 10]
+        elif model_size == "medium":
+            classifier_layer_widths = [64, 64, 64, 10]
+        elif model_size == "large":
+            classifier_layer_widths = [64, 128, 128, 128, 128, 10]
+
+        model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
+                                 num_output_channels=num_output_channels,
+                                 num_of_filters=num_of_filters,
+                                 kernel_size_first_convolution=kernel_size_first_convolution,
+                                 kernel_size_CNN=kernel_size_CNN, num_convolutions_per_block=num_convolutions_per_block,
+                                 num_dense_layers=num_dense_layers, num_units_dense_layer=num_units_dense_layers,
+                                 num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
+                                 num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
+                                 max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
+                                 num_classes=num_classes, block_center_connections=block_center_connections)
+        convolutional = True
+
+    elif model_name == "UNetCNP_restrained_GMM_blocked":
+        type_CNN = "UNet"
+        num_input_channels = 1
+        num_output_channels = 2
+        num_of_filters = 128
+        kernel_size_first_convolution = 9
+        kernel_size_CNN = 3
+        num_residual_blocks = 4
+        num_convolutions_per_block = 1
+        num_dense_layers = 5
+        num_units_dense_layers = 64
+        num_down_blocks = 4
+        num_of_filters_top_UNet = 64
+        pooling_size = 2
+        max_size = 64
+        is_gmm = True
+        num_classes = 10
+        block_center_connections = True
+
+        if model_size == "LR":
+            classifier_layer_widths = [64, 10]
+        elif model_size == "small":
+            classifier_layer_widths = [64, 10, 10]
+        elif model_size == "medium":
+            classifier_layer_widths = [64, 64, 64, 10]
+        elif model_size == "large":
+            classifier_layer_widths = [64, 128, 128, 128, 128, 10]
+
+        model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
+                                 num_output_channels=num_output_channels,
+                                 num_of_filters=num_of_filters,
+                                 kernel_size_first_convolution=kernel_size_first_convolution,
+                                 kernel_size_CNN=kernel_size_CNN, num_convolutions_per_block=num_convolutions_per_block,
+                                 num_dense_layers=num_dense_layers, num_units_dense_layer=num_units_dense_layers,
+                                 num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
+                                 num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
+                                 max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
+                                 num_classes=num_classes, block_center_connections=block_center_connections)
         convolutional = True
     return model, convolutional
 
