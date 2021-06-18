@@ -29,12 +29,12 @@ if __name__ == "__main__":
 
 
     # for continued supervised training
-    train = True
+    train = False
     load = True
     save = False
     evaluate = True
     if load:
-        epoch_start = 200 # which epoch to start from
+        epoch_start = 400 # which epoch to start from
     else:
         epoch_start = 0
 

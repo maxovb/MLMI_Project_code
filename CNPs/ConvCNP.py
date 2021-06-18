@@ -244,6 +244,20 @@ class OnTheGridConvCNP(nn.Module):
 
         return mean, std, probs
 
+    def evaluate_accuracy(self, mask,context_image,target_label):
+
+        # forward pass through the model
+        means, stds, logits, probs = self(mask,context_image)
+
+        # compute the accuracy
+        _, predicted = torch.max(probs, dim=1)
+        total = len(target_label)
+        if total != 0:
+            accuracy = ((predicted == target_label).sum()).item() / total
+        else:
+            accuracy = 0
+
+        return accuracy, total
 
     @property
     def num_params(self):
