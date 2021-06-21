@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
+from torch.distributions.kl import kl_divergence
 from torchsummary import summary
 from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf
 
@@ -733,9 +734,10 @@ class ConvCNPClassifier(nn.Module):
 
     def loss(self,output_logit,target_label, reduction='mean'):
         criterion = nn.CrossEntropyLoss(reduction=reduction)
-        return criterion(output_logit,target_label)
+        loss = criterion(output_logit,target_label)
+        return loss
 
-    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1):
+    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1):
 
         # obtain the predictions
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
@@ -744,9 +746,12 @@ class ConvCNPClassifier(nn.Module):
         target_label = target_label.detach().clone()
         select_labelled = target_label != -1
         target_label[target_label == -1] = 0
-        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none')
+        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none', consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
         sup_loss = sup_loss.mean()
         unsup_loss =  scale_unsup * self.loss_unsup(mean,std,target_image)
+
+        if consistency_regularization:
+            unsup_loss += scale_unsup * self.consistency_loss(output_logit, num_sets_of_context)
 
         # return the accuracy as well
         _, predicted = torch.max(output_probs, dim=1)
@@ -757,6 +762,35 @@ class ConvCNPClassifier(nn.Module):
             accuracy = 0
         
         return sup_loss + unsup_loss, sup_loss, unsup_loss, accuracy, total
+
+    def consistency_loss(self,output_logit, num_sets_of_context=1):
+
+        # obtain the probability distribution
+        probs = nn.Softmax(output_logit,dim=-1)
+
+        assert num_sets_of_context == 2, "Consistency loss does not handle other number of context sets than 2 at the moment"
+
+        # get the original batch size
+        single_set_batch_size = mean.shape[0] / num_sets_of_context
+        assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
+        single_set_batch_size = int(single_set_batch_size)
+
+        # split between the two sets of context sets
+        probs_set1, probs_set2 = torch.split(probs, single_set_batch_size, dim=0)
+
+        # compute the Jensen Shannon divergence
+        m = probs_set1 + probs_set2
+        loss = 0.0
+        dist1 = Categorical(probs_set1)
+        dist2 = Categorical(probs_set2)
+        distm = Categorical(m)
+        loss += kl_divergence(dist1,distm)
+        loss += kl_divergence(dist2,distm)
+        loss = 0.5 * torch.mean(loss)
+
+        return loss
+
+
 
     def train_step(self,mask,context_img,target_label,opt):
         output_logit, output_probs = self.forward(mask,context_img,joint=False)
@@ -777,9 +811,9 @@ class ConvCNPClassifier(nn.Module):
 
         return obj.item(), accuracy, total
 
-    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1):
+    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup)
+        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context)
 
         # Optimization
         obj.backward()

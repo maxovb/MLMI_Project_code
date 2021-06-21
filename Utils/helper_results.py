@@ -49,7 +49,7 @@ def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size
 
     # read in the validation loss
     l = len(validation_loss_dir_txt)
-    losses =  []
+    losses = []
     with open(validation_loss_dir_txt, "r") as f:
         for x in f.read().split():
             if x != "":
@@ -134,7 +134,7 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
             break
 
     # num of columns and rows in the subplot
-    num_cols = 10
+    num_cols = num_classes
     num_rows = num_img_per_class * math.ceil(num_classes/num_cols)
 
     # use subplots to visualize all images together
@@ -202,6 +202,89 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
 
     plt.tight_layout()
     plt.savefig(save_dir)
+
+def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=100, device=torch.device('cpu'), save_dir="", variational=False, num_samples_variational=50, include_class_predictions=False):
+
+    if include_class_predictions:
+        num_img_per_class = 2
+    else:
+        num_img_per_class = 1
+
+    transparency = 0.1
+    num_classes = data.num_kernels
+
+    # num of columns and rows in the subplot
+    num_cols = num_classes #math.ceil(num_classes/2)
+    num_rows = num_img_per_class * math.ceil(num_classes / num_cols)
+
+    # use subplots to visualize all images together
+    fig, ax = plt.subplots(num_rows,num_cols,figsize=(num_cols*5,num_rows*5))
+    if len(ax.shape) == 1:
+        ax = ax[None,:]
+    #plt.subplots_adjust(wspace=0.01,hspace=0.01)
+
+    # initialize the row and column position in the subplot
+    row = 0
+    col = 0
+
+    for class_idx in range(num_classes):
+        task, label = data.generate_task(class_idx,num_context_points,num_test_points)
+        x_context = torch.unsqueeze(task["x_context"][0],dim=0)
+        y_context = torch.unsqueeze(task["y_context"][0],dim=0)
+        x_target = torch.unsqueeze(task["x"][0],dim=0)
+        y_target = torch.unsqueeze(task["y"][0],dim=0)
+
+        # plot the context points and the true function
+        ax[row, col].plot(x_context[0,:,0], y_context[0,:,0], 'k.')
+        ax[row, col].plot(x_target[0,:,0], y_target[0,:,0], 'r--')
+
+        if variational:
+            for i in range(num_samples_variational):
+                y_prediction, probs = model(x_context,y_context,x_target)
+                y_prediction = y_prediction[0,:,0].detach().cpu()
+                probabilities_to_plot = probs[0].detach().cpu()
+                ax[row, col].plot(x_target[0,:,0],y_prediction,'b-',alpha=transparency)
+        else:
+            if model.is_gmm:
+                mean, std, logits, probs = model(x_context,y_context,x_target)
+                probabilities_to_plot = probs[0].detach().cpu()
+                for j in range(num_classes):
+                    weight = probs[0,j]
+                    mean, std = mean[0, j, :, 0].detach().cpu(), std[0, j, :, 0].detach().cpu()
+                    ax[row,col].plot(x_target[0,:,0],mean,'b-',alpha=weight)
+                    ax[row,col].fill_between(x_target[0,:,0], mean - 1.96 * std, mean + 1.96 * std,alpha=0.5*weight, color='b')
+            else:
+                mean, std = model(x_context,y_context,x_target)
+                mean, std = mean[0,:,0].detach().cpu(), std[0,:,0].detach().cpu()
+                ax[row, col].plot(x_target[0,:,0], mean, 'b-')
+                ax[row, col].fill_between(x_target[0,:,0], mean - 1.96 * std, mean + 1.96 * std, alpha=0.5 * weight, color='b')
+        if include_class_predictions:
+            if data.kernel_names:
+                kernel_labels = data.kernel_names
+            else:
+                kernel_labels = list(range(num_classes))
+            ax[row+1, col].bar(range(num_classes),probabilities_to_plot)
+            ax[row+1, col].set_xticks(np.arange(num_classes))
+            ax[row+1, col].set_xticklabels(kernel_labels,rotation=45)
+            ax[row + 1, col].set_xlabel("Kernel",fontsize=15)
+            ax[row + 1, col].set_ylabel("Probability",fontsize=15)
+
+        row += num_img_per_class
+        if row >= num_rows:
+            row = 0
+            col += 1
+
+    #plt.tight_layout()
+    plt.savefig(save_dir)
+
+
+
+
+
+
+
+
+
 
 
 

@@ -14,7 +14,7 @@ def plot_accuracy(accuracies, list_num_samples, acc_dir_plot, labels, styles=Non
             plt.plot(list_num_samples,accuracies[i])
         else:
             plt.plot(list_num_samples, accuracies[i],styles[i])
-    plt.legend(labels)
+    plt.legend(labels,loc="lower right", fontsize="x-large")
     plt.xlabel("Number of labelled samples",fontsize=15)
     plt.ylabel("Accuracy",fontsize=15)
     plt.xscale("log")

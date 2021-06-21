@@ -2,6 +2,8 @@
 
 import torch
 from torch import nn
+from torch.distributions import Categorical
+from torch.distributions.kl import kl_divergence
 from torchsummary import summary
 from Utils.helper_loss import gaussian_logpdf
 
@@ -208,6 +210,7 @@ class CNPClassifier(nn.Module):
             accuracy = 0
 
         return sup_loss + unsup_loss, sup_loss.item(), unsup_loss.item(), accuracy, total
+
 
     def train_step(self,x_context,y_context,target_label,opt):
         output_logit, output_probs = self.forward(x_context,y_context,joint=False)
