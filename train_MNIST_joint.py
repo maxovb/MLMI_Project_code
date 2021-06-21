@@ -20,7 +20,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP_restrained_GMM_blocked" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_restrained_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "LR" # one of ["LR","small","medium","large"]
     block_connections = True  # whether to block the skip connections at the middle layers of the UNet
 
@@ -37,13 +37,13 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 400 # which epoch to start from
+        epoch_start = 100 # which epoch to start from
     else:
         epoch_start = 0
 
     batch_size = 64
-    learning_rate = 1e-4
-    epochs = 200
+    learning_rate = 2e-4
+    epochs = 400
     save_freq = 20
 
 
@@ -81,12 +81,12 @@ if __name__ == "__main__":
 
     # hyper-parameters
     if not(variational):
-        if not(mixture):
+        if mixture:
+            alpha = 789 * (60000 * (1-validation_split))/num_samples
+            alpha_validation = 789
+        else:
             alpha = 1000 * (60000 * (1-validation_split))/num_samples
             alpha_validation = 1000
-        else:
-            alpha = (60000 * (1-validation_split))/num_samples
-            alpha_validation = 1
     else:
         alpha = 1 * (60000 * (1-validation_split))/num_samples
         alpha_validation = 1
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     unsup_loss_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "unsup.svg"
     accuracy_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "acc.svg"
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
-    accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics/" if semantics else "/")  + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+    accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "")  + ("_cons/" if consistency_regularization else "/") + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
     # create directories for the checkpoints and loss files if they don't exist yet
     dir_to_create = "".join(model_save_dir[:3]) + "loss/"

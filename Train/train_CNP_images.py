@@ -443,10 +443,17 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                     repeat_size_target = [1] * len(target.shape)
                     repeat_size_target[0] = num_sets_of_context
                     repeat_size_target = tuple(repeat_size_target)
+                    target = target.repeat(repeat_size_target)
                     repeat_size_data = [1] * len(data.shape)
                     repeat_size_data[0] = num_sets_of_context
                     repeat_size_data = tuple(repeat_size_data)
                     data = data.repeat(repeat_size_data)
+                
+                s = np.random.rand()
+                if s < 1 / 2:
+                    num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
+                else:
+                    num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
 
                 # TODO: add variational conv
                 if convolutional:
