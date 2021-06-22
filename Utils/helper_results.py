@@ -260,7 +260,7 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
                 y_prediction, probs = model(x_context,y_context,x_target)
                 y_prediction = y_prediction[0,:,0].detach().cpu()
                 probabilities_to_plot = probs[0].detach().cpu()
-                ax[row, col].plot(x_target[0,:,0],y_prediction,'b-',alpha=transparency)
+                ax[row, col].plot(x_target[0,:,0].cpu(),y_prediction,'b-',alpha=transparency)
         else:
             if model.is_gmm:
                 mean, std, logits, probs = model(x_context,y_context,x_target)
@@ -268,13 +268,13 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
                 for j in range(num_classes):
                     weight = probs[0,j]
                     mean, std = mean[0, j, :, 0].detach().cpu(), std[0, j, :, 0].detach().cpu()
-                    ax[row,col].plot(x_target[0,:,0],mean,'b-',alpha=weight)
-                    ax[row,col].fill_between(x_target[0,:,0], mean - 1.96 * std, mean + 1.96 * std,alpha=0.5*weight, color='b')
+                    ax[row,col].plot(x_target[0,:,0].cpu(),mean,'b-',alpha=weight)
+                    ax[row,col].fill_between(x_target[0,:,0].cpu(), mean - 1.96 * std, mean + 1.96 * std,alpha=0.5*weight, color='b')
             else:
                 mean, std = model(x_context,y_context,x_target)
                 mean, std = mean[0,:,0].detach().cpu(), std[0,:,0].detach().cpu()
-                ax[row, col].plot(x_target[0,:,0], mean, 'b-')
-                ax[row, col].fill_between(x_target[0,:,0], mean - 1.96 * std, mean + 1.96 * std, alpha=0.5 * weight, color='b')
+                ax[row, col].plot(x_target[0,:,0].cpu(), mean, 'b-')
+                ax[row, col].fill_between(x_target[0,:,0].cpu(), mean - 1.96 * std, mean + 1.96 * std, alpha=0.5 * weight, color='b')
         if include_class_predictions:
             if data.kernel_names:
                 kernel_labels = data.kernel_names

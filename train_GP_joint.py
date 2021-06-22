@@ -39,11 +39,12 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 400  # which epoch to start from
+        epoch_start = 20  # which epoch to start from
     else:
         epoch_start = 0
 
     batch_size = 64
+    num_tasks = 850
     num_batches_per_epoch = 256
     learning_rate = 1e-4
     epochs = 200
@@ -91,8 +92,8 @@ if __name__ == "__main__":
         alpha_validation = 1
 
     # load the supervised set
-    train_data = MultiClassGPGenerator(list_kernels,percentage_label, batch_size=batch_size, kernel_names=kernel_names)
-    test_data = MultiClassGPGenerator(list_kernels, 1, batch_size=batch_size, kernel_names=kernel_names)
+    train_data = MultiClassGPGenerator(list_kernels,percentage_label, kernel_names=kernel_names, batch_size=batch_size, num_tasks=num_tasks)
+    test_data = MultiClassGPGenerator(list_kernels, 1, kernel_names=kernel_names, batch_size=batch_size, num_tasks=num_tasks)
 
     if not(variational):
         if not(mixture):
@@ -108,6 +109,7 @@ if __name__ == "__main__":
             model.to(device)
     else:
         model = create_model_off_the_grid(model_name,num_classes=num_classes)
+        model.to(device)
         model.prior.loc = model.prior.loc.to(device)
         model.prior.scale = model.prior.scale.to(device)
 
