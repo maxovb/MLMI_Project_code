@@ -39,7 +39,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 20  # which epoch to start from
+        epoch_start = 40  # which epoch to start from
     else:
         epoch_start = 0
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     num_tasks = 850
     num_batches_per_epoch = 256
     learning_rate = 1e-4
-    epochs = 200
+    epochs = 200 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:

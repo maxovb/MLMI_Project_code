@@ -252,8 +252,8 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
         y_target = torch.unsqueeze(task["y"][0],dim=0)
 
         # plot the context points and the true function
-        ax[row, col].plot(x_context[0,:,0], y_context[0,:,0], 'k.')
-        ax[row, col].plot(x_target[0,:,0], y_target[0,:,0], 'r--')
+        ax[row, col].plot(x_context[0,:,0].cpu(), y_context[0,:,0].cpu(), 'k.')
+        ax[row, col].plot(x_target[0,:,0].cpu(), y_target[0,:,0].cpu(), 'r--')
 
         if variational:
             for i in range(num_samples_variational):
