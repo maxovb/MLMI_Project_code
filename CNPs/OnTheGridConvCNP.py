@@ -34,7 +34,6 @@ class OnTheGridConvCNP(nn.Module):
         super(OnTheGridConvCNP, self).__init__()
 
         self.is_gmm = is_gmm
-        self.block_center_connections = block_center_connections
 
         self.encoder = OnTheGridConvCNPEncoder(num_input_channels,num_of_filters,kernel_size_first_convolution)
 
@@ -140,7 +139,7 @@ class OnTheGridConvCNP(nn.Module):
                 target_img_unlabelled = torch.unsqueeze(target_img_unlabelled, dim=1)
 
             # unlabelled batch size
-            batch_size_unlabelled = mask.shape[0]
+            batch_size_unlabelled = mask_unlabelled.shape[0]
 
             # calculate the loss
             unsup_logp = self.unsupervised_gmm_logp(mask_unlabelled,context_img_unlabelled,target_img_unlabelled, consistency_regularization, num_sets_of_context)
@@ -162,7 +161,7 @@ class OnTheGridConvCNP(nn.Module):
                 target_img_labelled = torch.unsqueeze(target_img_labelled, dim=1)
 
             # unlabelled batch size
-            batch_size_labelled = mask.shape[0]
+            batch_size_labelled = mask_labelled.shape[0]
 
             # calculate the loss
             unsup_logp, sup_logp, accuracy, total = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only, consistency_regularization, num_sets_of_context)
@@ -437,7 +436,7 @@ class OnTheGridConvCNPUNet(nn.Module):
                 self.h_up.append(ConvBlock(num_in , num_in_filters//2, kernel_size_CNN, num_convolutions_per_block,
                                            is_residual = False))
             else:
-                has_residual_connection = (j == 0) or  not(block_center_connections)
+                has_residual_connection = (j == 0) or not(block_center_connections)
                 if max_size:
                     if has_residual_connection:
                         num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size) + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)

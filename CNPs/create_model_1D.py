@@ -1,6 +1,7 @@
 from CNPs.CNP import CNP
 from CNPs.NP import NP
 #from CNPs.ConvCNP import  OnTheGridConvCNP
+from CNPs.OffTheGridConvCNP import OffTheGridConvCNP
 from torchsummary import summary
 
 def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
@@ -170,16 +171,15 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         convolutional = True
 
     elif model_name == "UNetCNP_restrained_GMM":
+        learn_length_scale = True
+        points_per_unit = 10
         type_CNN = "UNet"
         num_input_channels = 1
         num_output_channels = 2
         num_of_filters = 128
-        kernel_size_first_convolution = 9
         kernel_size_CNN = 3
         num_residual_blocks = 4
         num_convolutions_per_block = 1
-        num_dense_layers = 5
-        num_units_dense_layers = 64
         num_down_blocks = 4
         num_of_filters_top_UNet = 64
         pooling_size = 2
@@ -196,16 +196,15 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         elif model_size == "large":
             classifier_layer_widths = [64, 128, 128, 128, 128, num_classes]
 
-        model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
-                                 num_output_channels=num_output_channels,
-                                 num_of_filters=num_of_filters, kernel_size_first_convolution=kernel_size_first_convolution,
-                                 kernel_size_CNN=kernel_size_CNN, num_convolutions_per_block=num_convolutions_per_block,
-                                 num_dense_layers=num_dense_layers, num_units_dense_layer=num_units_dense_layers,
-                                 num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
-                                 num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
-                                 max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
-                                 num_classes=num_classes)
-        convolutional = True
+        model = OffTheGridConvCNP(learn_length_scale=learn_length_scale, points_per_unit=points_per_unit,
+                                  type_CNN=type_CNN, num_input_channels=num_input_channels,
+                                  num_output_channels=num_output_channels,
+                                  num_of_filters=num_of_filters, kernel_size_CNN=kernel_size_CNN,
+                                  num_convolutions_per_block=num_convolutions_per_block,
+                                  num_residual_blocks=num_residual_blocks,
+                                  num_down_blocks=num_down_blocks, num_of_filters_top_UNet=num_of_filters_top_UNet,
+                                  pooling_size=pooling_size, max_size=max_size, is_gmm=is_gmm,
+                                  classifier_layer_widths=classifier_layer_widths, num_classes=num_classes)
 
     elif model_name == "UNetCNP_GMM_blocked":
         type_CNN = "UNet"
