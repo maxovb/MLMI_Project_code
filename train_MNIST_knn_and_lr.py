@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import torch
-from CNPs.ConvCNP import ConvCNPExtractRepresentation
+from CNPs.OnTheGridConvCNP import ConvCNPExtractRepresentation
 from Utils.simple_models import KNN_classifier, LR_classifier
 from Utils.data_processor import image_processor
 from Utils.data_loader import load_supervised_data_as_generator

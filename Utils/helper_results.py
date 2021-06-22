@@ -99,10 +99,13 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot):
     plt.ylabel("Loss",fontsize=15)
     plt.savefig(loss_dir_plot)
 
-def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False):
+def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False):
 
     # number of images to show per class
-    num_img_per_class = 4 # true image, context image, predicted mean, predicted std
+    if include_class_predictions:
+        num_img_per_class = 5 # true image, context image, predicted mean, predicted std, class predictions
+    else:
+        num_img_per_class = 4 # true image, context image, predicted mean, predicted std
 
     # get image height and width
     num_channels, img_height, img_width= data.dataset[0][0].shape[0], data.dataset[0][0].shape[1], data.dataset[0][0].shape[2]
@@ -158,13 +161,15 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
                     img1, img2 = mean, std
                 else:
                     mean, std, probs = model.sample_one_component(mask,context_img)
+                    probabilities_to_plot = probs[0].detach().cpu()
                     mean = mean.detach().cpu().numpy()
                     std = std.detach().cpu().numpy()
                     img1, img2 = mean, std
 
             else:
-                sample1 = model(mask,context_img).detach().cpu().numpy()
-                sample2 = model(mask,context_img).detach().cpu().numpy()
+                sample1, probs = model(mask,context_img).detach().cpu().numpy()
+                sample2, probs = model(mask,context_img).detach().cpu().numpy()
+                probabilities_to_plot = probs[0].detach().cpu()
                 img1, img2 = sample1, sample2
             context_img = context_points_image_from_mask(mask, context_img)
         else:
@@ -177,12 +182,14 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
                     img1, img2 = mean, std
                 else:
                     mean, std, probs = model.sample_one_component(x_context,y_context,x_target)
+                    probabilities_to_plot = probs[0].detach().cpu()
                     mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
                     std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
                     img1, img2 = mean, std
             else:
-                sample1 = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
-                sample2 = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                sample1, probs = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                sample2, probs = model(x_context,y_context,x_target).detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
+                probabilities_to_plot = probs[0].detach().cpu()
                 img1, img2 = sample1, sample2
             context_img = format_context_points_image(x_context,y_context,img_height,img_width)
 
@@ -190,13 +197,23 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         ax[row+1,col].imshow(context_img[0])
         ax[row+2,col].imshow(img1[0]) # mean for CNP and sample 1 for NP
         ax[row+3,col].imshow(img2[0]) # std for CNP and sample 1 for NP
+
+        if include_class_predictions:
+            ax[row+4, col].bar(range(num_classes),probabilities_to_plot)
+            ax[row+4, col].set_xticks(np.arange(num_classes))
+            ax[row + 4, col].set_xticklabels(np.arange(num_classes), fontsize=5)
+            ax[row + 4, col].set_yticks([])
+            ax[row + 4, col].set_ylim(0,1)
+
+
         row += num_img_per_class
+
         if row >= num_rows:
             row = 0
             col += 1
 
     # remove the axes
-    for idx1 in range(num_rows):
+    for idx1 in range(num_rows-1):
         for idx2 in range(num_cols):
             ax[idx1,idx2].set_axis_off()
 
@@ -266,8 +283,8 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
             ax[row+1, col].bar(range(num_classes),probabilities_to_plot)
             ax[row+1, col].set_xticks(np.arange(num_classes))
             ax[row+1, col].set_xticklabels(kernel_labels,rotation=45)
-            ax[row + 1, col].set_xlabel("Kernel",fontsize=15)
-            ax[row + 1, col].set_ylabel("Probability",fontsize=15)
+            ax[row+1, col].set_xlabel("Kernel",fontsize=15)
+            ax[row+1, col].set_ylabel("Probability",fontsize=15)
 
         row += num_img_per_class
         if row >= num_rows:

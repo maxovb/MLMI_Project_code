@@ -553,12 +553,14 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                             qualitative_evaluation_images(model, train_data, num_context_points=num_context_points,
                                                           device=device,
                                                           save_dir=img_output_dir_train, convolutional=convolutional,
-                                                          semantic_blocks=["random"], variational=variational)
+                                                          semantic_blocks=["random"], variational=variational,
+                                                          include_class_predictions=True)
                         else:
                             qualitative_evaluation_images(model, train_data, num_context_points=num_context_points,
                                                           device=device,
                                                           save_dir=img_output_dir_train, convolutional=convolutional,
-                                                          semantic_blocks=semantic_blocks, variational=variational)
+                                                          semantic_blocks=semantic_blocks, variational=variational,
+                                                          include_class_predictions=True)
 
                         # validation data
                         visualisation_dir_validation = visualisation_dir.copy()
@@ -573,12 +575,14 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                             qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
                                                           device=device,
                                                           save_dir=img_output_dir_validation, convolutional=convolutional,
-                                                          semantic_blocks=["random"], variational=variational)
+                                                          semantic_blocks=["random"], variational=variational,
+                                                          include_class_predictions=True)
                         else:
                             qualitative_evaluation_images(model, validation_data, num_context_points=num_context_points,
                                                           device=device,
                                                           save_dir=img_output_dir_validation, convolutional=convolutional,
-                                                          semantic_blocks=semantic_blocks, variational=variational)
+                                                          semantic_blocks=semantic_blocks, variational=variational,
+                                                          include_class_predictions=True)
 
         if n_best_checkpoint:
             pass

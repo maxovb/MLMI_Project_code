@@ -1,6 +1,6 @@
 from CNPs.CNP import CNP
 from CNPs.NP import NP
-from CNPs.ConvCNP import  OnTheGridConvCNP
+from CNPs.OnTheGridConvCNP import  OnTheGridConvCNP
 from torchsummary import summary
 
 def create_model(model_name, model_size=None):

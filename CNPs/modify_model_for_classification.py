@@ -1,5 +1,5 @@
 from CNPs.CNP import CNP, CNPClassifier
-from CNPs.ConvCNP import  OnTheGridConvCNP, ConvCNPClassifier, ConvCNPExtractRepresentation
+from CNPs.OnTheGridConvCNP import  OnTheGridConvCNP, ConvCNPClassifier, ConvCNPExtractRepresentation
 import torch
 
 def modify_model_for_classification(model,model_size,convolutional = False, freeze = True, img_height = None, img_width = None, num_channels = None, layer_id = None, pooling = None, joint = False):
