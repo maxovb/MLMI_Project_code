@@ -285,6 +285,7 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
             ax[row+1, col].set_xticklabels(kernel_labels,rotation=45)
             ax[row+1, col].set_xlabel("Kernel",fontsize=15)
             ax[row+1, col].set_ylabel("Probability",fontsize=15)
+            ax[row+1, col].set_ylim(0,1)
 
         row += num_img_per_class
         if row >= num_rows:
