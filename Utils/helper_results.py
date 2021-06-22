@@ -266,10 +266,10 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
                 mean, std, logits, probs = model(x_context,y_context,x_target)
                 probabilities_to_plot = probs[0].detach().cpu()
                 for j in range(num_classes):
-                    weight = probs[0,j]
-                    mean, std = mean[0, j, :, 0].detach().cpu(), std[0, j, :, 0].detach().cpu()
-                    ax[row,col].plot(x_target[0,:,0].cpu(),mean,'b-',alpha=weight)
-                    ax[row,col].fill_between(x_target[0,:,0].cpu(), mean - 1.96 * std, mean + 1.96 * std,alpha=0.5*weight, color='b')
+                    weight = probs[0,j].item()
+                    mean_component, std_component = mean[0, j, :, 0].detach().cpu(), std[0, j, :, 0].detach().cpu()
+                    ax[row,col].plot(x_target[0,:,0].cpu(),mean_component,'b-',alpha=weight)
+                    ax[row,col].fill_between(x_target[0,:,0].cpu(), mean_component - 1.96 * std_component, mean_component + 1.96 * std_component,alpha=0.5*weight, color='b')
             else:
                 mean, std = model(x_context,y_context,x_target)
                 mean, std = mean[0,:,0].detach().cpu(), std[0,:,0].detach().cpu()

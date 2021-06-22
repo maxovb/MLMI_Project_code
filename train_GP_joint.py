@@ -38,7 +38,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 40  # which epoch to start from
+        epoch_start = 20 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         model.prior.scale = model.prior.scale.to(device)
 
     # define the directories
-    experiment_dir_list = ["saved_models/" + data_name +  "/joint" + str(percentage_label) + "P/", model_name, "/"]
+    experiment_dir_list = ["saved_models/" + data_name +  "/joint/" + str(percentage_label) + "P/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
     model_save_dir = experiment_dir_list + [model_name, "_", model_size, "-", "", "E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""), ".pth"]
     train_joint_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
