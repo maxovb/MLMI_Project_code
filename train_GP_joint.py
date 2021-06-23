@@ -13,7 +13,7 @@ from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_
 
 
 if __name__ == "__main__":
-    num_of_kernels = 1
+    num_of_kernels = 4
 
     if num_of_kernels == 1:
         list_kernels = [stheno.EQ().stretch(1)]
@@ -34,17 +34,17 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "NP_UG_DT" # one of ["CNP", "NP_UG", "NP_UG_DT", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
-    model_size = "" # one of ["LR","small","medium","large"]
+    model_name = "UNetCNP_restrained_GMM" # one of ["CNP", "NP_UG", "NP_UG_DT", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_size = "LR" # one of ["LR","small","medium","large"]
 
     weight_ratio = True # weight the loss with the ratio of context pixels present
 
     train = True
-    load = False
+    load = True
     save = False
     evaluate = True
     if load:
-        epoch_start = 20 # which epoch to start from
+        epoch_start = 120 # which epoch to start from
     else:
         epoch_start = 0
 
