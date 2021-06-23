@@ -31,7 +31,7 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
 
     elif model_name == "NP_UG":
         encoder_layer_widths = [2, 128, 128]
-        decoder_layer_widths = [1, 128, 128, 128, 1]
+        decoder_layer_widths = [1, 128, 128, 128, 2]
         classifier_layer_widths = [128, 128, num_classes]
         latent_network_layer_widths = [128 + num_classes, 128, 128]
         prior = "UnitGaussian"
@@ -40,7 +40,7 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
 
     elif model_name == "NP_UG_DT":
         encoder_layer_widths = [2, 128, 128]
-        decoder_layer_widths = [1, 128, 128, 128, 1]
+        decoder_layer_widths = [1, 128, 128, 128, 2]
         classifier_layer_widths = [128, 128, num_classes]
         latent_network_layer_widths = [128 + num_classes, 128, 128]
         prior = "UnitGaussian"

@@ -44,7 +44,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 10 # which epoch to start from
+        epoch_start = 20 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     variational = False
     if model_name in ["NP_UG","NP_UG_DT"]:
         variational = True
-        std_y = 0.1
+        std_y = 0.01
         num_samples_expectation = 1
         parallel = True
     else:

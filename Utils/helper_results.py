@@ -259,7 +259,7 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
 
         if variational:
             for i in range(num_samples_variational):
-                y_prediction, probs = model(x_context,y_context,x_target)
+                y_prediction, std, probs = model(x_context,y_context,x_target)
                 y_prediction = y_prediction[0,:,0].detach().cpu()
                 probabilities_to_plot = probs[0].detach().cpu()
                 ax[row, col].plot(x_target[0,:,0].cpu(),y_prediction,'b-',alpha=transparency)

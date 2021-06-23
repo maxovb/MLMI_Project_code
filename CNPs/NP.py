@@ -65,12 +65,15 @@ class NP(nn.Module):
         mean, std = self.latent_network(torch.cat(num_samples * [r], dim=0), one_hot)
 
         # sample from the continuous latent
-        z = self.sampler(mean, std)
+        if self.deterministic:
+            z = mean
+        else:
+            z = self.sampler(mean, std)
 
         # output
-        y_prediction = self.decoder(torch.cat(num_samples * [x_target], dim=0), one_hot, z)
+        mean, std = self.decoder(torch.cat(num_samples * [x_target], dim=0), one_hot, z)
 
-        return y_prediction, probs
+        return mean, std, probs
 
     def joint_train_step(self, x_context, y_context, x_target, target_label, y_target, opt, alpha,
                          num_samples_expectation=16, std_y=0.1, parallel=False, scale_sup=1, scale_unsup=1):
@@ -231,7 +234,7 @@ class NP(nn.Module):
                 class_labels (tensor): class latent variables (batch)
                 num_samples_expectation (int): number of samples for the monte carlo approximation of the expectation of the reconstruction loss
                 std_y (int), optional: standard deviation of the likelihood (default 0.1)
-                r (tensor, optional: embedding of the context points, i.e. output of the encoder (batch,r_dim)
+                r (tensor, optional): embedding of the context points, i.e. output of the encoder (batch,r_dim)
             Returns:
                 (tensor): value of the labelled objective
             """
@@ -268,13 +271,13 @@ class NP(nn.Module):
         one_hot_repeated = torch.cat([torch.unsqueeze(one_hot, dim=-2)] * num_samples_expectation, dim=-2)
         x_target_labelled_repeated = torch.cat([torch.unsqueeze(x_target_labelled, dim=-3)] * num_samples_expectation,
                                                dim=-3)
-        output = self.decoder(x_target_labelled_repeated, z, one_hot_repeated)
+        mean, std = self.decoder(x_target_labelled_repeated, one_hot_repeated, z)
 
         # compute the likelihood
-        y_target_labelled_repeated = torch.cat(
-            [torch.unsqueeze(y_target_labelled, dim=-3)] * num_samples_expectation, dim=-3)
+        y_target_labelled_repeated = torch.cat([torch.unsqueeze(y_target_labelled, dim=-3)]
+                                               * num_samples_expectation, dim=-3)
         start_idx_sum = -2
-        likelihood = gaussian_logpdf(y_target_labelled_repeated, output, std_y, 'samples_mean', start_idx_sum)
+        likelihood = gaussian_logpdf(y_target_labelled_repeated, mean, std, 'samples_mean', start_idx_sum)
 
         return likelihood - (0 if self.deterministic else kl.sum(dim=-1))
 
@@ -422,6 +425,7 @@ class Decoder(nn.Module):
 
         Returns:
             tensor: predicted mean at every target points (batch, num_target, output_dim)
+            tensor: predicted std deviation at every target points (batch, num_target, output_dim)
         """
 
         # Reshape inputs to model.
@@ -446,7 +450,10 @@ class Decoder(nn.Module):
         x = torch.cat((x_target, latent), -1)
         x = self.post_pooling(x)
 
-        return x
+        mean, std = torch.split(x, self.output_dim // 2, dim=-1)
+        std = 0.01 + 0.99 * nn.functional.softplus(std)
+
+        return mean, std
 
 
 class GaussianSampler(nn.Module):
