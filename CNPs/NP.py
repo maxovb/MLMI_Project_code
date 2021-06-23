@@ -257,7 +257,7 @@ class NP(nn.Module):
         posterior = Normal(loc=mean_latent, scale=std_latent)
         kl = kl_divergence(posterior, self.prior)
 
-        # sample from the contiuous latent distribution
+        # sample from the continuous latent distribution (or not if determinsitic network)
         if self.deterministic:
             z = torch.cat([torch.unsqueeze(mean_latent,dim=-2)] * num_samples_expectation, dim=-2)
         else:
