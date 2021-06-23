@@ -38,6 +38,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
         train_losses = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
+
             # TODO: remove this (debugging)
             #if batch_idx == 1:
                 #x = data

@@ -37,13 +37,13 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 120 # which epoch to start from
+        epoch_start = 200 # which epoch to start from
     else:
         epoch_start = 0
 
     batch_size = 64
     learning_rate = 2e-4
-    epochs = 80
+    epochs = 260 - epoch_start
     save_freq = 20
 
 
