@@ -13,12 +13,18 @@ from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_
 
 
 if __name__ == "__main__":
+    num_of_kernels = 1
 
-    data_name = "GP"
+    if num_of_kernels == 1:
+        list_kernels = [stheno.EQ().stretch(1)]
+        kernel_names = ["EQ 1"]
+    elif num_of_kernels == 4:
+        list_kernels = [stheno.EQ().stretch(1),stheno.EQ().stretch(1/2),stheno.EQ().periodic(1),stheno.EQ().periodic(3/2)]
+        kernel_names = ["EQ 1", "EQ 1/2", "Periodic 1", "Periodic 3/2"]
 
-    list_kernels = [stheno.EQ().stretch(1),stheno.EQ().stretch(1/2),stheno.EQ().periodic(1),stheno.EQ().periodic(3/2)]
-    kernel_names = ["EQ 1", "EQ 1/2", "Periodic 1", "Periodic 3/2"]
     num_classes = len(list_kernels)
+
+    data_name = "GP_" + str(len(kernel_names)) + "K"
 
     # pass the arguments
     assert float(sys.argv[1]) > 0 and float(sys.argv[1]) <= 1, "The number of samples should be a percentage but was given " + str(float(sys.argv[1]))
@@ -28,8 +34,8 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP_restrained_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
-    model_size = "LR" # one of ["LR","small","medium","large"]
+    model_name = "NP_UG_DT" # one of ["CNP", "NP_UG", "NP_UG_DT", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_size = "" # one of ["LR","small","medium","large"]
 
     weight_ratio = True # weight the loss with the ratio of context pixels present
 
@@ -38,7 +44,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 20 # which epoch to start from
+        epoch_start = 10 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -60,7 +66,7 @@ if __name__ == "__main__":
         pooling = None
 
     variational = False
-    if model_name in ["NP_UG"]:
+    if model_name in ["NP_UG","NP_UG_DT"]:
         variational = True
         std_y = 0.1
         num_samples_expectation = 1

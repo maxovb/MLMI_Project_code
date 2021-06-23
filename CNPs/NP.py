@@ -19,13 +19,15 @@ class NP(nn.Module):
         classifier_layer_widths (list of int): list with teh dimensionality of the layers from the aggregate r to the classification output
         latent_network_layer_widths (list of int): list with teh dimensionality of the layers form the aggregate r to the continuous latent parameters
         prior (string), optional: type of prior used on the latent variables
+        deterministic (bool), optional: whether to treat as a deterministic network (i.e. use the mean instead of sampling and no KL divergence)
     """
 
     def __init__(self, encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths,
-                 prior="UnitGaussian"):
+                 prior="UnitGaussian",deterministic=False):
         super(NP, self).__init__()
         self.num_classes = classifier_layer_widths[-1]
         self.latent_dim = latent_network_layer_widths[-1] // 2
+        self.deterministic = deterministic
 
         self.encoder = Encoder(encoder_layer_widths)
         self.classifier = Classifier(classifier_layer_widths)
@@ -256,8 +258,11 @@ class NP(nn.Module):
         kl = kl_divergence(posterior, self.prior)
 
         # sample from the contiuous latent distribution
-        list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent), dim=-2) for i in range(num_samples_expectation)]
-        z = torch.cat(list_samples, dim=-2)
+        if self.deterministic:
+            z = torch.cat([torch.unsqueeze(mean_latent,dim=-2)] * num_samples_expectation, dim=-2)
+        else:
+            list_samples = [torch.unsqueeze(self.sampler(mean_latent, std_latent), dim=-2) for i in range(num_samples_expectation)]
+            z = torch.cat(list_samples, dim=-2)
 
         # pass through the decoder
         one_hot_repeated = torch.cat([torch.unsqueeze(one_hot, dim=-2)] * num_samples_expectation, dim=-2)
@@ -271,7 +276,7 @@ class NP(nn.Module):
         start_idx_sum = -2
         likelihood = gaussian_logpdf(y_target_labelled_repeated, output, std_y, 'samples_mean', start_idx_sum)
 
-        return likelihood - kl.sum(dim=-1)
+        return likelihood - (0 if self.deterministic else kl.sum(dim=-1))
 
 
 class Encoder(nn.Module):

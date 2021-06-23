@@ -15,9 +15,8 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         nn.Module: instance of the model
         bool: whether the model is a convolutional model
     """
-    #TODO: add off-the-grid ConvCNP
 
-    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained", "NP_UG",
+    assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained", "NP_UG", "NP_UG_DT",
                           "UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked"]\
                          , "model name: " + model_name + ", not supported"
 
@@ -29,6 +28,25 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
 
         # create the model
         model = CNP(encoder_layer_widths, decoder_layer_widths)
+
+    elif model_name == "NP_UG":
+        encoder_layer_widths = [2, 128, 128]
+        decoder_layer_widths = [1, 128, 128, 128, 1]
+        classifier_layer_widths = [128, 128, num_classes]
+        latent_network_layer_widths = [128 + num_classes, 128, 128]
+        prior = "UnitGaussian"
+        model = NP(encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths,
+                   prior)
+
+    elif model_name == "NP_UG_DT":
+        encoder_layer_widths = [2, 128, 128]
+        decoder_layer_widths = [1, 128, 128, 128, 1]
+        classifier_layer_widths = [128, 128, num_classes]
+        latent_network_layer_widths = [128 + num_classes, 128, 128]
+        prior = "UnitGaussian"
+        deterministic = True
+        model = NP(encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths,
+                   prior, deterministic=deterministic)
 
     elif model_name == "ConvCNP":
 
@@ -134,14 +152,6 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
                                   num_residual_blocks=num_residual_blocks,
                                   num_down_blocks=num_down_blocks, num_of_filters_top_UNet=num_of_filters_top_UNet,
                                   pooling_size=pooling_size, max_size=max_size)
-
-    elif model_name == "NP_UG":
-        encoder_layer_widths = [2, 128, 128]
-        decoder_layer_widths = [1, 128, 128, 128, 1]
-        classifier_layer_widths = [128, 128, num_classes]
-        latent_network_layer_widths = [128 + num_classes, 128, 128]
-        prior = "UnitGaussian"
-        model = NP(encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths,prior)
 
     elif model_name == "UNetCNP_GMM":
         learn_length_scale = True

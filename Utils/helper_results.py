@@ -236,8 +236,10 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
 
     # use subplots to visualize all images together
     fig, ax = plt.subplots(num_rows,num_cols,figsize=(num_cols*5,num_rows*5))
-    if len(ax.shape) == 1:
+    if num_rows == 1:
         ax = ax[None,:]
+    elif num_cols == 1:
+        ax = ax[:,None]
     #plt.subplots_adjust(wspace=0.01,hspace=0.01)
 
     # initialize the row and column position in the subplot
