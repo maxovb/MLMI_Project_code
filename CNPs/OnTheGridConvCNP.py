@@ -744,10 +744,10 @@ class ConvCNPClassifier(nn.Module):
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
 
         # compute the losses
-        target_label = target_label.detach().clone()
+        target_label_for_evaluating = target_label.detach()
         select_labelled = target_label != -1
-        target_label[target_label == -1] = 0
-        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none')
+        target_label_for_evaluating[torch.logical_not(select_labelled)] = 0
+        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label_for_evaluating, reduction='none')
         sup_loss = sup_loss.mean()
         unsup_loss =  scale_unsup * self.loss_unsup(mean,std,target_image)
 
@@ -762,7 +762,7 @@ class ConvCNPClassifier(nn.Module):
         else:
             accuracy = 0
         
-        return sup_loss + unsup_loss, sup_loss, unsup_loss, accuracy, total
+        return sup_loss + unsup_loss, sup_loss.item(), unsup_loss.item(), accuracy, total
 
     def consistency_loss(self,output_logit, num_sets_of_context=1):
 
@@ -821,7 +821,7 @@ class ConvCNPClassifier(nn.Module):
         opt.step()
         opt.zero_grad()
 
-        return obj.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
+        return obj.item(), sup_loss, unsup_loss, accuracy, total
 
     def unsup_train_step(self,mask,context_img,target_image,opt,l_unsup=1):
         output_logit, _, mean, std = self.forward(mask, context_img, joint=True)
