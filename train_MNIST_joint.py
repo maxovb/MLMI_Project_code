@@ -44,7 +44,7 @@ if __name__ == "__main__":
     batch_size = 64
     learning_rate = 1e-4
     epochs = 200 - epoch_start
-    save_freq = 1
+    save_freq = 20
 
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:

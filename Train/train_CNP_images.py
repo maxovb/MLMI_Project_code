@@ -443,7 +443,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                     data = data.to(device)
 
                     # get the losses
-                    joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(mask,context_img,target,data,alpha=alpha_validation, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
+                    joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(mask,context_img,target,data,alpha=alpha_validation, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
                     joint_loss = joint_loss.item()
                 else:
                     x_context, y_context, x_target, y_target = image_processor(data, num_context_points,
