@@ -164,7 +164,7 @@ class OnTheGridConvCNP(nn.Module):
             batch_size_labelled = mask_labelled.shape[0]
 
             # calculate the loss
-            unsup_logp, sup_logp, accuracy, total = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only, consistency_regularization, num_sets_of_context)
+            unsup_logp, sup_logp, accuracy, total = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only)
 
             J += scale_unsup * unsup_logp
             unsup_loss = (-J).item()/batch_size
@@ -194,7 +194,7 @@ class OnTheGridConvCNP(nn.Module):
 
         return logp
 
-    def supervised_gmm_logp(self,mask,context_img,target_img,target_label, consistency_regularization=False, num_sets_of_context=1):
+    def supervised_gmm_logp(self,mask,context_img,target_img,target_label):
 
         # reconstruction loss
         mean, std, logits, probs = self(mask, context_img)
@@ -208,9 +208,6 @@ class OnTheGridConvCNP(nn.Module):
         
         # calculate the log-likelihood
         logp = mixture_of_gaussian_logpdf(target_img, mean, std, forced_probs, reduction="sum")
-
-        if consistency_regularization:
-            logp += self.gmm_consistency_loss(mean,std,probs,target_img,num_sets_of_context)
 
         # classification loss
         criterion = nn.CrossEntropyLoss(reduction="sum")
@@ -528,6 +525,8 @@ class OnTheGridConvCNPUNet(nn.Module):
                 num_channels, img_height, img_width = x.shape[1], x.shape[2], x.shape[3]
                 x_copy = x.view(batch_size, num_extra_dim, num_channels, img_height, img_width)
                 layers.append(x_copy)
+            else:
+                layers.append(x)
 
         # reshape to recover the class dimension if GMM type of network
         if self.is_gmm:
@@ -677,8 +676,9 @@ class ConvCNPClassifier(nn.Module):
         dense_layer_widths (list of int): list with the dimensionality of the layers (first entry is the number of input filters (reduced to 1D by average pooling))
         layer_id (int): id of the layer from which to extract the representation
         pooling (string): type of pooling to perform, one of ["average", "max", "min"]
+        dropout (bool, optional): whether to use dropout between the dense layers
     """
-    def __init__(self,model, dense_layer_widths, layer_id=-1, pooling="average"):
+    def __init__(self,model, dense_layer_widths, layer_id=-1, pooling="average", dropout=False):
         super(ConvCNPClassifier,self).__init__()
         self.encoder = model.encoder
         self.CNN = model.CNN
@@ -694,6 +694,8 @@ class ConvCNPClassifier(nn.Module):
             h.append(nn.Linear(dense_layer_widths[i],dense_layer_widths[i+1]))
             if i != l - 2:  # no ReLU for the last layer
                 h.append(nn.ReLU())
+                if dropout:
+                    h.append(nn.Dropout(0.5))
         self.dense_network = nn.Sequential(*h)
         self.final_activation = nn.Softmax(dim=-1)
 
@@ -745,7 +747,7 @@ class ConvCNPClassifier(nn.Module):
         target_label = target_label.detach().clone()
         select_labelled = target_label != -1
         target_label[target_label == -1] = 0
-        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none', consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
+        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label, reduction='none')
         sup_loss = sup_loss.mean()
         unsup_loss =  scale_unsup * self.loss_unsup(mean,std,target_image)
 
@@ -765,12 +767,12 @@ class ConvCNPClassifier(nn.Module):
     def consistency_loss(self,output_logit, num_sets_of_context=1):
 
         # obtain the probability distribution
-        probs = nn.Softmax(output_logit,dim=-1)
+        probs = nn.Softmax(dim=-1)(output_logit)
 
         assert num_sets_of_context == 2, "Consistency loss does not handle other number of context sets than 2 at the moment"
 
         # get the original batch size
-        single_set_batch_size = mean.shape[0] / num_sets_of_context
+        single_set_batch_size = output_logit.shape[0] / num_sets_of_context
         assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
         single_set_batch_size = int(single_set_batch_size)
 

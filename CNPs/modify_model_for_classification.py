@@ -19,7 +19,7 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
     Returns:
         nn.Module: instance of the new classification model
     """
-    assert model_size in ["LR","small","medium","large"], "model_size should be one of 'LR', 'small','medium' or 'large', not " + str(model_size)
+    assert model_size.split("_dropout")[0] in ["LR","small","medium","large"], "model_size should be one of 'LR', 'small','medium' or 'large', not " + str(model_size)
 
     if convolutional:
 
@@ -36,17 +36,21 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
         out = temp_model(temp_x,temp_x)
         tmp, r_size = out.shape
 
-        if model_size == "LR":
+        if "LR" in model_size:
             dense_layer_widths = [r_size,10]
-        elif model_size == "small":
+        elif "small" in model_size:
             dense_layer_widths = [r_size,10,10]
-        elif model_size == "medium":
+        elif "medium" in model_size:
             dense_layer_widths = [r_size,64,64,10]
-        elif model_size == "large":
+        elif "large" in model_size:
             dense_layer_widths = [r_size, 128, 128, 128, 128, 10]
 
+        dropout = False
+        if "dropout" in model_size:
+            dropout=True
+
         # create the model
-        classification_model = ConvCNPClassifier(model, dense_layer_widths, layer_id=layer_id, pooling=pooling)
+        classification_model = ConvCNPClassifier(model, dense_layer_widths, layer_id=layer_id, pooling=pooling, dropout=dropout)
 
         # freeze the weights from the original CNP
         if freeze:
@@ -56,17 +60,21 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
                 param.requires_grad = False
 
     else:
-        if model_size == "LR":
+        if "LR" in model_size:
             classification_head_layer_widths = [128,10]
-        elif model_size == "small":
+        elif "small" in model_size:
             classification_head_layer_widths = [128,10,10]
-        elif model_size == "medium":
+        elif "medium" in model_size:
             classification_head_layer_widths = [128, 64, 64, 10]
-        elif model_size == "large":
+        elif "large" in model_size:
             classification_head_layer_widths = [128, 128, 128, 128, 128, 10]
 
+        dropout = False
+        if "dropout" in model_size:
+            dropout = True
+
         # create the model
-        classification_model = CNPClassifier(model, classification_head_layer_widths)
+        classification_model = CNPClassifier(model, classification_head_layer_widths, dropout=dropout)
 
         # freeze the weights from the original CNP
         if freeze:
