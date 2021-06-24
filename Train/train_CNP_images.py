@@ -39,12 +39,6 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
 
-            # TODO: remove this (debugging)
-            #if batch_idx == 1:
-                #x = data
-                #y = target
-            #data = x
-            #target = y
             # either select nbr of context pts between 2 and max_percentage_context, or uniformly between 2 and 1/3 with probability 1/2 and between 1/3 and 1 with probability 1/2
             if max_percentage_context:
                 num_context_points = np.random.randint(min_context_points,int(img_height * img_width * max_percentage_context))
@@ -352,21 +346,11 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 repeat_size_data = tuple(repeat_size_data)
                 data = data.repeat(repeat_size_data)
 
-            # TODO: remove this (debugging)
-            #if batch_idx == 0 and i == 0:
-            #    x = data
-            #    y = target
-            #data = x
-            #target = y
-
             s = np.random.rand()
             if s < 1 / 2:
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
             else:
                 num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
-            
-            # TODO: remove this (debugging):
-            #num_context_points = 784
             
             # TODO: add variational conv
             if convolutional:
@@ -434,10 +418,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             validation_totals = []
             for batch_idx, (data, target) in enumerate(validation_data):
 
-                # TODO: remove this (debugging)
-                #data = x
-                #target = y
-
                 target = target.to(device)
 
                 if consistency_regularization:
@@ -482,19 +462,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 validation_losses[1].append(unsup_loss)
                 validation_num_correct.append(num_correct)
                 validation_totals.append(total)
-
-            # TODO: remove this (debugging)
-            """
-            mean = model(x_context,y_context, x_target)
-            mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,1))
-            plt.figure()
-            plt.imshow(mean[0])
-            plt.savefig("tmp/tmp_mean" + str(i) + ".svg")
-            plt.figure()
-            context_img = format_context_points_image(x_context,y_context,img_height,img_width)
-            plt.imshow(context_img[0])
-            plt.savefig("tmp/tmp_ctxt" + str(i) + ".svg")
-            """
 
             epoch_avg_validation_joint_loss = np.array(validation_losses[0]).mean()
             epoch_avg_validation_unsup_loss = np.array(validation_losses[1]).mean()
