@@ -42,7 +42,7 @@ if __name__ == "__main__":
         epoch_start = 0
 
     batch_size = 64
-    learning_rate = 2e-4
+    learning_rate = 1e-4
     epochs = 200 - epoch_start
     save_freq = 20
 
