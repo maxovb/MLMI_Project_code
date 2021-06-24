@@ -145,8 +145,9 @@ class CNPClassifier(nn.Module):
     Args:
         model (nn.module): original CNP
         classification_head_layer_widths (list of int): list with the dimensionality of the layers (first entry is the size of the representation)
+        dropout (bool,optional): whether to use dropout between the dense layers
     """
-    def __init__(self,model,classification_head_layer_widths):
+    def __init__(self,model,classification_head_layer_widths,dropout=False):
         super(CNPClassifier,self).__init__()
         self.encoder = model.encoder
         l = len(classification_head_layer_widths)
@@ -155,6 +156,8 @@ class CNPClassifier(nn.Module):
             h.append(nn.Linear(classification_head_layer_widths[i], classification_head_layer_widths[i + 1]))
             if i != l - 2:  # no ReLU for the last layer
                 h.append(nn.ReLU())
+                if dropout:
+                    h.append(nn.Dropout(0.5))
         self.classification_head = nn.Sequential(*h)
         self.final_activation = nn.Softmax(dim=-1)
 

@@ -20,8 +20,8 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP_restrained_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
-    model_size = "LR" # one of ["LR","small","medium","large"]
+    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = True  # whether to block the skip connections at the middle layers of the UNet
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     batch_size = 64
     learning_rate = 2e-4
-    epochs = 260 - epoch_start
+    epochs = 200 - epoch_start
     save_freq = 20
 
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
             alpha = 789 * (60000 * (1-validation_split))/num_samples
             alpha_validation = 789
         else:
-            alpha = 1000 * (60000 * (1-validation_split))/num_samples
+            alpha = 789 * (60000 * (1-validation_split))/num_samples
             alpha_validation = 1000
     else:
         alpha = 1 * (60000 * (1-validation_split))/num_samples
