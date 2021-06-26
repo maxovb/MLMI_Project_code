@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 from torch.distributions.kl import kl_divergence
 from torchsummary import summary
+from Utils.helpers_train import grad_norm_iteration
 from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf
 
 class OnTheGridConvCNP(nn.Module):
@@ -292,6 +293,9 @@ class OnTheGridConvCNP(nn.Module):
 
         return accuracy, total
 
+    def get_last_shared_layer(self):
+        return self.CNN.get_last_shared_layer()
+
     @property
     def num_params(self):
         """Number of parameters."""
@@ -373,6 +377,9 @@ class OnTheGridConvCNPCNN(nn.Module):
             x = self.h[i](x)
             layers.append(x)
         return layers[layer_id]
+
+    def get_last_shared_layer(self):
+        return self.h[-1]
 
 class OnTheGridConvCNPUNet(nn.Module):
     """U-Net for the CNN part of the on-the-grid version of the Convolutional Conditional Neural Process.
@@ -604,6 +611,9 @@ class OnTheGridConvCNPUNet(nn.Module):
         else:
             return layers[layer_id], logits, probs
 
+    def get_last_shared_layer(self):
+        return self.h_bottom
+
 
 class OnTheGridConvCNPDecoder(nn.Module):
     """Decoder for the on-the-grid version of the Convolutional Conditional Neural Process. See https://arxiv.org/abs/1910.13556 for details.
@@ -742,10 +752,14 @@ class ConvCNPClassifier(nn.Module):
         loss = criterion(output_logit,target_label)
         return loss
 
-    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1):
+    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm=False):
 
         # obtain the predictions
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
+
+        # pre-allocate variables:
+        unsup_task_loss = []
+        sup_task_loss = []
 
         # compute the losses
         target_label_for_evaluating = target_label.clone().detach()
@@ -753,10 +767,19 @@ class ConvCNPClassifier(nn.Module):
         target_label_for_evaluating[torch.logical_not(select_labelled)] = 0
         sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label_for_evaluating, reduction='none')
         sup_loss = sup_loss.mean()
-        unsup_loss =  scale_unsup * self.loss_unsup(mean,std,target_image)
+        rec_loss = scale_unsup * self.loss_unsup(mean,std,target_image)
+
+        # append to the list of tasks loss
+        unsup_task_loss.append(rec_loss)
+        sup_task_loss.append(sup_loss)
 
         if consistency_regularization:
-            unsup_loss += scale_unsup * self.consistency_loss(output_logit, num_sets_of_context)
+            cons_loss = scale_unsup * self.consistency_loss(output_logit, num_sets_of_context)
+            unsup_task_loss.append(cons_loss)
+
+        task_loss = torch.stack(unsup_task_loss + sup_task_loss)
+        unsup_task_loss = torch.stack(unsup_task_loss)
+        sup_task_loss = torch.stack(sup_task_loss)
 
         # return the accuracy as well
         _, predicted = torch.max(output_probs, dim=1)
@@ -765,8 +788,23 @@ class ConvCNPClassifier(nn.Module):
             accuracy = ((predicted == target_label).sum()).item() / total
         else:
             accuracy = 0
-        
-        return sup_loss + unsup_loss, sup_loss.item(), unsup_loss.item(), accuracy, total
+
+        if not (hasattr(self, "task_weights")):
+            self.task_weights = torch.nn.Parameter(torch.ones(len(task_loss))).float().to(mean.device)
+
+        # weights
+        n_unsup = len(unsup_task_loss)
+        self.task_weights_unsup = self.task_weights[:n_unsup]
+        self.task_weights_sup = self.task_weights[n_unsup:]
+
+        unsup_loss = torch.sum(torch.mul(self.task_weights_unsup, unsup_task_loss))
+        sup_loss = torch.sum(torch.mul(self.task_weights_sup,sup_task_loss))
+        joint_loss = torch.sum(torch.mul(self.task_weights, task_loss))
+
+        if grad_norm:
+            return joint_loss, sup_loss.item(), unsup_loss.item(), accuracy, total, task_loss
+        else:
+            return joint_loss, sup_loss.item(), unsup_loss.item(), accuracy, total
 
     def consistency_loss(self,output_logit, num_sets_of_context=1):
 
@@ -795,8 +833,6 @@ class ConvCNPClassifier(nn.Module):
 
         return loss
 
-
-
     def train_step(self,mask,context_img,target_label,opt):
         output_logit, output_probs = self.forward(mask,context_img,joint=False)
         obj = self.loss(output_logit,target_label)
@@ -814,14 +850,20 @@ class ConvCNPClassifier(nn.Module):
         else:
             accuracy = 0
 
-        return obj.item(), accuracy, totalf
+        return obj.item(), accuracy, total
 
-    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1):
+    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm=False, epoch=None, gamma=1.5, ratios=None):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context)
+        obj, sup_loss, unsup_loss, accuracy, total, task_loss = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm=grad_norm)
 
-        # Optimization
-        obj.backward()
+        if grad_norm:
+            obj.backward(retain_graph=True)
+            grad_norm_iteration(self,task_loss,epoch,gamma,ratios)
+        else:
+            self.task_weights.grad.data = self.task_weights.grad.data * 0.0
+            obj.backward()
+
+        # optimization
         opt.step()
         opt.zero_grad()
 
@@ -852,6 +894,9 @@ class ConvCNPClassifier(nn.Module):
         accuracy = ((predicted == target_label).sum()).item()/total
 
         return accuracy, total
+
+    def get_last_shared_layer(self):
+        return self.CNN.get_last_shared_layer()
 
     @property
     def num_params(self):

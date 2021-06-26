@@ -1,0 +1,80 @@
+# This was originally copied from https://github.com/brianlan/pytorch-grad-norm/blob/067e4accaa119137fca430b23c413a2bee8323b6/train.py
+import torch
+import numpy as np
+
+def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
+    """ Apply a GradNorm iteration
+    Args:
+        model (nn.Module): model to apply the GradNorm iteration on
+        task_loss (tensor): loss for all the tasks
+        epoch (int): current epoch, to use to store the initial loss of the first epoch
+        gamma (int): hyper-parameter for the grad norm (alpha in the paper)
+        ratios (list of float):  lis of objective ratios for the loss terms for the unsupervised [0] and supervsied [1] losses, if None do not use ratios
+    Reference:
+        Chen, Zhao, et al. "Gradnorm: Gradient normalization for adaptive loss balancing in deep multitask networks."
+         International Conference on Machine Learning. PMLR, 2018.
+    """
+
+    # only apply GradNorm when none of the tasks is Nan (i.e. include supervised loss)
+    for loss in task_loss:
+        if loss.item() == 0:
+            return
+
+    # remove the gradient on the task weights
+    model.task_weights.grad.data = model.task_weights.grad.data * 0.0
+
+    if epoch == 0:
+        model.initial_task_loss = task_loss.detach().cpu().numpy()
+
+    # get layer of shared weights
+    W = model.get_last_shared_layer()
+
+    # get the gradient norms for each of the tasks
+    # G^{(i)}_w(t)
+    norms = []
+    for i in range(len(task_loss)):
+        # get the gradient of this task loss with respect to the shared parameters
+        gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
+        # compute the norm
+        norms.append(torch.norm(torch.mul(model.task_weights[i], gygw[0])))
+    norms = torch.stack(norms)
+    # print('G_w(t): {}'.format(norms))
+
+    # compute the inverse training rate r_i(t)
+    # \curl{L}_i
+    if torch.cuda.is_available():
+        loss_ratio = task_loss.data.cpu().numpy() / model.initial_task_loss
+    else:
+        loss_ratio = task_loss.data.numpy() / model.initial_task_loss
+    # r_i(t)
+    inverse_train_rate = loss_ratio / np.mean(loss_ratio)
+
+
+    # compute the mean norm \tilde{G}_w(t)
+    if torch.cuda.is_available():
+        mean_norm = np.mean(norms.data.cpu().numpy())
+    else:
+        mean_norm = np.mean(norms.data.numpy())
+
+    # compute the GradNorm loss
+    # this term has to remain constant
+    constant_term = torch.from_numpy((mean_norm * (inverse_train_rate ** gamma)))
+
+    if ratios:
+        multiplicative_term = torch.ones(len(task_loss)).to(task_loss[0].device)
+        multiplicative_term[:len(model.task_weights_unsup)] *= ratios[0]
+        multiplicative_term[len(model.task_weights_unsup):] *= ratios[1]
+        constant_term = constant_term * multiplicative_term
+
+    if torch.cuda.is_available():
+        constant_term = constant_term.to(task_loss[0].device)
+    # print('Constant term: {}'.format(constant_term))
+    # this is the GradNorm loss itself
+    grad_norm_loss = torch.sum(torch.abs(norms - constant_term))
+    # print('GradNorm loss {}'.format(grad_norm_loss))
+
+    # compute the gradient for the weights
+    model.task_weights.grad = torch.autograd.grad(grad_norm_loss, model.task_weights)[0]
+
+
+    print(norms)

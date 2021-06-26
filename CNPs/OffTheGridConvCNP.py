@@ -327,6 +327,9 @@ class OffTheGridConvCNP(nn.Module):
 
         return accuracy, total
 
+    def get_last_shared_layer(self):
+        return self.CNN.get_last_shared_layer()
+
     @property
     def num_params(self):
         """Number of parameters in model."""
@@ -491,6 +494,9 @@ class OffTheGridConvCNPCNN(nn.Module):
             layers.append(x)
         return layers[layer_id]
 
+    def get_last_shared_layer(self):
+        return self.h[-1]
+
 class OffTheGridConvCNPUNet(nn.Module):
     """U-Net for the CNN part of the on-the-grid version of the Convolutional Conditional Neural Process.
 
@@ -653,7 +659,6 @@ class OffTheGridConvCNPUNet(nn.Module):
 
             x = x.view(batch_size, num_extra_dim, num_channels, num_points)
 
-
         return x, layers
 
     def classify(self,x):
@@ -720,6 +725,9 @@ class OffTheGridConvCNPUNet(nn.Module):
             return layers[layer_id]
         else:
             return layers[layer_id], logits, probs
+
+    def get_last_shared_layer(self):
+        return self.h_bottom
 
 class ConvBlock1D(nn.Module):
     """ Convolutional (optionally residual) block for the off-the-grid 1D ConvCNP

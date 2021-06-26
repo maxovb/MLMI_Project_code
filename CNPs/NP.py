@@ -281,6 +281,9 @@ class NP(nn.Module):
 
         return likelihood - (0 if self.deterministic else kl.sum(dim=-1))
 
+    def get_last_shared_layer(self):
+        return self.encoder.get_last_shared_layer()
+
 
 class Encoder(nn.Module):
     """Encoder used for standard NP model.
@@ -319,6 +322,9 @@ class Encoder(nn.Module):
         r = torch.mean(x, dim=-2, keepdim=False)
 
         return r
+
+    def get_last_shared_layer(self):
+        return self.pre_pooling[-1]
 
 
 class Classifier(nn.Module):

@@ -27,13 +27,14 @@ if __name__ == "__main__":
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
     consistency_regularization = False # whether to use consistency regularization or not
+    grad_norm = True # whether to use GradNorm to balance the losses
     validation_split = 0.1
     min_context_points = 2
 
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -45,6 +46,7 @@ if __name__ == "__main__":
     learning_rate = 1e-4
     epochs = 400 - epoch_start
     save_freq = 20
+    gamma = 1.5 # hyper-parameter for grad_norm
 
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -79,14 +81,16 @@ if __name__ == "__main__":
     # training parameters
     num_training_samples = [10,20,40,60,80,100,600,1000,3000]
 
+    ratios = [1, (60000 * (1-validation_split))/num_samples]
+
     # hyper-parameters
     if not(variational):
         if mixture:
             alpha = 789 * (60000 * (1-validation_split))/num_samples
             alpha_validation = 789
         else:
-            alpha = 789 * (60000 * (1-validation_split))/num_samples
-            alpha_validation = 1000
+            alpha = (60000 * (1-validation_split))/num_samples #789 * (60000 * (1-validation_split))/num_samples
+            alpha_validation = 1 #1000
     else:
         alpha = 1 * (60000 * (1-validation_split))/num_samples
         alpha_validation = 1
@@ -121,7 +125,7 @@ if __name__ == "__main__":
     """
 
     # define the directories
-    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons/" if consistency_regularization else "/") + str(num_samples) + "S/", model_name, "/"]
+    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "/" if grad_norm else "/") + str(num_samples) + "S/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
     train_joint_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
@@ -168,7 +172,7 @@ if __name__ == "__main__":
         assert not (os.path.isfile(validation_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + validation_accuracy_dir_txt
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, weight_ratio=weight_ratio, consistency_regularization=consistency_regularization)
+        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, weight_ratio=weight_ratio, consistency_regularization=consistency_regularization, grad_norm=grad_norm, gamma=gamma, ratios=ratios)
         plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
         plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
         plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)

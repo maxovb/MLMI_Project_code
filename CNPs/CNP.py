@@ -93,6 +93,9 @@ class Encoder(nn.Module):
         x = self.pre_pooling(encoder_input)
         return torch.mean(x, dim=-2, keepdim=True)
 
+    def get_last_shared_layer(self):
+        return self.pre_pooling[-1]
+
 class Decoder(nn.Module):
     """Decoder used for standard CNP model.
 
@@ -270,6 +273,9 @@ class CNPClassifier(nn.Module):
         accuracy = ((predicted == target_label).sum()).item()/total
 
         return accuracy, total
+
+    def get_last_shared_layer(self):
+        return self.encoder.get_last_shared_layer()
 
     @property
     def num_params(self):
