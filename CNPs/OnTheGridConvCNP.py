@@ -261,6 +261,8 @@ class OnTheGridConvCNP(nn.Module):
             tensor: std of the sampled component
         """
 
+        assert is_gmm, "Sampling one component only possible if the model has a GMM predictive"
+
         # get the means, std and weights of the components
         means, stds, logits, probs = self(mask,context_image)
 
@@ -273,7 +275,7 @@ class OnTheGridConvCNP(nn.Module):
         mean = torch.gather(means,1,indices)[:,0,:,:,:]
         std = torch.gather(stds, 1, indices)[:,0,:,:,:]
 
-        return mean, std, probs
+        return mean, std, probs, sample
 
     def evaluate_accuracy(self, mask,context_image,target_label):
 
@@ -687,6 +689,8 @@ class ConvCNPClassifier(nn.Module):
         self.layer_id = layer_id
         self.pooling = pooling
 
+        self.is_gmm = False
+
         # add the dense layers
         l = len(dense_layer_widths)
         h = nn.ModuleList([])  # store the layers as a list
@@ -744,7 +748,7 @@ class ConvCNPClassifier(nn.Module):
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
 
         # compute the losses
-        target_label_for_evaluating = target_label.detach()
+        target_label_for_evaluating = target_label.clone().detach()
         select_labelled = target_label != -1
         target_label_for_evaluating[torch.logical_not(select_labelled)] = 0
         sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label_for_evaluating, reduction='none')
@@ -810,7 +814,7 @@ class ConvCNPClassifier(nn.Module):
         else:
             accuracy = 0
 
-        return obj.item(), accuracy, total
+        return obj.item(), accuracy, totalf
 
     def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1):
 

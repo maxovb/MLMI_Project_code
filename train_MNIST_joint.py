@@ -26,14 +26,14 @@ if __name__ == "__main__":
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-    consistency_regularization = True # whether to use consistency regularization or not
+    consistency_regularization = False # whether to use consistency regularization or not
     validation_split = 0.1
     min_context_points = 2
 
 
     # for continued supervised training
     train = True
-    load = False
+    load = True
     save = False
     evaluate = True
     if load:
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     batch_size = 64
     learning_rate = 1e-4
-    epochs = 200 - epoch_start
+    epochs = 400 - epoch_start
     save_freq = 20
 
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     else:
         layer_id = None
         pooling = None
-
+ 
     variational = False
     if model_name in ["NP_UG"]:
         variational = True

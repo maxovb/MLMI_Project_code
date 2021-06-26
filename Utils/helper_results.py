@@ -155,12 +155,17 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
             mask, context_img = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
             if not(variational):
                 if not(model.is_gmm):
-                    mean, std = model(mask,context_img)
+                    if include_class_predictions:
+                        logits, probs, mean, std = model(mask,context_img,joint=True)
+                        probabilities_to_plot = probs[0].detach().cpu()
+                    else:
+                        mean, std = model(mask,context_img)
                     mean = mean.detach().cpu().numpy()
                     std = std.detach().cpu().numpy()
                     img1, img2 = mean, std
                 else:
-                    mean, std, probs = model.sample_one_component(mask,context_img)
+                    mean, std, probs, samples = model.sample_one_component(mask,context_img)
+                    class_sampled = samples[0].item()
                     probabilities_to_plot = probs[0].detach().cpu()
                     mean = mean.detach().cpu().numpy()
                     std = std.detach().cpu().numpy()
@@ -181,7 +186,8 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
                     std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
                     img1, img2 = mean, std
                 else:
-                    mean, std, probs = model.sample_one_component(x_context,y_context,x_target)
+                    mean, std, probs, samples = model.sample_one_component(x_context,y_context,x_target)
+                    class_sampled = samples[0].item()
                     probabilities_to_plot = probs[0].detach().cpu()
                     mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
                     std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
@@ -193,13 +199,19 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
                 img1, img2 = sample1, sample2
             context_img = format_context_points_image(x_context,y_context,img_height,img_width)
 
+
         ax[row,col].imshow(data[0].permute(1,2,0).detach().cpu().numpy())
         ax[row+1,col].imshow(context_img[0])
         ax[row+2,col].imshow(img1[0]) # mean for CNP and sample 1 for NP
         ax[row+3,col].imshow(img2[0]) # std for CNP and sample 1 for NP
 
         if include_class_predictions:
-            ax[row+4, col].bar(range(num_classes),probabilities_to_plot)
+            # get the colors of the bars (red for the one we sampled from)
+            colors_bar = ["blue" for _ in range(num_classes)]
+            if model.is_gmm:
+                colors_bar[class_sampled] = "red"
+
+            ax[row+4, col].bar(range(num_classes),probabilities_to_plot,color=colors_bar)
             ax[row+4, col].set_xticks(np.arange(num_classes))
             ax[row + 4, col].set_xticklabels(np.arange(num_classes), fontsize=5)
             ax[row + 4, col].set_yticks([])
