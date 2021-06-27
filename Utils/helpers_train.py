@@ -37,9 +37,28 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
         gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
         # compute the norm
         norms.append(torch.norm(torch.mul(model.task_weights[i], gygw[0])))
-    norms = torch.stack(norms)
+    norms = torch.stack(norms).detach().cpu().numpy()
     # print('G_w(t): {}'.format(norms))
 
+    if epoch == 0:
+        model.prev_epoch = 0
+        if not(hasattr(model,"norms")):
+            model.norms = [norms]
+        else:
+            model.norms.append(norms)
+    else:
+        avg_norm = sum(model.norms)/len(model.norms)
+        target_norm = np.mean(avg_norm)
+        if ratios:
+            multiplicative_term = np.ones(len(task_loss))
+            multiplicative_term[:len(model.task_weights)] *= ratios[0]
+            multiplicative_term[len(model.task_weights):] *= ratios[1]
+            target_norm = np.mean(avg_norm) * multiplicative_term
+
+        model.task_weights = torch.from_numpy(target_norm/avg_norm).to(task_loss[0].device)
+
+
+    """
     # compute the inverse training rate r_i(t)
     # \curl{L}_i
     if torch.cuda.is_available():
@@ -48,6 +67,8 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
         loss_ratio = task_loss.data.numpy() / model.initial_task_loss
     # r_i(t)
     inverse_train_rate = loss_ratio / np.mean(loss_ratio)
+
+    
 
     if ratios:
         multiplicative_term_unsup = np.ones(len(task_loss))
@@ -91,3 +112,5 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
     print('--------grad',model.task_weights.grad)
     print("---------weight",model.task_weights)
     #print('weight',model.task_weights)
+    
+    """
