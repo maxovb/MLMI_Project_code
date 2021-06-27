@@ -701,6 +701,8 @@ class ConvCNPClassifier(nn.Module):
 
         self.is_gmm = False
 
+        self.task_weights = torch.nn.Parameter(torch.ones(2).float(), requires_grad=True)
+
         # add the dense layers
         l = len(dense_layer_widths)
         h = nn.ModuleList([])  # store the layers as a list
@@ -752,7 +754,7 @@ class ConvCNPClassifier(nn.Module):
         loss = criterion(output_logit,target_label)
         return loss
 
-    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm=False):
+    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm=False, opt=None):
 
         # obtain the predictions
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
@@ -790,7 +792,8 @@ class ConvCNPClassifier(nn.Module):
             accuracy = 0
 
         if not (hasattr(self, "task_weights")):
-            self.task_weights = torch.nn.Parameter(torch.ones(len(task_loss))).float().to(mean.device)
+            self.task_weights = torch.nn.Parameter(torch.ones(len(task_loss),device=mean.device).float(), requires_grad=True)
+            opt.param_groups.append({'params': self.task_weights })
 
         # weights
         n_unsup = len(unsup_task_loss)
@@ -854,18 +857,22 @@ class ConvCNPClassifier(nn.Module):
 
     def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm=False, epoch=None, gamma=1.5, ratios=None):
 
-        obj, sup_loss, unsup_loss, accuracy, total, task_loss = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm=grad_norm)
+        obj, sup_loss, unsup_loss, accuracy, total, task_loss = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm=grad_norm,opt=opt)
 
         if grad_norm:
             obj.backward(retain_graph=True)
             grad_norm_iteration(self,task_loss,epoch,gamma,ratios)
         else:
-            self.task_weights.grad.data = self.task_weights.grad.data * 0.0
             obj.backward()
+            self.task_weights.grad.data = self.task_weights.grad.data * 0.0
 
         # optimization
         opt.step()
         opt.zero_grad()
+
+        if grad_norm:
+            normalization_cst = len(self.task_weights)/torch.sum(self.task_weights,dim=0).detach()
+            self.task_weights.data = self.task_weights.data * normalization_cst
 
         return obj.item(), sup_loss, unsup_loss, accuracy, total
 

@@ -15,13 +15,13 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
          International Conference on Machine Learning. PMLR, 2018.
     """
 
+    # remove the gradient on the task weights
+    model.task_weights.grad.data = model.task_weights.grad.data * 0.0
+
     # only apply GradNorm when none of the tasks is Nan (i.e. include supervised loss)
     for loss in task_loss:
         if loss.item() == 0:
             return
-
-    # remove the gradient on the task weights
-    model.task_weights.grad.data = model.task_weights.grad.data * 0.0
 
     if epoch == 0:
         model.initial_task_loss = task_loss.detach().cpu().numpy()
@@ -49,32 +49,45 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
     # r_i(t)
     inverse_train_rate = loss_ratio / np.mean(loss_ratio)
 
+    if ratios:
+        multiplicative_term_unsup = np.ones(len(task_loss))
+        multiplicative_term_unsup[:len(model.task_weights_unsup)] *= ratios[0]
+        multiplicative_term_unsup[len(model.task_weights_unsup):] *= ratios[1]
+        multiplicative_term_sup = np.ones(len(task_loss))
+        multiplicative_term_sup[:len(model.task_weights_unsup)] *= ratios[1]
+        multiplicative_term_sup[len(model.task_weights_unsup):] *= ratios[0]
 
-    # compute the mean norm \tilde{G}_w(t)
-    if torch.cuda.is_available():
-        mean_norm = np.mean(norms.data.cpu().numpy())
+        # compute the mean norm \tilde{G}_w(t)
+        mean_norm_unsup = np.mean(norms.data.cpu().numpy()/multiplicative_term_unsup)
+        mean_norm_sup = np.mean(norms.data.cpu().numpy()*multiplicative_term_sup)
+
+        mean_norm = np.ones(len(task_loss))
+        mean_norm[:len(model.task_weights_unsup)] *= mean_norm_unsup
+        mean_norm[len(model.task_weights_unsup):] *= mean_norm_sup
     else:
-        mean_norm = np.mean(norms.data.numpy())
+        # compute the mean norm \tilde{G}_w(t)
+        mean_norm = np.mean(norms.data.cpu().numpy())
 
     # compute the GradNorm loss
     # this term has to remain constant
-    constant_term = torch.from_numpy((mean_norm * (inverse_train_rate ** gamma)))
 
-    if ratios:
-        multiplicative_term = torch.ones(len(task_loss)).to(task_loss[0].device)
-        multiplicative_term[:len(model.task_weights_unsup)] *= ratios[0]
-        multiplicative_term[len(model.task_weights_unsup):] *= ratios[1]
-        constant_term = constant_term * multiplicative_term
+    
+    constant_term = torch.from_numpy((mean_norm * (inverse_train_rate ** gamma))).to(task_loss[0].device) 
 
-    if torch.cuda.is_available():
-        constant_term = constant_term.to(task_loss[0].device)
     # print('Constant term: {}'.format(constant_term))
     # this is the GradNorm loss itself
     grad_norm_loss = torch.sum(torch.abs(norms - constant_term))
+    #print('cst',constant_term)
+    #print('loss',grad_norm_loss)
     # print('GradNorm loss {}'.format(grad_norm_loss))
 
     # compute the gradient for the weights
     model.task_weights.grad = torch.autograd.grad(grad_norm_loss, model.task_weights)[0]
+    
+    #print('grad',model.task_weights.grad)
 
-
-    print(norms)
+    print("---norm",norms)
+    print("-----cst", constant_term)
+    print('--------grad',model.task_weights.grad)
+    print("---------weight",model.task_weights)
+    #print('weight',model.task_weights)
