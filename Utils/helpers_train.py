@@ -25,18 +25,30 @@ class GradNorm():
     def grad_norm_iteration(self):
 
         avg_norm = sum(self.list_norms) / len(self.list_norms)
+
+        if 0 in avg_norm:
+            print("------ FAIL: 0 in avg_norm ------")
+            print("list:",self.list_norms)
+            print("weights:",self.model.task_weights)
+
         if self.ratios:
             multiplicative_term = np.array(self.ratios)
             target_norm = np.mean(avg_norm) * multiplicative_term
         else:
             target_norm = np.mean(avg_norm)
 
+
         self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
         normalization_cst = len(self.model.task_weights) / torch.sum(self.model.task_weights, dim=0).detach()
-        self.model.task_weights.data = self.model.task_weights.data * normalization_cst
+        self.model.task_weights = self.model.task_weights * normalization_cst
 
         # empty the list of norms
         self.list_norms = []
+        
+        print('target_norm',target_norm)
+        print('weights',self.model.task_weights)
+        print('avg',avg_norm)
+        
 
     def store_norm(self, task_loss):
 
@@ -56,6 +68,12 @@ class GradNorm():
             # compute the norm
             norms.append(torch.norm(torch.mul(self.model.task_weights[i], gygw[0])))
         norms = torch.stack(norms).detach().cpu().numpy()
+
+        if 0 in norms:
+            #print("gygw",gygw)
+            #print("params",list(W.parameters()))
+            print("weights",self.model.task_weights)
+            print("loss",task_loss)
 
         self.list_norms.append(norms)
 

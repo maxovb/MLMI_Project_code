@@ -701,8 +701,6 @@ class ConvCNPClassifier(nn.Module):
 
         self.is_gmm = False
 
-        self.task_weights = torch.nn.Parameter(torch.ones(2).float(), requires_grad=True)
-
         # add the dense layers
         l = len(dense_layer_widths)
         h = nn.ModuleList([])  # store the layers as a list
