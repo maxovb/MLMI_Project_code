@@ -9,6 +9,7 @@ from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
 from Utils.data_loader import load_joint_data_as_generator
 from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_loss
+from Utils.helpers_train import GradNorm
 
 if __name__ == "__main__":
 
@@ -46,8 +47,6 @@ if __name__ == "__main__":
     learning_rate = 1e-4
     epochs = 400 - epoch_start
     save_freq = 20
-    gamma = 1.5 # hyper-parameter for grad_norm
-
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
@@ -80,8 +79,6 @@ if __name__ == "__main__":
 
     # training parameters
     num_training_samples = [10,20,40,60,80,100,600,1000,3000]
-
-    ratios = [1, (60000 * (1-validation_split))/num_samples]
 
     # hyper-parameters
     if not(variational):
@@ -123,6 +120,17 @@ if __name__ == "__main__":
     else:
         summary(model, [(784, 2), (784, 1), (784,2)])
     """
+
+    if consistency_regularization:
+        ratios = [1, 1, (60000 * (1 - validation_split)) / num_samples]
+    else:
+        ratios = [1, (60000 * (1 - validation_split)) / num_samples]
+
+    if grad_norm:
+        gamma = 1.5 # hyper-parameter for grad_norm
+        grad_norm_iterator = GradNorm(model,gamma,ratios)
+    else:
+        grad_norm_iterator = None
 
     # define the directories
     experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "/" if grad_norm else "/") + str(num_samples) + "S/", model_name, "/"]
@@ -172,7 +180,7 @@ if __name__ == "__main__":
         assert not (os.path.isfile(validation_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + validation_accuracy_dir_txt
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, weight_ratio=weight_ratio, consistency_regularization=consistency_regularization, grad_norm=grad_norm, gamma=gamma, ratios=ratios)
+        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data, validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt, visualisation_dir, semantics=semantics, convolutional=convolutional, variational=variational, min_context_points=min_context_points, save_freq=save_freq, epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha, alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, weight_ratio=weight_ratio, consistency_regularization=consistency_regularization, grad_norm_iterator=grad_norm_iterator)
         plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
         plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
         plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)

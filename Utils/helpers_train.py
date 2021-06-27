@@ -2,6 +2,63 @@
 import torch
 import numpy as np
 
+
+class GradNorm():
+    """ Class to use to apply GradNorm iterations
+
+    Args:
+        model (nn.Module): model on which to apply the GradNorm iterations
+        gamma (float): hyper-parameter for the grad norm (alpha in the paper)
+        ratios (list of float):  lis of objective ratios for the loss terms for the unsupervised [0] and supervsied [1] losses, if None do not use ratios
+    Reference: modified version from
+        Chen, Zhao, et al. "Gradnorm: Gradient normalization for adaptive loss balancing in deep multitask networks."
+         International Conference on Machine Learning. PMLR, 2018.
+    """
+
+    def __init__(self, model, gamma, ratios=None):
+        self.model = model
+        self.gamma = gamma
+        self.ratios = ratios
+
+        self.list_norms = []
+
+    def grad_norm_iteration(self):
+
+        avg_norm = sum(self.list_norms) / len(self.list_norms)
+        if self.ratios:
+            multiplicative_term = np.array(self.ratios)
+            target_norm = np.mean(avg_norm) * multiplicative_term
+        else:
+            target_norm = np.mean(avg_norm)
+
+        self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
+        normalization_cst = len(self.model.task_weights) / torch.sum(self.model.task_weights, dim=0).detach()
+        self.model.task_weights.data = self.model.task_weights.data * normalization_cst
+
+        # empty the list of norms
+        self.list_norms = []
+
+    def store_norm(self, task_loss):
+
+        for loss in task_loss:
+            if loss.item() == 0:
+                return
+
+        # get layer of shared weights
+        W = self.model.get_last_shared_layer()
+
+        # get the gradient norms for each of the tasks
+        # G^{(i)}_w(t)
+        norms = []
+        for i in range(len(task_loss)):
+            # get the gradient of this task loss with respect to the shared parameters
+            gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
+            # compute the norm
+            norms.append(torch.norm(torch.mul(self.model.task_weights[i], gygw[0])))
+        norms = torch.stack(norms).detach().cpu().numpy()
+
+        self.list_norms.append(norms)
+
 def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
     """ Apply a GradNorm iteration
     Args:
@@ -14,7 +71,6 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
         Chen, Zhao, et al. "Gradnorm: Gradient normalization for adaptive loss balancing in deep multitask networks."
          International Conference on Machine Learning. PMLR, 2018.
     """
-
     # remove the gradient on the task weights
     model.task_weights.grad.data = model.task_weights.grad.data * 0.0
 
@@ -56,6 +112,8 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
             target_norm = np.mean(avg_norm) * multiplicative_term
 
         model.task_weights = torch.from_numpy(target_norm/avg_norm).to(task_loss[0].device)
+
+
 
 
     """
@@ -112,5 +170,5 @@ def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
     print('--------grad',model.task_weights.grad)
     print("---------weight",model.task_weights)
     #print('weight',model.task_weights)
-    
+
     """

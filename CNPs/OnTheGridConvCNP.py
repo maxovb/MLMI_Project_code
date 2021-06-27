@@ -754,7 +754,7 @@ class ConvCNPClassifier(nn.Module):
         loss = criterion(output_logit,target_label)
         return loss
 
-    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm=False, opt=None):
+    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm_iterator=None):
 
         # obtain the predictions
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
@@ -792,22 +792,23 @@ class ConvCNPClassifier(nn.Module):
             accuracy = 0
 
         if not (hasattr(self, "task_weights")):
-            self.task_weights = torch.nn.Parameter(torch.ones(len(task_loss),device=mean.device).float(), requires_grad=True)
-            opt.param_groups.append({'params': self.task_weights })
+            self.task_weights = torch.ones(len(task_loss),device=mean.device).float()
 
         # weights
         n_unsup = len(unsup_task_loss)
         self.task_weights_unsup = self.task_weights[:n_unsup]
         self.task_weights_sup = self.task_weights[n_unsup:]
 
-        unsup_loss = torch.sum(torch.mul(self.task_weights_unsup, unsup_task_loss))
-        sup_loss = torch.sum(torch.mul(self.task_weights_sup,sup_task_loss))
-        joint_loss = torch.sum(torch.mul(self.task_weights, task_loss))
+        unsup_loss = torch.sum(unsup_task_loss)
+        sup_loss = torch.sum(sup_task_loss)
+        joint_loss = torch.sum(task_loss)
 
-        if grad_norm:
-            return joint_loss, sup_loss.item(), unsup_loss.item(), accuracy, total, task_loss
-        else:
-            return joint_loss, sup_loss.item(), unsup_loss.item(), accuracy, total
+        obj = torch.sum(torch.mul(self.task_weights, task_loss))
+
+        if grad_norm_iterator:
+            grad_norm_iterator.store_norm(task_loss)
+
+        return obj, joint_loss.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
 
     def consistency_loss(self,output_logit, num_sets_of_context=1):
 
@@ -855,26 +856,16 @@ class ConvCNPClassifier(nn.Module):
 
         return obj.item(), accuracy, total
 
-    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm=False, epoch=None, gamma=1.5, ratios=None):
+    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm_iterator=None):
 
-        obj, sup_loss, unsup_loss, accuracy, total, task_loss = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm=grad_norm,opt=opt)
-
-        if grad_norm:
-            obj.backward(retain_graph=True)
-            grad_norm_iteration(self,task_loss,epoch,gamma,ratios)
-        else:
-            obj.backward()
-            self.task_weights.grad.data = self.task_weights.grad.data * 0.0
+        obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
 
         # optimization
+        obj.backward()
         opt.step()
         opt.zero_grad()
 
-        if grad_norm:
-            normalization_cst = len(self.task_weights)/torch.sum(self.task_weights,dim=0).detach()
-            self.task_weights.data = self.task_weights.data * normalization_cst
-
-        return obj.item(), sup_loss, unsup_loss, accuracy, total
+        return joint_loss, sup_loss, unsup_loss, accuracy, total
 
     def unsup_train_step(self,mask,context_img,target_image,opt,l_unsup=1):
         output_logit, _, mean, std = self.forward(mask, context_img, joint=True)
