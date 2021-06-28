@@ -367,7 +367,7 @@ class OnTheGridConvCNPCNN(nn.Module):
 
         Args:
             input (tensor): latent representation of the input context (batch, img_width, img_size, num_of_filters)
-            layer_id (int), optional: id of the layer to output, by default -1 to return the last one
+            layer_id (int or list), optional: id of the layer to output, by default -1 to return the last one
         Returns:
             tensor: output map of the CNN
         """
@@ -376,7 +376,12 @@ class OnTheGridConvCNPCNN(nn.Module):
         for i in range(self.num_residual_blocks):
             x = self.h[i](x)
             layers.append(x)
-        return layers[layer_id]
+        if type(layer_id) == int:
+            return layers[layer_id]
+        elif type(layer_id) == list:
+            return [layers[id] for id in layer_id]
+        else:
+            raise RuntimeError("Wrong variable type of layer_id, shoudl be int or list but was given ") + str(type(layer_id))
 
     def get_last_shared_layer(self):
         return self.h[-1]
@@ -606,10 +611,17 @@ class OnTheGridConvCNPUNet(nn.Module):
 
         x, layers= self.up(x,layers)
 
-        if not(self.is_gmm):
-            return layers[layer_id]
+        if type(layer_id) == int:
+            output_layers = layers[layer_id]
+        elif type(layer_id) == list:
+            output_layers = [layers[id] for id in layer_id]
         else:
-            return layers[layer_id], logits, probs
+            raise RuntimeError("Wrong variable type of layer_id, shoudl be int or list but was given ") + str(type(layer_id))
+
+        if not(self.is_gmm):
+            return output_layers
+        else:
+            return output_layers, logits, probs
 
     def get_last_shared_layer(self):
         return self.h_bottom
@@ -709,7 +721,7 @@ class ConvCNPClassifier(nn.Module):
             if i != l - 2:  # no ReLU for the last layer
                 h.append(nn.ReLU())
                 if dropout:
-                    h.append(nn.Dropout(0.5))
+                    h.append(nn.Dropout(0.3))
         self.dense_network = nn.Sequential(*h)
         self.final_activation = nn.Softmax(dim=-1)
 
@@ -729,7 +741,13 @@ class ConvCNPClassifier(nn.Module):
         output_encoder = self.encoder(mask,context_img)
 
         # supervised part
-        x = self.CNN(output_encoder, layer_id=self.layer_id)
+        assert type(self.layer_id) == int, "layer_id should be int but was given: " + str(type(self.layer_id))
+        if not(joint):
+            x = self.CNN(output_encoder, layer_id=self.layer_id)
+        else:
+            list_outputs = self.CNN(output_encoder, layer_id=[self.layer_id,-1])
+            x, output_CNN = list_outputs
+
         if self.pooling == "average":
             x = torch.mean(x,dim=[2,3])
         elif self.pooling == "max":
@@ -741,8 +759,7 @@ class ConvCNPClassifier(nn.Module):
 
         if joint:
             # unsupervised part
-            x = self.CNN(output_encoder, layer_id=-1)
-            mean, std = self.decoder(x)
+            mean, std = self.decoder(output_CNN)
             return output_logit, output_probs, mean, std
         else:
             return output_logit, output_probs

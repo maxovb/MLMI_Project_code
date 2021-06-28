@@ -1,4 +1,4 @@
-# This was originally copied from https://github.com/brianlan/pytorch-grad-norm/blob/067e4accaa119137fca430b23c413a2bee8323b6/train.py
+# This was originally copied (but then largely modified) from https://github.com/brianlan/pytorch-grad-norm/blob/067e4accaa119137fca430b23c413a2bee8323b6/train.py
 import torch
 import numpy as np
 
@@ -21,11 +21,20 @@ class GradNorm():
         self.ratios = ratios
 
         self.list_norms = []
+        self.list_task_loss = []
+        self.initial_task_loss = None
 
     def grad_norm_iteration(self):
 
-        avg_norm = sum(self.list_norms) / len(self.list_norms)
+        # compute the inverse training rate
+        avg_task_loss = sum(self.list_task_loss)/len(self.list_task_loss)
+        if self.initial_task_loss is None: # first epoch store the loss
+            self.initial_task_loss = avg_task_loss
+        loss_ratio = avg_task_loss / self.initial_task_loss
+        inverse_train_rate = loss_ratio / np.mean(loss_ratio)
 
+        # compute the average norm 
+        avg_norm = sum(self.list_norms) / len(self.list_norms)
         if 0 in avg_norm:
             print("------ FAIL: 0 in avg_norm ------")
             print("list:",self.list_norms)
@@ -33,9 +42,9 @@ class GradNorm():
 
         if self.ratios:
             multiplicative_term = np.array(self.ratios)
-            target_norm = np.mean(avg_norm) * multiplicative_term
+            target_norm = np.mean(avg_norm) * multiplicative_term * (inverse_train_rate ** self.gamma)
         else:
-            target_norm = np.mean(avg_norm)
+            target_norm = np.mean(avg_norm) * (inverse_train_rate ** self.gamma)
 
 
         self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
@@ -66,7 +75,7 @@ class GradNorm():
             # get the gradient of this task loss with respect to the shared parameters
             gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
             # compute the norm
-            norms.append(torch.norm(torch.mul(self.model.task_weights[i], gygw[0])))
+            norms.append(torch.norm(torch.mul(self.model.task_weights[i], gygw[0])) + 1e-7)
         norms = torch.stack(norms).detach().cpu().numpy()
 
         if 0 in norms:
@@ -76,6 +85,9 @@ class GradNorm():
             print("loss",task_loss)
 
         self.list_norms.append(norms)
+
+        # store also the task_loss
+        self.list_task_loss.append(task_loss.detach().cpu().numpy())
 
 def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
     """ Apply a GradNorm iteration

@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     batch_size = 64
     learning_rate = 1e-4
     epochs = 400 - epoch_start
-    save_freq = 1
+    save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
