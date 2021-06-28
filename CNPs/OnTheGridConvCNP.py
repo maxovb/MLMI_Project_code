@@ -872,7 +872,7 @@ class ConvCNPClassifier(nn.Module):
         return obj.item(), accuracy, total
 
     def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm_iterator=None):
-
+        target_img = target_img.permute(0, 2, 3, 1)
         obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
 
         # optimization
