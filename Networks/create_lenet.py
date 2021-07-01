@@ -1,7 +1,7 @@
 from torchsummary import summary
 from Networks.lenet import  ModifiedLeNet5
 
-def create_lenet(model_size):
+def create_lenet(model_size,dropout=False):
     assert model_size in ["small","medium","large"], "model_size should be one of small, medium or large but " + str(model_size) + " was given"
 
     if model_size == "small":
@@ -16,7 +16,7 @@ def create_lenet(model_size):
         conv_features = [1, 4, 24, 128]
         dense_layer_widths = [128, 128, 10]
 
-    return ModifiedLeNet5(conv_features,dense_layer_widths)
+    return ModifiedLeNet5(conv_features,dense_layer_widths,dropout)
 
 if __name__ == "__main__":
     model_size = "large"

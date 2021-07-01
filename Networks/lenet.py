@@ -8,11 +8,14 @@ class ModifiedLeNet5(nn.Module):
 
     Args:
         n_classes (int): number of output classes
+        conv_features (list of int): number of features in the convolutional layer
+        dense_layer_features (list of int): number of units in the dense layers
+        dropout (bool, optional): whether to use dropout or not
     Returns:
         nn.Module: the LeNet network
     """
 
-    def __init__(self, conv_features, dense_layer_widths):
+    def __init__(self, conv_features, dense_layer_widths, dropout=False):
         super(ModifiedLeNet5, self).__init__()
 
         self.feature_extractor = nn.Sequential(
@@ -26,11 +29,19 @@ class ModifiedLeNet5(nn.Module):
             nn.ReLU(),
         )
 
-        self.classifier = nn.Sequential(
-            nn.Linear(in_features=dense_layer_widths[0], out_features=dense_layer_widths[1]),
-            nn.ReLU(),
-            nn.Linear(in_features=dense_layer_widths[1], out_features=dense_layer_widths[2]),
-        )
+        if dropout:
+            self.classifier = nn.Sequential(
+                nn.Linear(in_features=dense_layer_widths[0], out_features=dense_layer_widths[1]),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(in_features=dense_layer_widths[1], out_features=dense_layer_widths[2]),
+            )
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(in_features=dense_layer_widths[0], out_features=dense_layer_widths[1]),
+                nn.ReLU(),
+                nn.Linear(in_features=dense_layer_widths[1], out_features=dense_layer_widths[2]),
+            )
 
     def forward(self, x):
         x = self.feature_extractor(x)

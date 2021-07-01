@@ -1,4 +1,5 @@
 import torch
+import random
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 from torchsummary import summary
@@ -12,7 +13,9 @@ from Utils.data_loader import load_supervised_data_as_matrix,load_supervised_dat
 from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_loss
 
 if __name__ == "__main__":
+    random.seed(1234)
 
+    """
     #####  K-nearest neighbour #####
     print("KNN and LR")
 
@@ -51,15 +54,15 @@ if __name__ == "__main__":
             f.write('%s\n' % accuracies_knn[i])
         with open(accuracies_dir_txt_lr, 'a+') as f:
             f.write('%s\n' % accuracies_lr[i])
-
+    """
 
     ##### LeNet #####
-    """
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "LeNet"  # one of ["CNP", "ConvCNP", "ConvCNPXL"]
+    dropout = True
+    model_name = "LeNet" + ("_dropout" if dropout else "")  # one of ["CNP", "ConvCNP", "ConvCNPXL"]
     print(model_name)
 
     cheat_validation= False # use a large validation set even if the trainign data is small
@@ -81,12 +84,7 @@ if __name__ == "__main__":
     for model_size in ["small","medium","large"]:
         for i,num_samples in enumerate(num_training_samples):
 
-            if num_samples <= 60:
-                batch_size = 64
-                learning_rate = 5e-3
-                epochs = 200
-                save_freq = 20
-            elif num_samples <= 200:
+            if num_samples <= 200:
                 batch_size = 64
                 learning_rate = 5e-3
                 epochs = 200
@@ -98,10 +96,10 @@ if __name__ == "__main__":
                 save_freq = 20
 
             # load the supervised set
-            train_data, validation_data, test_data, img_height, img_width = load_supervised_data_as_generator(batch_size, num_samples,cheat_validation=cheat_validation)
+            train_data, validation_data, test_data, img_height, img_width, num_channels = load_supervised_data_as_generator(batch_size, num_samples,cheat_validation=cheat_validation)
 
             # create the model
-            model = create_lenet(model_size)
+            model = create_lenet(model_size,dropout)
             model.to(device)
 
             # define the directories
@@ -153,15 +151,10 @@ if __name__ == "__main__":
                     dir_to_create = os.path.dirname(accuracies_dir_txt)
                     os.makedirs(dir_to_create, exist_ok=True)
 
-                    # initialize the accuracy file with a line showing the size of the training samples
-                    txt = "training sample sizes: " + " ".join([str(x) for x in num_training_samples]) + " \n"
-                    with open(accuracies_dir_txt, 'w') as f:
-                        f.write(txt)
-
                 num_context_points = 28 * 28
                 accuracy = test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_dir_txt,test_data,device,convolutional=False,num_context_points=num_context_points, save_freq=save_freq, is_CNP=False)
 
                 # write the accuracy to the text file
                 with open(accuracies_dir_txt, 'a+') as f:
-                    f.write('%s\n' % accuracy)
-    """
+                    text = str(num_samples) +", " + str(accuracy)
+                    f.write(text)
