@@ -15,7 +15,6 @@ from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_
 if __name__ == "__main__":
     random.seed(1234)
 
-    """
     #####  K-nearest neighbour #####
     print("KNN, LR and SVM")
 
@@ -59,7 +58,6 @@ if __name__ == "__main__":
         with open(accuracies_dir_txt_SVM, 'a+') as f:
             text = str(num_samples) +", " + str(accuracies_SVM[i]) + "\n"
             f.write(text)
-    """
 
     ##### LeNet #####
     # use GPU if available
@@ -161,5 +159,5 @@ if __name__ == "__main__":
 
                 # write the accuracy to the text file
                 with open(accuracies_dir_txt, 'a+') as f:
-                    text = str(num_samples) +", " + str(accuracy)
+                    text = str(num_samples) +", " + str(accuracy) + "\n"
                     f.write(text)
