@@ -770,7 +770,9 @@ class ConvCNPClassifier(nn.Module):
         return loss
 
     def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm_iterator=None):
-
+        
+        target_image = target_image.permute(0, 2, 3, 1)
+        
         # obtain the predictions
         output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
 
@@ -781,9 +783,13 @@ class ConvCNPClassifier(nn.Module):
         # compute the losses
         target_label_for_evaluating = target_label.clone().detach()
         select_labelled = target_label != -1
-        target_label_for_evaluating[torch.logical_not(select_labelled)] = 0
-        sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label_for_evaluating, reduction='none')
-        sup_loss = sup_loss.mean()
+        n_labelled = torch.sum(select_labelled)
+        if n_labelled > 0 :
+            target_label_for_evaluating[torch.logical_not(select_labelled)] = 0
+            sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label_for_evaluating, reduction='none')
+            sup_loss = sup_loss.sum()/n_labelled
+        else:
+            sup_loss = torch.zeros(1,device=mean.device)[0]
         rec_loss = scale_unsup * self.loss_unsup(mean,std,target_image)
 
         # append to the list of tasks loss
@@ -872,10 +878,12 @@ class ConvCNPClassifier(nn.Module):
         return obj.item(), accuracy, total
 
     def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm_iterator=None):
-        target_img = target_img.permute(0, 2, 3, 1)
+
         obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
 
         # optimization
+        if grad_norm_iterator:
+            opt.zero_grad()
         obj.backward()
         opt.step()
         opt.zero_grad()

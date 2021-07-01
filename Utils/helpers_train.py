@@ -24,6 +24,8 @@ class GradNorm():
         self.list_task_loss = []
         self.initial_task_loss = None
 
+        self.list_task_weights_to_write = []
+
     def grad_norm_iteration(self):
 
         # compute the inverse training rate
@@ -50,6 +52,9 @@ class GradNorm():
         self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
         normalization_cst = len(self.model.task_weights) / torch.sum(self.model.task_weights, dim=0).detach()
         self.model.task_weights = self.model.task_weights * normalization_cst
+
+        # append the new task weights 
+        self.list_task_weights_to_write.append(self.model.task_weights.detach().cpu().numpy())
 
         # empty the list of norms
         self.list_norms = []
@@ -88,6 +93,14 @@ class GradNorm():
 
         # store also the task_loss
         self.list_task_loss.append(task_loss.detach().cpu().numpy())
+
+    def write_to_file(self,weights_dir_txt):
+        with open(weights_dir_txt,"a+") as f:
+            for task_weights in self.list_task_weights_to_write:
+                txt_list = [str(weight) for weight in task_weights]
+                txt = ", ".join(txt_list) + " \n"
+                f.write(txt)
+        self.list_task_weights_to_write = []
 
 def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
     """ Apply a GradNorm iteration
