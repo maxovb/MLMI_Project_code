@@ -80,12 +80,10 @@ class GradNorm():
             # get the gradient of this task loss with respect to the shared parameters
             gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
             # compute the norm
-            norms.append(torch.norm(torch.mul(self.model.task_weights[i], gygw[0])) + 1e-7)
+            norms.append(torch.norm(gygw[0]) + 1e-7)
         norms = torch.stack(norms).detach().cpu().numpy()
 
         if 0 in norms:
-            #print("gygw",gygw)
-            #print("params",list(W.parameters()))
             print("weights",self.model.task_weights)
             print("loss",task_loss)
 

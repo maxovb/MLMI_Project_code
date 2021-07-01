@@ -77,6 +77,7 @@ def create_model(model_name, model_size=None):
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 5
+        num_residual_blocks = 4
         num_convolutions_per_block = 1
         num_dense_layers = 5
         num_units_dense_layers = 64
@@ -140,6 +141,7 @@ def create_model(model_name, model_size=None):
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 5
+        num_residual_blocks = 4
         num_convolutions_per_block = 1
         num_dense_layers = 5
         num_units_dense_layers = 64
@@ -150,14 +152,22 @@ def create_model(model_name, model_size=None):
         is_gmm = True
         num_classes = 10
 
-        if model_size == "LR":
-            classifier_layer_widths = [64, 10]
-        elif model_size == "small":
-            classifier_layer_widths = [64, 10, 10]
-        elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, 10]
-        elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, 10]
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks-1)
+        if max_size:
+            num_input_features_classifier = min(max_size,num_input_features_classifier)
+
+        if "LR" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10]
+        elif "small" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+        elif "medium" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+        elif "large" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+
+        dropout = False
+        if "dropout" in model_size:
+            dropout = True
 
         model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
                                  num_output_channels=num_output_channels,
@@ -168,7 +178,7 @@ def create_model(model_name, model_size=None):
                                  num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
-                                 num_classes=num_classes)
+                                 num_classes=num_classes, dropout=dropout)
         convolutional = True
 
     elif model_name == "UNetCNP_restrained_GMM":
@@ -189,14 +199,22 @@ def create_model(model_name, model_size=None):
         is_gmm = True
         num_classes = 10
 
-        if model_size == "LR":
-            classifier_layer_widths = [64, 10]
-        elif model_size == "small":
-            classifier_layer_widths = [64, 10, 10]
-        elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, 10]
-        elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, 10]
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
+        if "LR" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10]
+        elif "small" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+        elif "medium" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+        elif "large" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+
+        dropout = False
+        if "dropout" in model_size:
+            dropout = True
 
         model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
                                  num_output_channels=num_output_channels,
@@ -206,7 +224,7 @@ def create_model(model_name, model_size=None):
                                  num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
-                                 num_classes=num_classes)
+                                 num_classes=num_classes, dropout=dropout)
         convolutional = True
 
     elif model_name == "UNetCNP_GMM_blocked":
@@ -216,6 +234,7 @@ def create_model(model_name, model_size=None):
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 5
+        num_residual_blocks = 4
         num_convolutions_per_block = 1
         num_dense_layers = 5
         num_units_dense_layers = 64
@@ -227,14 +246,22 @@ def create_model(model_name, model_size=None):
         num_classes = 10
         block_center_connections = True
 
-        if model_size == "LR":
-            classifier_layer_widths = [64, 10]
-        elif model_size == "small":
-            classifier_layer_widths = [64, 10, 10]
-        elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, 10]
-        elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, 10]
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
+        if "LR" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10]
+        elif "small" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+        elif "medium" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+        elif "large" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+
+        dropout = False
+        if "dropout" in model_size:
+            dropout = True
 
         model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
                                  num_output_channels=num_output_channels,
@@ -245,7 +272,8 @@ def create_model(model_name, model_size=None):
                                  num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
-                                 num_classes=num_classes, block_center_connections=block_center_connections)
+                                 num_classes=num_classes, block_center_connections=block_center_connections,
+                                 dropout=dropout)
         convolutional = True
 
     elif model_name == "UNetCNP_restrained_GMM_blocked":
@@ -267,14 +295,22 @@ def create_model(model_name, model_size=None):
         num_classes = 10
         block_center_connections = True
 
-        if model_size == "LR":
-            classifier_layer_widths = [64, 10]
-        elif model_size == "small":
-            classifier_layer_widths = [64, 10, 10]
-        elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, 10]
-        elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, 10]
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
+        if "LR" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10]
+        elif "small" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+        elif "medium" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+        elif "large" in model_size:
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+
+        dropout = False
+        if "dropout" in model_size:
+            dropout = True
 
         model = OnTheGridConvCNP(type_CNN=type_CNN, num_input_channels=num_input_channels,
                                  num_output_channels=num_output_channels,
@@ -285,8 +321,10 @@ def create_model(model_name, model_size=None):
                                  num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
-                                 num_classes=num_classes, block_center_connections=block_center_connections)
+                                 num_classes=num_classes, block_center_connections=block_center_connections,
+                                 dropout = dropout)
         convolutional = True
+
     return model, convolutional
 
 def create_joint_model(model_name, model_size):
