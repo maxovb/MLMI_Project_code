@@ -230,7 +230,7 @@ class CNPClassifier(nn.Module):
         # return the accuracy as well
         _, predicted = torch.max(output_probs, dim=1)
         total = (target_label != -1).sum().item()
-        if total.item() != 0:
+        if total != 0:
             accuracy = ((predicted == target_label).sum()).item() / total
         else:
             accuracy = 0

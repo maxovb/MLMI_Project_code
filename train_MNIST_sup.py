@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 import os
 import torch
@@ -12,17 +13,20 @@ from Utils.model_loader import load_unsupervised_model
 
 
 if __name__ == "__main__":
+
+    random.seed(1234)
+
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP_restrained" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
+    model_name = "CNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained"]
     # model_size = "large" # one of ["small","medium","large"]
 
 
-    freeze_weights = False # freeze the weights of the part taken from the unsupervised model
+    freeze_weights = True # freeze the weights of the part taken from the unsupervised model
+    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     cheat_validation= True # use a large validation set even if the trainign data is small
-    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     augment_missing = True # effectively augment the labelled data by using images with missing pixels as well
     dropout = True
 
