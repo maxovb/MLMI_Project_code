@@ -160,7 +160,7 @@ class CNPClassifier(nn.Module):
             if i != l - 2:  # no ReLU for the last layer
                 h.append(nn.ReLU())
                 if dropout:
-                    h.append(nn.Dropout(0.5))
+                    h.append(nn.Dropout(0.3))
         self.classification_head = nn.Sequential(*h)
         self.final_activation = nn.Softmax(dim=-1)
 

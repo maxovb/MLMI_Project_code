@@ -24,6 +24,7 @@ if __name__ == "__main__":
     cheat_validation= True # use a large validation set even if the trainign data is small
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     augment_missing = True # effectively augment the labelled data by using images with missing pixels as well
+    dropout = True
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
@@ -35,8 +36,13 @@ if __name__ == "__main__":
         layer_id = None
         pooling = None
 
+    if dropout:
+        list_sizes = ["small_dropout","medium_dropout","large_dropout"]
+    else:
+        list_sizes = ["small", "medium", "large"]
+
     for model_name in [model_name]:#["CNP","ConvCNP"]:
-        for model_size in ["small","medium","large"]:
+        for model_size in list_sizes:
             print(model_name, model_size)
 
             # for continued supervised training
