@@ -1,11 +1,14 @@
+import random
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
 from torch.distributions.kl import kl_divergence
 from torchsummary import summary
-from Utils.helpers_train import grad_norm_iteration
-from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf
+from CNPs.model_part import discriminate_same_image
+from Utils.helpers_train import consistency_loss
+from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf, discriminator_logp
+
 
 class OnTheGridConvCNP(nn.Module):
     """On-the-grid version of the Convolutional Conditional Neural Process
@@ -28,14 +31,16 @@ class OnTheGridConvCNP(nn.Module):
             max_size (int or None): maximum number of features in the UNet
             is_gmm (bool), optional: whether the predictive distribution is a GMM
             classifier_layer_widths (list of int): size of the dense layers in the classifier network in the GMM case
+            classify_same_image (bool): whether the model should discriminate between two context sets to determine if they come from the same image for the GMM models
             num_classes (int): number of classes to classify as in the GMM case
             dropout (bool): whether to use dropout in the classifier for the GMM
 
     """
-    def __init__(self, type_CNN, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_convolutions_per_block, num_dense_layers, num_units_dense_layer, num_residual_blocks = None, num_down_blocks=None, num_of_filters_top_UNet=None, pooling_size=None, max_size = None, is_gmm = False, num_classes = None, classifier_layer_widths = None, block_center_connections=False, dropout=False):
+    def __init__(self, type_CNN, num_input_channels, num_output_channels, num_of_filters, kernel_size_first_convolution, kernel_size_CNN, num_convolutions_per_block, num_dense_layers, num_units_dense_layer, num_residual_blocks = None, num_down_blocks=None, num_of_filters_top_UNet=None, pooling_size=None, max_size = None, is_gmm = False, num_classes = None, classifier_layer_widths = None, classify_same_image=False, block_center_connections=False, dropout=False):
         super(OnTheGridConvCNP, self).__init__()
 
         self.is_gmm = is_gmm
+        self.classify_same_image = classify_same_image
 
         self.encoder = OnTheGridConvCNPEncoder(num_input_channels,num_of_filters,kernel_size_first_convolution)
 
@@ -45,7 +50,7 @@ class OnTheGridConvCNP(nn.Module):
 
         elif type_CNN == "UNet":
             assert num_down_blocks and num_of_filters_top_UNet and pooling_size, "Arguments num_down_blocks, num_of_filters_top_UNet and pooling_size should be passed as integers when using the UNet ConvCNP"
-            self.CNN = OnTheGridConvCNPUNet(num_of_filters_top_UNet, 2 * num_of_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size, is_gmm, classifier_layer_widths, num_classes, block_center_connections, dropout)
+            self.CNN = OnTheGridConvCNPUNet(num_of_filters_top_UNet, 2 * num_of_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size, is_gmm, classifier_layer_widths, classify_same_image, num_classes, block_center_connections, dropout)
 
         self.decoder = OnTheGridConvCNPDecoder(num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels,is_gmm=is_gmm)
 
@@ -70,9 +75,14 @@ class OnTheGridConvCNP(nn.Module):
             mean, std = self.decoder(x)
             return mean, std
         else:
-            x, logits, probs = self.CNN(encoder_output)
-            mean, std = self.decoder(x)
-            return mean, std, logits, probs
+            if self.classify_same_image:
+                x, logits, probs, probs_same = self.CNN(encoder_output)
+                mean, std = self.decoder(x)
+                return mean, std, logits, probs, probs_same
+            else:
+                x, logits, probs = self.CNN(encoder_output)
+                mean, std = self.decoder(x)
+                return mean, std, logits, probs
 
     def loss(self,mean,std,target):
         obj = -gaussian_logpdf(target, mean, std, 'batched_mean')
@@ -91,14 +101,15 @@ class OnTheGridConvCNP(nn.Module):
 
     def joint_train_step(self, mask, context_img, target_label, target_img, opt,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1, grad_norm_iterator=None):
         # computing the losses
-        obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
+        #obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
+        obj, losses = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
 
         # Optimization
         obj.backward()
         opt.step()
         opt.zero_grad()
 
-        return joint_loss, sup_loss, unsup_loss, accuracy, total
+        return losses
     
     def joint_loss(self,mask,context_img,target_label,target_img,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1, grad_norm_iterator=None):
         if self.is_gmm:
@@ -132,6 +143,9 @@ class OnTheGridConvCNP(nn.Module):
         # general objective
         J = 0
         unsup_loss = 0
+        discr_loss = 0
+        total_discr = 0
+        num_correct_discr = 0
 
         if not (all_labelled):
 
@@ -149,11 +163,14 @@ class OnTheGridConvCNP(nn.Module):
             batch_size_unlabelled = mask_unlabelled.shape[0]
 
             # calculate the loss
+            unsup_logp, cons_logp, discr_logp, accuracy_discriminator_local, total_discriminator_local = self.unsupervised_gmm_logp(mask_unlabelled, context_img_unlabelled, target_img_unlabelled, consistency_regularization, num_sets_of_context)
+
             if consistency_regularization:
-                unsup_logp, cons_logp = self.unsupervised_gmm_logp(mask_unlabelled, context_img_unlabelled, target_img_unlabelled, consistency_regularization, num_sets_of_context)
                 cons_loss = - scale_unsup * cons_logp / batch_size_unlabelled
-            else:
-                unsup_logp, _ = self.unsupervised_gmm_logp(mask_unlabelled, context_img_unlabelled, target_img_unlabelled, consistency_regularization, num_sets_of_context)
+            if self.classify_same_image:
+                discr_loss += - scale_unsup * discr_logp
+                total_discr += total_discriminator_local
+                num_correct_discr += total_discriminator_local * accuracy_discriminator_local
 
             unsup_loss += - scale_unsup * unsup_logp
 
@@ -174,11 +191,16 @@ class OnTheGridConvCNP(nn.Module):
             batch_size_labelled = mask_labelled.shape[0]
 
             # calculate the loss
-            unsup_logp, sup_logp, accuracy, total = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only)
+            unsup_logp, sup_logp, accuracy, total, discr_logp, accuracy_discriminator_local, total_discriminator_local = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only)
 
             unsup_loss += - scale_unsup * unsup_logp
             sup_loss = - scale_sup * alpha * sup_logp
             sup_loss = sup_loss / batch_size_labelled
+
+            if self.classify_same_image:
+                discr_loss += - scale_unsup * discr_logp
+                total_discr += total_discriminator_local
+                num_correct_discr += total_discriminator_local * accuracy_discriminator_local
         else:
             sup_loss = torch.zeros(1,device=unsup_loss.device)[0]
             total = 0
@@ -191,6 +213,10 @@ class OnTheGridConvCNP(nn.Module):
 
         if consistency_regularization:
             unsup_task_loss.append(cons_loss)
+
+        if self.classify_same_image:
+            discr_loss = discr_loss/total_discr
+            unsup_task_loss.append(discr_loss)
 
         task_loss = torch.stack(unsup_task_loss + sup_task_loss)
         unsup_task_loss = torch.stack(unsup_task_loss)
@@ -213,10 +239,24 @@ class OnTheGridConvCNP(nn.Module):
         if grad_norm_iterator:
             grad_norm_iterator.store_norm(task_loss)
 
-        return obj, joint_loss.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
+        losses = {"joint_loss": joint_loss.item(),
+                  "sup_loss": sup_loss.item(),
+                  "unsup_loss": unsup_loss.item(),
+                  "accuracy": accuracy,
+                  "total": total}
+
+        if self.classify_same_image:
+            losses["accuracy_discriminator"] = num_correct_discr/total_discr
+            losses["total_discriminator"] = total_discr
+
+        return obj, losses
 
     def unsupervised_gmm_logp(self,mask,context_img,target_img, consistency_regularization=False, num_sets_of_context=1):
-        mean, std, logits, probs = self(mask,context_img)
+
+        if self.classify_same_image:
+            mean, std, logits, probs, probs_same_image = self(mask, context_img)
+        else:
+            mean, std, logits, probs = self(mask,context_img)
 
         # permute the tensors to have the number of components as the last batch dimension
         mean = mean.permute(0, 1, 4, 2, 3)
@@ -229,12 +269,22 @@ class OnTheGridConvCNP(nn.Module):
         else:
             cons_logp = None
 
-        return unsup_logp, cons_logp
+        if self.classify_same_image:
+            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image)
+        else:
+            discr_logp = None
+            accuracy_discriminator = None
+            total_discriminator = None
+
+        return unsup_logp, cons_logp, discr_logp, accuracy_discriminator, total_discriminator
 
     def supervised_gmm_logp(self,mask,context_img,target_img,target_label):
 
         # reconstruction loss
-        mean, std, logits, probs = self(mask, context_img)
+        if self.classify_same_image:
+            mean, std, logits, probs, probs_same_image = self(mask, context_img)
+        else:
+            mean, std, logits, probs = self(mask, context_img)
 
         # permute the tensors to have the number of components as the last batch dimension
         mean = mean.permute(0,1,4,2,3)
@@ -258,7 +308,14 @@ class OnTheGridConvCNP(nn.Module):
         else:
             accuracy = 0
 
-        return logp, classification_logp, accuracy, total
+        if self.classify_same_image:
+            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image)
+        else:
+            discr_logp = None
+            accuracy_discriminator = None
+            total_discriminator = None
+
+        return logp, classification_logp, accuracy, total, discr_logp, accuracy_discriminator, total_discriminator
 
     def gmm_consistency_loss(self,mean,std,probs,target_img,num_sets_of_context):
         """ Consistency loss with a GMM predictive, evaluate the likelihood of a prediction with the component weights
@@ -301,7 +358,10 @@ class OnTheGridConvCNP(nn.Module):
         assert is_gmm, "Sampling one component only possible if the model has a GMM predictive"
 
         # get the means, std and weights of the components
-        means, stds, logits, probs = self(mask,context_image)
+        if self.classify_same_image:
+            means, stds, logits, probs, probs_same = self(mask,context_image)
+        else:
+            means, stds, logits, probs = self(mask, context_image)
 
         # sample one of the component
         dist_component = Categorical(probs.type(torch.float))
@@ -317,7 +377,10 @@ class OnTheGridConvCNP(nn.Module):
     def evaluate_accuracy(self, mask,context_image,target_label):
 
         # forward pass through the model
-        means, stds, logits, probs = self(mask,context_image)
+        if self.classify_same_image:
+            means, stds, logits, probs, probs_same = self(mask, context_image)
+        else:
+            means, stds, logits, probs = self(mask, context_image)
 
         # compute the accuracy
         _, predicted = torch.max(probs, dim=1)
@@ -434,13 +497,15 @@ class OnTheGridConvCNPUNet(nn.Module):
             pooling_size (int): size of the maxpooling layers
             is_gmm (bool): whether the predictive distribution is a GMM
             classifier_layer_widths (list of int): widht of the classification layers
+            classify_same_image (bool): whether the model should discriminate between two context sets to determine if they come from the same image for the GMM models
             num_classes (int): number of classes to classify as
             dropout (bool): whether to use dropout in the classifier
     """
-    def __init__(self, num_of_filters, num_in_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size=None, is_gmm = False, classifier_layer_widths = None, num_classes=None, block_center_connections=False, dropout=False):
+    def __init__(self, num_of_filters, num_in_filters, kernel_size_CNN, num_down_blocks, num_convolutions_per_block, pooling_size, max_size=None, is_gmm = False, classifier_layer_widths = None, classify_same_image=False, num_classes=None, block_center_connections=False, dropout=False):
         super(OnTheGridConvCNPUNet, self).__init__()
 
         self.is_gmm = is_gmm
+        self.classify_same_image = classify_same_image
         self.block_center_connections = block_center_connections
 
         # store some variables
@@ -511,15 +576,18 @@ class OnTheGridConvCNPUNet(nn.Module):
 
             h_classifier = nn.ModuleList([])
             l = len(classifier_layer_widths)
-            for i in range(len(classifier_layer_widths)-1):
+            for i in range(len(classifier_layer_widths)-2):
                 h_classifier.append(nn.Linear(classifier_layer_widths[i], classifier_layer_widths[i + 1]))
-                if i < l - 2:
-                    h_classifier.append(nn.ReLU())
-                    if dropout:
-                        h_classifier.append(nn.Dropout(0.3))
-            self.classifier = nn.Sequential(*h_classifier)
+                h_classifier.append(nn.ReLU())
+                if dropout:
+                    h_classifier.append(nn.Dropout(0.3))
+            self.classifier_up_to_last = nn.Sequential(*h_classifier)
+            self.last_layer_classifier = nn.Linear(classifier_layer_widths[-2], classifier_layer_widths[-1])
             self.classifier_activation = nn.Softmax(dim=-1)
 
+            if self.classify_same_image:
+                self.discriminator = nn.Linear(classifier_layer_widths[-2] * 2, 1)
+                self.discriminator_activation = nn.Sigmoid()
 
     def down(self,input,layers=None):
 
@@ -592,9 +660,17 @@ class OnTheGridConvCNPUNet(nn.Module):
 
     def classify(self,x):
         r = torch.mean(x, dim=(-2, -1))
-        logits = self.classifier(r)
+        x = self.classifier_up_to_last(r)
+        logits = self.last_layer_classifier(x)
         probs = self.classifier_activation(logits)
-        return logits,probs
+        if self.classify_same_image:
+            probs_same_image = self.discriminate_same_image(x)
+            return logits, probs, probs_same_image
+        else:
+            return logits,probs
+
+    def discriminate_same_image(self,x):
+        return discriminate_same_image(self,x)
 
     def expand_and_concatenate_with_all_classes(self,x):
 
@@ -641,7 +717,10 @@ class OnTheGridConvCNPUNet(nn.Module):
         # classifier if GMM type
         if self.is_gmm:
             # classify
-            logits, probs = self.classify(x)
+            if self.classify_same_image:
+                logits, probs, prob_same_image = self.classify(x)
+            else:
+                logits, probs = self.classify(x)
 
             # expand and concatenate with the possible classes
             x = self.expand_and_concatenate_with_all_classes(x)
@@ -660,7 +739,10 @@ class OnTheGridConvCNPUNet(nn.Module):
         if not(self.is_gmm):
             return output_layers
         else:
-            return output_layers, logits, probs
+            if self.classify_same_image:
+                return output_layers, logits, probs, prob_same_image
+            else:
+                return output_layers, logits, probs
 
     def get_last_shared_layer(self):
         return self.h_bottom
@@ -740,8 +822,10 @@ class ConvCNPClassifier(nn.Module):
         layer_id (int): id of the layer from which to extract the representation
         pooling (string): type of pooling to perform, one of ["average", "max", "min"]
         dropout (bool, optional): whether to use dropout between the dense layers
+        classify_same_image (bool): whether the model should discriminate between two context sets to determine if they come from the same image for the GMM models
+
     """
-    def __init__(self,model, dense_layer_widths, layer_id=-1, pooling="average", dropout=False):
+    def __init__(self,model, dense_layer_widths, layer_id=-1, pooling="average", dropout=False, classify_same_image=False):
         super(ConvCNPClassifier,self).__init__()
         self.encoder = model.encoder
         self.CNN = model.CNN
@@ -751,18 +835,23 @@ class ConvCNPClassifier(nn.Module):
         self.pooling = pooling
 
         self.is_gmm = False
+        self.classify_same_image = classify_same_image
 
         # add the dense layers
         l = len(dense_layer_widths)
         h = nn.ModuleList([])  # store the layers as a list
-        for i in range(0, l - 1):
+        for i in range(0, l - 2):
             h.append(nn.Linear(dense_layer_widths[i],dense_layer_widths[i+1]))
-            if i != l - 2:  # no ReLU for the last layer
-                h.append(nn.ReLU())
-                if dropout:
-                    h.append(nn.Dropout(0.3))
-        self.dense_network = nn.Sequential(*h)
-        self.final_activation = nn.Softmax(dim=-1)
+            h.append(nn.ReLU())
+            if dropout:
+                h.append(nn.Dropout(0.3))
+        self.classifier_up_to_last = nn.Sequential(*h)
+        self.last_layer_classifier = nn.Linear(dense_layer_widths[-2], dense_layer_widths[-1])
+        self.classifier_activation = nn.Softmax(dim=-1)
+
+        if self.classify_same_image:
+            self.discriminator = nn.Linear(dense_layer_widths[-2] * 2, 1)
+            self.discriminator_activation = nn.Sigmoid()
 
 
     def forward(self,mask,context_img, joint=False):
@@ -793,15 +882,27 @@ class ConvCNPClassifier(nn.Module):
             x = torch.amax(x, dim=[2, 3])
         elif self.pooling == "min":
             x = torch.amin(x, dim=[2, 3])
-        output_logit = self.dense_network(x)
-        output_probs = self.final_activation(output_logit)
+        x = self.classifier_up_to_last(x)
+        output_logit = self.last_layer_classifier(x)
+        output_probs = self.classifier_activation(output_logit)
 
         if joint:
             # unsupervised part
             mean, std = self.decoder(output_CNN)
-            return output_logit, output_probs, mean, std
+            if self.classify_same_image:
+                probs_same_image = self.discriminate_same_image(x)
+                return output_logit, output_probs, mean, std, probs_same_image
+            else:
+                return output_logit, output_probs, mean, std
         else:
-            return output_logit, output_probs
+            if self.classify_same_image:
+                probs_same_image = self.discriminate_same_image(x)
+                return output_logit, output_probs, mean, std, probs_same_image
+            else:
+                return output_logit, output_probs
+
+    def discriminate_same_image(self,x):
+        return discriminate_same_image(self,x)
 
     def loss(self,output_logit,target_label, reduction='mean'):
         criterion = nn.CrossEntropyLoss(reduction=reduction)
@@ -813,7 +914,10 @@ class ConvCNPClassifier(nn.Module):
         target_image = target_image.permute(0, 2, 3, 1)
         
         # obtain the predictions
-        output_logit, output_probs, mean, std = self(mask,context_img,joint=True)
+        if self.classify_same_image:
+            output_logit, output_probs, mean, std, probs_same_image = self(mask,context_img,joint=True)
+        else:
+            output_logit, output_probs, mean, std = self(mask, context_img, joint=True)
 
         # pre-allocate variables:
         unsup_task_loss = []
@@ -836,8 +940,13 @@ class ConvCNPClassifier(nn.Module):
         sup_task_loss.append(sup_loss)
 
         if consistency_regularization:
-            cons_loss = scale_unsup * self.consistency_loss(output_logit, num_sets_of_context)
+            cons_loss = scale_unsup * consistency_loss(output_logit, num_sets_of_context)
             unsup_task_loss.append(cons_loss)
+
+        if self.classify_same_image:
+            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image)
+            discr_loss = - scale_unsup *  discr_logp / total_discriminator
+            unsup_task_loss.append(discr_loss)
 
         task_loss = torch.stack(unsup_task_loss + sup_task_loss)
         unsup_task_loss = torch.stack(unsup_task_loss)
@@ -868,34 +977,18 @@ class ConvCNPClassifier(nn.Module):
         if grad_norm_iterator:
             grad_norm_iterator.store_norm(task_loss)
 
-        return obj, joint_loss.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
+        losses = {"joint_loss":joint_loss.item(),
+                  "sup_loss":sup_loss.item(),
+                  "unsup_loss":unsup_loss.item(),
+                  "accuracy":accuracy,
+                  "total":total}
 
-    def consistency_loss(self,output_logit, num_sets_of_context=1):
+        if self.classify_same_image:
+            losses["accuracy_discriminator"] = accuracy_discriminator
+            losses["total_discriminator"] = total_discriminator
 
-        # obtain the probability distribution
-        probs = nn.Softmax(dim=-1)(output_logit)
+        return obj, losses
 
-        assert num_sets_of_context == 2, "Consistency loss does not handle other number of context sets than 2 at the moment"
-
-        # get the original batch size
-        single_set_batch_size = output_logit.shape[0] / num_sets_of_context
-        assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
-        single_set_batch_size = int(single_set_batch_size)
-
-        # split between the two sets of context sets
-        probs_set1, probs_set2 = torch.split(probs, single_set_batch_size, dim=0)
-
-        # compute the Jensen Shannon divergence
-        m = probs_set1 + probs_set2
-        loss = 0.0
-        dist1 = Categorical(probs_set1)
-        dist2 = Categorical(probs_set2)
-        distm = Categorical(m)
-        loss += kl_divergence(dist1,distm)
-        loss += kl_divergence(dist2,distm)
-        loss = 0.5 * torch.mean(loss)
-
-        return loss
 
     def train_step(self,mask,context_img,target_label,opt):
         output_logit, output_probs = self.forward(mask,context_img,joint=False)
@@ -918,7 +1011,8 @@ class ConvCNPClassifier(nn.Module):
 
     def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm_iterator=None):
 
-        obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
+        #obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
+        obj, losses = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
 
         # optimization
         if grad_norm_iterator:
@@ -927,7 +1021,7 @@ class ConvCNPClassifier(nn.Module):
         opt.step()
         opt.zero_grad()
 
-        return joint_loss, sup_loss, unsup_loss, accuracy, total
+        return losses
 
     def unsup_train_step(self,mask,context_img,target_image,opt,l_unsup=1):
         output_logit, _, mean, std = self.forward(mask, context_img, joint=True)

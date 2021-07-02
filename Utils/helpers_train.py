@@ -1,7 +1,10 @@
 # This was originally copied (but then largely modified) from https://github.com/brianlan/pytorch-grad-norm/blob/067e4accaa119137fca430b23c413a2bee8323b6/train.py
-import torch
 import numpy as np
-
+import random
+import torch
+from torch import nn
+from torch.distributions import Categorical
+from torch.distributions.kl import kl_divergence
 
 class GradNorm():
     """ Class to use to apply GradNorm iterations
@@ -100,116 +103,55 @@ class GradNorm():
                 f.write(txt)
         self.list_task_weights_to_write = []
 
-def grad_norm_iteration(model,task_loss,epoch,gamma,ratios=None):
-    """ Apply a GradNorm iteration
-    Args:
-        model (nn.Module): model to apply the GradNorm iteration on
-        task_loss (tensor): loss for all the tasks
-        epoch (int): current epoch, to use to store the initial loss of the first epoch
-        gamma (int): hyper-parameter for the grad norm (alpha in the paper)
-        ratios (list of float):  lis of objective ratios for the loss terms for the unsupervised [0] and supervsied [1] losses, if None do not use ratios
-    Reference:
-        Chen, Zhao, et al. "Gradnorm: Gradient normalization for adaptive loss balancing in deep multitask networks."
-         International Conference on Machine Learning. PMLR, 2018.
+
+def consistency_loss(output_logit, num_sets_of_context=1):
+
+    batch_size = output_logit.shape[0]
+
+    # obtain the probability distribution
+    probs = nn.Softmax(dim=-1)(output_logit)
+
+    assert num_sets_of_context == 2, "Consistency loss does not handle other number of context sets than 2 at the moment"
+
+    # get the original batch size
+    single_set_batch_size = batch_size / num_sets_of_context
+    assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
+    single_set_batch_size = int(single_set_batch_size)
+
+    # split between the two sets of context sets
+    probs_set1, probs_set2 = torch.split(probs, single_set_batch_size, dim=0)
+    loss = js_divergence(probs_set1,probs_set2)
+
+    if batch_size > 2:
+
+        assert batch_size % 2 == 0, "The batch size should be divisible by two, repeat every image twice with two context sets"
+
+        indices = torch.ones(batch_size//2,device=probs.device)
+        for i in range(batch_size//2):
+            while True:
+                r = random.randint(0,batch_size//2-1)
+                if r != i: # check that we don't compare two same images
+                    break
+            indices[i] = r
+
+        probs_compare = probs_set2[indices.type(torch.int64)]
+        loss += - js_divergence(probs_set1, probs_compare)
+
+    return loss
+
+
+def js_divergence(probs_set1, probs_set2):
+    """Jenson-Shannon divergence between the two probabilties distributions
     """
-    # remove the gradient on the task weights
-    model.task_weights.grad.data = model.task_weights.grad.data * 0.0
+    # compute the Jensen Shannon divergence
+    m = probs_set1 + probs_set2
+    loss = 0.0
+    dist1 = Categorical(probs_set1)
+    dist2 = Categorical(probs_set2)
+    distm = Categorical(m)
+    loss += kl_divergence(dist1,distm)
+    loss += kl_divergence(dist2,distm)
+    div = 0.5 * torch.mean(loss)
 
-    # only apply GradNorm when none of the tasks is Nan (i.e. include supervised loss)
-    for loss in task_loss:
-        if loss.item() == 0:
-            return
+    return div
 
-    if epoch == 0:
-        model.initial_task_loss = task_loss.detach().cpu().numpy()
-
-    # get layer of shared weights
-    W = model.get_last_shared_layer()
-
-    # get the gradient norms for each of the tasks
-    # G^{(i)}_w(t)
-    norms = []
-    for i in range(len(task_loss)):
-        # get the gradient of this task loss with respect to the shared parameters
-        gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
-        # compute the norm
-        norms.append(torch.norm(torch.mul(model.task_weights[i], gygw[0])))
-    norms = torch.stack(norms).detach().cpu().numpy()
-    # print('G_w(t): {}'.format(norms))
-
-    if epoch == 0:
-        model.prev_epoch = 0
-        if not(hasattr(model,"norms")):
-            model.norms = [norms]
-        else:
-            model.norms.append(norms)
-    else:
-        avg_norm = sum(model.norms)/len(model.norms)
-        target_norm = np.mean(avg_norm)
-        if ratios:
-            multiplicative_term = np.ones(len(task_loss))
-            multiplicative_term[:len(model.task_weights)] *= ratios[0]
-            multiplicative_term[len(model.task_weights):] *= ratios[1]
-            target_norm = np.mean(avg_norm) * multiplicative_term
-
-        model.task_weights = torch.from_numpy(target_norm/avg_norm).to(task_loss[0].device)
-
-
-
-
-    """
-    # compute the inverse training rate r_i(t)
-    # \curl{L}_i
-    if torch.cuda.is_available():
-        loss_ratio = task_loss.data.cpu().numpy() / model.initial_task_loss
-    else:
-        loss_ratio = task_loss.data.numpy() / model.initial_task_loss
-    # r_i(t)
-    inverse_train_rate = loss_ratio / np.mean(loss_ratio)
-
-    
-
-    if ratios:
-        multiplicative_term_unsup = np.ones(len(task_loss))
-        multiplicative_term_unsup[:len(model.task_weights_unsup)] *= ratios[0]
-        multiplicative_term_unsup[len(model.task_weights_unsup):] *= ratios[1]
-        multiplicative_term_sup = np.ones(len(task_loss))
-        multiplicative_term_sup[:len(model.task_weights_unsup)] *= ratios[1]
-        multiplicative_term_sup[len(model.task_weights_unsup):] *= ratios[0]
-
-        # compute the mean norm \tilde{G}_w(t)
-        mean_norm_unsup = np.mean(norms.data.cpu().numpy()/multiplicative_term_unsup)
-        mean_norm_sup = np.mean(norms.data.cpu().numpy()*multiplicative_term_sup)
-
-        mean_norm = np.ones(len(task_loss))
-        mean_norm[:len(model.task_weights_unsup)] *= mean_norm_unsup
-        mean_norm[len(model.task_weights_unsup):] *= mean_norm_sup
-    else:
-        # compute the mean norm \tilde{G}_w(t)
-        mean_norm = np.mean(norms.data.cpu().numpy())
-
-    # compute the GradNorm loss
-    # this term has to remain constant
-
-    
-    constant_term = torch.from_numpy((mean_norm * (inverse_train_rate ** gamma))).to(task_loss[0].device) 
-
-    # print('Constant term: {}'.format(constant_term))
-    # this is the GradNorm loss itself
-    grad_norm_loss = torch.sum(torch.abs(norms - constant_term))
-    #print('cst',constant_term)
-    #print('loss',grad_norm_loss)
-    # print('GradNorm loss {}'.format(grad_norm_loss))
-
-    # compute the gradient for the weights
-    model.task_weights.grad = torch.autograd.grad(grad_norm_loss, model.task_weights)[0]
-    
-    #print('grad',model.task_weights.grad)
-
-    print("---norm",norms)
-    print("-----cst", constant_term)
-    print('--------grad',model.task_weights.grad)
-    print("---------weight",model.task_weights)
-    #print('weight',model.task_weights)
-
-    """

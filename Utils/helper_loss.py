@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
 from torch.distributions.mixture_same_family import MixtureSameFamily
@@ -73,3 +74,28 @@ def mixture_of_gaussian_logpdf(target, mean, std, weights, reduction=None, start
         return torch.mean(torch.sum(logp, list(range(1,num_dim))))
     else:
         raise RuntimeError(f'Unknown reduction "{reduction}".')
+
+def discriminator_logp(probs_same_image):
+    batch_size = probs_same_image.shape[0]
+
+    assert batch_size == 1 or batch_size % 2 == 0, "The batch size should be 1 (if only one batch example), or a multiple of 2"
+
+    if batch_size > 2:
+        target_discr = torch.ones(batch_size).to(probs_same_image.device)
+        target_discr[batch_size // 2:] = 0
+    else:
+        target_discr = torch.ones(1).to(probs_same_image.device)
+    if target_discr.size() != probs_same_image.size():
+        u = "dummy"
+    discr_logp = - nn.BCELoss()(probs_same_image, target_discr)
+
+    # compute the accuracy
+    predicted = (probs_same_image > 1 / 2).type(torch.float)
+    total_discriminator = len(target_discr)
+    if total_discriminator != 0:
+        accuracy_discriminator = ((predicted == target_discr).sum()).item() / total_discriminator
+    else:
+        accuracy_discriminator = 0
+
+    return discr_logp, accuracy_discriminator, total_discriminator
+

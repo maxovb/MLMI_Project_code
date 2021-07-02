@@ -2,7 +2,7 @@ from CNPs.CNP import CNP, CNPClassifier
 from CNPs.OnTheGridConvCNP import  OnTheGridConvCNP, ConvCNPClassifier, ConvCNPExtractRepresentation
 import torch
 
-def modify_model_for_classification(model,model_size,convolutional = False, freeze = True, img_height = None, img_width = None, num_channels = None, layer_id = None, pooling = None, joint = False):
+def modify_model_for_classification(model,model_size,convolutional = False, freeze = True, img_height = None, img_width = None, num_channels = None, layer_id = None, pooling = None, joint = False, classify_same_image=False):
     """ Modify the given model and return the supervised version
 
     Args:
@@ -16,6 +16,8 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
         layer_id (int): layer from which to extract the latent representation, to pass when convolutional is True
         pooling (string): type of pooling to apply on the representation, to pass when convolutional is True
         joint (bool): whether the model will be used for joint training or not
+        classify_same_image (bool): whether the model should discriminate between two context sets to determine if they come from the same image for the GMM models
+
     Returns:
         nn.Module: instance of the new classification model
     """
@@ -50,7 +52,7 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
             dropout=True
 
         # create the model
-        classification_model = ConvCNPClassifier(model, dense_layer_widths, layer_id=layer_id, pooling=pooling, dropout=dropout)
+        classification_model = ConvCNPClassifier(model, dense_layer_widths, layer_id=layer_id, pooling=pooling, dropout=dropout, classify_same_image=classify_same_image)
 
         # freeze the weights from the original CNP
         if freeze:
@@ -74,7 +76,7 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
             dropout = True
 
         # create the model
-        classification_model = CNPClassifier(model, classification_head_layer_widths, dropout=dropout)
+        classification_model = CNPClassifier(model, classification_head_layer_widths, dropout=dropout, classify_same_image=classify_same_image)
 
         # freeze the weights from the original CNP
         if freeze:

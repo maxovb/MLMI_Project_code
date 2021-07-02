@@ -3,12 +3,13 @@ from CNPs.NP import NP
 from CNPs.OnTheGridConvCNP import  OnTheGridConvCNP
 from torchsummary import summary
 
-def create_model(model_name, model_size=None):
+def create_model(model_name, model_size=None, classify_same_image=False):
     """ Create and return the appropriate CNP model
 
     Args:
         model_name (string): one of ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNet_restrained", "NP_UG", "UNetCNP_GMM", "UNetCNP_restrained_GMM"]
         model_size (string), optional: size of the classification part of the network for the GMM models
+        classify_same_image (bool): whether the model should discriminate between two context sets to determine if they come from the same image for the GMM models
     Returns:
         nn.Module: instance of the model
         bool: whether the model is a convolutional model
@@ -178,7 +179,7 @@ def create_model(model_name, model_size=None):
                                  num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
-                                 num_classes=num_classes, dropout=dropout)
+                                 num_classes=num_classes, dropout=dropout, classify_same_image=classify_same_image)
         convolutional = True
 
     elif model_name == "UNetCNP_restrained_GMM":
@@ -224,7 +225,7 @@ def create_model(model_name, model_size=None):
                                  num_residual_blocks=num_residual_blocks, num_down_blocks=num_down_blocks,
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
-                                 num_classes=num_classes, dropout=dropout)
+                                 num_classes=num_classes, dropout=dropout, classify_same_image=classify_same_image)
         convolutional = True
 
     elif model_name == "UNetCNP_GMM_blocked":
@@ -273,7 +274,7 @@ def create_model(model_name, model_size=None):
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
                                  num_classes=num_classes, block_center_connections=block_center_connections,
-                                 dropout=dropout)
+                                 dropout=dropout, classify_same_image=classify_same_image)
         convolutional = True
 
     elif model_name == "UNetCNP_restrained_GMM_blocked":
@@ -322,7 +323,7 @@ def create_model(model_name, model_size=None):
                                  num_of_filters_top_UNet=num_of_filters_top_UNet, pooling_size=pooling_size,
                                  max_size=max_size, is_gmm=is_gmm, classifier_layer_widths=classifier_layer_widths,
                                  num_classes=num_classes, block_center_connections=block_center_connections,
-                                 dropout = dropout)
+                                 dropout = dropout, classify_same_image=classify_same_image)
         convolutional = True
 
     return model, convolutional
