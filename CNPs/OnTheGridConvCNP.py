@@ -6,8 +6,7 @@ from torch.distributions import Categorical
 from torch.distributions.kl import kl_divergence
 from torchsummary import summary
 from CNPs.model_part import discriminate_same_image
-from Utils.helpers_train import consistency_loss
-from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf, discriminator_logp
+from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf, discriminator_logp, consistency_loss
 
 
 class OnTheGridConvCNP(nn.Module):

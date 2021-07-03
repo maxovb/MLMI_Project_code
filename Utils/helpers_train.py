@@ -3,8 +3,6 @@ import numpy as np
 import random
 import torch
 from torch import nn
-from torch.distributions import Categorical
-from torch.distributions.kl import kl_divergence
 
 class GradNorm():
     """ Class to use to apply GradNorm iterations
@@ -115,56 +113,4 @@ class GradNorm():
                 txt = ", ".join(txt_list) + " \n"
                 f.write(txt)
         self.list_task_weights_to_write = []
-
-
-def consistency_loss(output_logit, num_sets_of_context=1):
-
-    batch_size = output_logit.shape[0]
-
-    # obtain the probability distribution
-    probs = nn.Softmax(dim=-1)(output_logit)
-
-    assert num_sets_of_context == 2, "Consistency loss does not handle other number of context sets than 2 at the moment"
-
-    # get the original batch size
-    single_set_batch_size = batch_size / num_sets_of_context
-    assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
-    single_set_batch_size = int(single_set_batch_size)
-
-    # split between the two sets of context sets
-    probs_set1, probs_set2 = torch.split(probs, single_set_batch_size, dim=0)
-    loss = js_divergence(probs_set1,probs_set2)
-
-    if batch_size > 2:
-
-        assert batch_size % 2 == 0, "The batch size should be divisible by two, repeat every image twice with two context sets"
-
-        indices = torch.ones(batch_size//2,device=probs.device)
-        for i in range(batch_size//2):
-            while True:
-                r = random.randint(0,batch_size//2-1)
-                if r != i: # check that we don't compare two same images
-                    break
-            indices[i] = r
-
-        probs_compare = probs_set2[indices.type(torch.int64)]
-        loss += - js_divergence(probs_set1, probs_compare)
-
-    return loss
-
-
-def js_divergence(probs_set1, probs_set2):
-    """Jenson-Shannon divergence between the two probabilties distributions
-    """
-    # compute the Jensen Shannon divergence
-    m = probs_set1 + probs_set2
-    loss = 0.0
-    dist1 = Categorical(probs_set1)
-    dist2 = Categorical(probs_set2)
-    distm = Categorical(m)
-    loss += kl_divergence(dist1,distm)
-    loss += kl_divergence(dist2,distm)
-    div = 0.5 * torch.mean(loss)
-
-    return div
 

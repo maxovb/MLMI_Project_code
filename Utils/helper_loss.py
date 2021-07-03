@@ -1,9 +1,11 @@
 import torch
+import random
 from torch import nn
 from torch.distributions.normal import Normal
 from torch.distributions.categorical import Categorical
 from torch.distributions.mixture_same_family import MixtureSameFamily
 from torch.distributions.independent import Independent
+from torch.distributions.kl import kl_divergence
 
 def gaussian_logpdf(target, mean, std, reduction=None, start_idx_sum=1):
     """Gaussian log-density. (copied from https://github.com/cambridge-mlg/convcnp.git)
@@ -97,4 +99,64 @@ def discriminator_logp(probs_same_image,reduction="mean"):
         accuracy_discriminator = 0
 
     return discr_logp, accuracy_discriminator, total_discriminator
+
+def consistency_loss(output_logit, num_sets_of_context=1,reduction="mean"):
+
+    batch_size = output_logit.shape[0]
+
+    # obtain the probability distribution
+    probs = nn.Softmax(dim=-1)(output_logit)
+
+    assert num_sets_of_context == 2, "Consistency loss does not handle other number of context sets than 2 at the moment"
+
+    # get the original batch size
+    single_set_batch_size = batch_size / num_sets_of_context
+    assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
+    single_set_batch_size = int(single_set_batch_size)
+
+    # split between the two sets of context sets
+    probs_set1, probs_set2 = torch.split(probs, single_set_batch_size, dim=0)
+    loss = js_divergence(probs_set1,probs_set2, reduction=reduction)
+
+    if batch_size > 2:
+
+        assert batch_size % 2 == 0, "The batch size should be divisible by two, repeat every image twice with two context sets"
+
+        indices = torch.ones(batch_size//2,device=probs.device)
+        for i in range(batch_size//2):
+            while True:
+                r = random.randint(0,batch_size//2-1)
+                if r != i: # check that we don't compare two same images
+                    break
+            indices[i] = r
+
+        probs_compare = probs_set2[indices.type(torch.int64)]
+        loss += - js_divergence(probs_set1, probs_compare, reduction=reduction)
+
+    return loss
+
+
+def js_divergence(probs_set1, probs_set2, reduction="mean"):
+    """Jenson-Shannon divergence between the two probabilties distributions
+    """
+    # compute the Jensen Shannon divergence
+    m = (probs_set1 + probs_set2)/2
+    loss = 0.0
+    dist1 = Categorical(probs_set1)
+    dist2 = Categorical(probs_set2)
+    distm = Categorical(m)
+    loss += kl_divergence(dist1,distm)
+    loss += kl_divergence(dist2,distm)
+
+    if reduction == "mean":
+        div = 0.5 * torch.mean(loss)
+    elif reduction == "sum":
+        div = 0.5 * torch.sum(loss)
+    else:
+        raise NotImplementedError("reduction for JS divergence is implemented only with mean (default) and sum")
+    return div
+
+if __name__ == "__main__":
+    x = torch.tensor([[1,2],[3,4],[0.5,2],[3.2,4]]).type(torch.float)
+    l = consistency_loss(x,num_sets_of_context=2)
 
