@@ -270,7 +270,7 @@ class OnTheGridConvCNP(nn.Module):
             cons_logp = None
 
         if self.classify_same_image:
-            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image)
+            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image,reduction="sum")
         else:
             discr_logp = None
             accuracy_discriminator = None
@@ -309,7 +309,7 @@ class OnTheGridConvCNP(nn.Module):
             accuracy = 0
 
         if self.classify_same_image:
-            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image)
+            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image,reduction="sum")
         else:
             discr_logp = None
             accuracy_discriminator = None
@@ -944,7 +944,7 @@ class ConvCNPClassifier(nn.Module):
             unsup_task_loss.append(cons_loss)
 
         if self.classify_same_image:
-            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image)
+            discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image,reduction="sum")
             discr_loss = - scale_unsup *  discr_logp / total_discriminator
             unsup_task_loss.append(discr_loss)
 

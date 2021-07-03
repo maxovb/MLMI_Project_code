@@ -75,7 +75,7 @@ def mixture_of_gaussian_logpdf(target, mean, std, weights, reduction=None, start
     else:
         raise RuntimeError(f'Unknown reduction "{reduction}".')
 
-def discriminator_logp(probs_same_image):
+def discriminator_logp(probs_same_image,reduction="mean"):
     batch_size = probs_same_image.shape[0]
 
     assert batch_size == 1 or batch_size % 2 == 0, "The batch size should be 1 (if only one batch example), or a multiple of 2"
@@ -86,7 +86,7 @@ def discriminator_logp(probs_same_image):
     else:
         target_discr = torch.ones(1).to(probs_same_image.device)
 
-    discr_logp = - nn.BCELoss()(probs_same_image, target_discr)
+    discr_logp = - nn.BCELoss()(probs_same_image, target_discr,reduction=reduction)
 
     # compute the accuracy
     predicted = (probs_same_image > 1 / 2).type(torch.float)
