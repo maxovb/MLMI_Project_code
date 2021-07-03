@@ -30,13 +30,17 @@ class GradNorm():
         self.list_task_weights_to_write = []
 
     def grad_norm_iteration(self):
-
+        print("task loss", self.list_task_loss)
         # compute the inverse training rate
         avg_task_loss = sum(self.list_task_loss)/len(self.list_task_loss)
+        print("avg loss", avg_task_loss)
         if self.initial_task_loss is None: # first epoch store the loss
             self.initial_task_loss = avg_task_loss
+        print("initial_task_loss",self.initial_task_loss)
         loss_ratio = avg_task_loss / self.initial_task_loss
+        print("loss ratio",loss_ratio)
         inverse_train_rate = loss_ratio / np.mean(loss_ratio)
+        print("inverse train rate", inverse_train_rate)
 
         # compute the average norm 
         avg_norm = sum(self.list_norms) / len(self.list_norms)
@@ -47,6 +51,7 @@ class GradNorm():
 
         if self.ratios:
             multiplicative_term = np.array(self.ratios)
+            print("multiplicative_term",multiplicative_term)
             target_norm = np.mean(avg_norm) * multiplicative_term * (inverse_train_rate ** self.gamma)
         else:
             target_norm = np.mean(avg_norm) * (inverse_train_rate ** self.gamma)

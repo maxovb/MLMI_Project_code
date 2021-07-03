@@ -29,7 +29,7 @@ if __name__ == "__main__":
     block_connections = True  # whether to block the skip connections at the middle layers of the UNet
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
-    weight_ratio = False # weight the loss with the ratio of context pixels present in the image
+    weight_ratio = True # weight the loss with the ratio of context pixels present in the image
     consistency_regularization = True # whether to use consistency regularization or not
     grad_norm = True # whether to use GradNorm to balance the losses
     classify_same_image = True # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
@@ -48,8 +48,8 @@ if __name__ == "__main__":
         epoch_start = 0
 
     batch_size = 64
-    learning_rate = 1e-4
-    epochs = 600 - epoch_start
+    learning_rate = 2e-4
+    epochs = 400 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:

@@ -85,8 +85,7 @@ def discriminator_logp(probs_same_image):
         target_discr[batch_size // 2:] = 0
     else:
         target_discr = torch.ones(1).to(probs_same_image.device)
-    if target_discr.size() != probs_same_image.size():
-        u = "dummy"
+
     discr_logp = - nn.BCELoss()(probs_same_image, target_discr)
 
     # compute the accuracy

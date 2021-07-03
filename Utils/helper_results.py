@@ -156,7 +156,10 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
             if not(variational):
                 if not(model.is_gmm):
                     if include_class_predictions:
-                        logits, probs, mean, std = model(mask,context_img,joint=True)
+                        if model.classify_same_image:
+                            logits, probs, mean, std, probs_same_image = model(mask,context_img,joint=True)
+                        else:
+                            logits, probs, mean, std = model(mask,context_img,joint=True)
                         probabilities_to_plot = probs[0].detach().cpu()
                     else:
                         mean, std = model(mask,context_img)

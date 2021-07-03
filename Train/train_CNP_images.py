@@ -376,7 +376,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                     scale_sup, scale_unsup = 1,1
 
                 data = data.to(device)
-
+                
                 losses = model.joint_train_step(mask, context_img, target, data, opt, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
 
                 train_joint_loss = losses["joint_loss"]
@@ -553,10 +553,12 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             if classify_same_image:
                 values = [train_loss_to_write[0],train_loss_to_write[1],train_accuracy_to_write, train_accuracy_discriminator_to_write]
                 dirs = [train_joint_loss_dir_txt,train_unsup_loss_dir_txt,train_accuracy_dir_txt, train_accuracy_discriminator_dir_txt]
+                train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write, train_accuracy_discriminator_to_write = write_list_to_files_and_reset(values,dirs)
+
             else:
                 values = [train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write]
                 dirs = [train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt]
-            train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write = write_list_to_files_and_reset(values,dirs)
+                train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write = write_list_to_files_and_reset(values,dirs)
 
             # store the task weights
             if grad_norm_iterator:
@@ -569,10 +571,12 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                               validation_accuracy_discriminator_to_write]
                     dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt,
                             validation_accuracy_discriminator_dir_txt]
+                    validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_dir_txt  = write_list_to_files_and_reset(values, dirs)
+
                 else:
                     values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]
                     dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt]
-                validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write = write_list_to_files_and_reset(values, dirs)
+                    validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write = write_list_to_files_and_reset(values, dirs)
 
                 if visualisation_dir:
                     # get the output directory
@@ -630,16 +634,29 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             # TODO: n-best checkpoint saving
 
     # write the average epoch train losses to the txt file
-    values = [train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write]
-    dirs = [train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt]
-    train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write = write_list_to_files_and_reset(
-        values, dirs)
+    if classify_same_image:
+        values = [train_loss_to_write[0],train_loss_to_write[1],train_accuracy_to_write, train_accuracy_discriminator_to_write]
+        dirs = [train_joint_loss_dir_txt,train_unsup_loss_dir_txt,train_accuracy_dir_txt, train_accuracy_discriminator_dir_txt]
+        train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write, train_accuracy_discriminator_to_write = write_list_to_files_and_reset(values,dirs)
+
+    else:
+        values = [train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write]
+        dirs = [train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt]
+        train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write = write_list_to_files_and_reset(values,dirs)
 
     # write the average epoch validation loss to the txt file if some validation data is supplied
     if validation_data:
-        values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]
-        dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt]
-        validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write = write_list_to_files_and_reset(values, dirs)
+        if classify_same_image:
+            values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write,
+                        validation_accuracy_discriminator_to_write]
+            dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt,
+                    validation_accuracy_discriminator_dir_txt]
+            validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_dir_txt  = write_list_to_files_and_reset(values, dirs)
+
+        else:
+            values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]
+            dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt]
+            validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write = write_list_to_files_and_reset(values, dirs)
 
     return avg_train_loss_per_epoch, avg_train_accuracy_per_epoch, avg_validation_loss_per_epoch, avg_validation_accuracy_per_epoch
 
