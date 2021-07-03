@@ -13,15 +13,17 @@ class GradNorm():
         model (nn.Module): model on which to apply the GradNorm iterations
         gamma (float): hyper-parameter for the grad norm (alpha in the paper)
         ratios (list of float):  lis of objective ratios for the loss terms for the unsupervised [0] and supervsied [1] losses, if None do not use ratios
+        theoretical_minimum_loss (list of float): minimum loss achievable for each loss
     Reference: modified version from
         Chen, Zhao, et al. "Gradnorm: Gradient normalization for adaptive loss balancing in deep multitask networks."
          International Conference on Machine Learning. PMLR, 2018.
     """
 
-    def __init__(self, model, gamma, ratios=None):
+    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None):
         self.model = model
         self.gamma = gamma
         self.ratios = ratios
+        self.theoretical_minimum_loss = theoretical_minimum_loss
 
         self.list_norms = []
         self.list_task_loss = []
@@ -37,10 +39,6 @@ class GradNorm():
         if self.initial_task_loss is None: # first epoch store the loss
             self.initial_task_loss = avg_task_loss
         print("initial_task_loss",self.initial_task_loss)
-        loss_ratio = avg_task_loss / self.initial_task_loss
-        print("loss ratio",loss_ratio)
-        inverse_train_rate = loss_ratio / np.mean(loss_ratio)
-        print("inverse train rate", inverse_train_rate)
 
         # compute the average norm 
         avg_norm = sum(self.list_norms) / len(self.list_norms)
@@ -52,9 +50,19 @@ class GradNorm():
         if self.ratios:
             multiplicative_term = np.array(self.ratios)
             print("multiplicative_term",multiplicative_term)
-            target_norm = np.mean(avg_norm) * multiplicative_term * (inverse_train_rate ** self.gamma)
         else:
-            target_norm = np.mean(avg_norm) * (inverse_train_rate ** self.gamma)
+            multiplicative_term = np.ones(avg_norm.shape)
+
+        if self.theoretical_minimum_loss:
+            min_loss = np.array(self.theoretical_minimum_loss)
+            loss_ratio = (avg_task_loss - min_loss) / (self.initial_task_loss - min_loss)
+            print("loss ratio", loss_ratio)
+            inverse_train_rate = loss_ratio / np.mean(loss_ratio)
+            print("inverse train rate", inverse_train_rate)
+        else:
+            inverse_train_rate = np.ones(avg_norm.shape)
+
+        target_norm = np.mean(avg_norm) * multiplicative_term * (inverse_train_rate ** self.gamma)
 
 
         self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)

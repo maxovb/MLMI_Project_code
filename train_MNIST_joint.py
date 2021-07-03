@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import torch
 import sys
+import math
 from torchsummary import summary
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
@@ -130,17 +131,21 @@ if __name__ == "__main__":
         summary(model, [(784, 2), (784, 1), (784,2)])
     """
     num_losses = 2
-
+    theoretical_minimum_loss = [- img_width * img_height * num_channels * math.log(1/(math.sqrt(2*math.pi)*0.01))] # reconstruction loss
     if consistency_regularization:
         num_losses += 1
+        theoretical_minimum_loss.append(-math.log(2))
     if classify_same_image:
         num_losses += 1
+        theoretical_minimum_loss.append(0)
+    theoretical_minimum_loss.append(0) # cross-entropy
+
     ratios = [1 for _ in range(num_losses)]
     ratios[-1] = (60000 * (1 - validation_split)) / num_samples
 
     if grad_norm:
         gamma = 1.5 # hyper-parameter for grad_norm
-        grad_norm_iterator = GradNorm(model,gamma,ratios)
+        grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss)
     else:
         grad_norm_iterator = None
 

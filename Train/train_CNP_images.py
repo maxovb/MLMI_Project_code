@@ -39,6 +39,10 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
 
+            #TODO: remove (debugging)
+            if batch_idx > 50:
+                break
+
             # either select nbr of context pts between 2 and max_percentage_context, or uniformly between 2 and 1/3 with probability 1/2 and between 1/3 and 1 with probability 1/2
             if max_percentage_context:
                 num_context_points = np.random.randint(min_context_points,int(img_height * img_width * max_percentage_context))
@@ -77,6 +81,11 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
         if validation_data:
             validation_losses = []
             for batch_idx, (data, target) in enumerate(validation_data):
+
+                # TODO: remove (debugging)
+                if batch_idx > 50:
+                    break
+
                 if max_percentage_context:
                     num_context_points = np.random.randint(min_context_points,
                                                            int(img_height * img_width * max_percentage_context))
