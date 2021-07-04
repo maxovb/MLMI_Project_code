@@ -60,12 +60,12 @@ class GradNorm():
         else:
             inverse_train_rate = np.ones(avg_norm.shape)
 
-        target_norm = np.mean(avg_norm) * multiplicative_term * (inverse_train_rate ** self.gamma)
+        target_norm = np.mean(avg_norm) * (inverse_train_rate ** self.gamma)
 
 
         self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
         normalization_cst = len(self.model.task_weights) / torch.sum(self.model.task_weights, dim=0).detach()
-        self.model.task_weights = self.model.task_weights * normalization_cst
+        self.model.task_weights = self.model.task_weights * normalization_cst * multiplicative_term
 
         # append the new task weights 
         self.list_task_weights_to_write.append(self.model.task_weights.detach().cpu().numpy())
@@ -95,8 +95,10 @@ class GradNorm():
             # get the gradient of this task loss with respect to the shared parameters
             gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
             # compute the norm
-            norms.append(torch.norm(gygw[0]) + 1e-7)
+            norms.append(torch.norm(gygw[0]))
+
         norms = torch.stack(norms).detach().cpu().numpy()
+        norms = torch.clip(norms,a_min=1e-2,a_max=None)
 
         if 0 in norms:
             print("weights",self.model.task_weights)

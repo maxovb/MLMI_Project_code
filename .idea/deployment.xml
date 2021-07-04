@@ -2,6 +2,13 @@
 <project version="4">
   <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
+      <paths name="maxovb@20.185.245.82:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/maxovb/MLMI_Project_code" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="maxovb@20.185.245.82:22 (5)">
         <serverdata>
           <mappings>

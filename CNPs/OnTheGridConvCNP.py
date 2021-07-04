@@ -585,7 +585,13 @@ class OnTheGridConvCNPUNet(nn.Module):
             self.classifier_activation = nn.Softmax(dim=-1)
 
             if self.classify_same_image:
-                self.discriminator = nn.Linear(classifier_layer_widths[-2] * 2, 1)
+                h_discriminator = nn.ModuleList([])
+                h_discriminator.append(nn.Linear(classifier_layer_widths[-2] * 2, classifier_layer_widths[-2]))
+                h_discriminator.append(nn.ReLU())
+                h_discriminator.append(nn.Dropout(0.3))
+                h_discriminator(nn.Linear(classifier_layer_widths[-2], 1))
+
+                self.discriminator = nn.Sequential(*h_discriminator)
                 self.discriminator_activation = nn.Sigmoid()
 
     def down(self,input,layers=None):
