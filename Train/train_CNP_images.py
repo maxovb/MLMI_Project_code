@@ -572,7 +572,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                               validation_accuracy_discriminator_to_write]
                     dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt,
                             validation_accuracy_discriminator_dir_txt]
-                    validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_dir_txt  = write_list_to_files_and_reset(values, dirs)
+                    validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_to_write  = write_list_to_files_and_reset(values, dirs)
 
                 else:
                     values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]
@@ -652,7 +652,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                         validation_accuracy_discriminator_to_write]
             dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt,
                     validation_accuracy_discriminator_dir_txt]
-            validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_dir_txt  = write_list_to_files_and_reset(values, dirs)
+            validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_to_write  = write_list_to_files_and_reset(values, dirs)
 
         else:
             values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]

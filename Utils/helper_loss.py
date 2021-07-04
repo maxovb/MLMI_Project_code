@@ -88,7 +88,7 @@ def discriminator_logp(probs_same_image,reduction="mean"):
     else:
         target_discr = torch.ones(1).to(probs_same_image.device)
 
-    discr_logp = - nn.BCELoss()(probs_same_image, target_discr,reduction=reduction)
+    discr_logp = - nn.BCELoss(reduction=reduction)(probs_same_image, target_discr)
 
     # compute the accuracy
     predicted = (probs_same_image > 1 / 2).type(torch.float)
