@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="maxovb@20.185.245.82:22 (5)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/maxovb/MLMI_project_code/" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath path="/home/maxovb/MLMI_project_code" />
+            <excludedPath local="true" path="$PROJECT_DIR$" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>

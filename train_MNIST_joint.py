@@ -6,6 +6,7 @@ import torch
 import sys
 import math
 from torchsummary import summary
+print(os.listdir(os.getcwd()))
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
@@ -31,9 +32,9 @@ if __name__ == "__main__":
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-    consistency_regularization = False# whether to use consistency regularization or not
+    consistency_regularization = True# whether to use consistency regularization or not
     grad_norm = True # whether to use GradNorm to balance the losses
-    classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
+    classify_same_image = True # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
     validation_split = 0.1
     min_context_points = 2
 
