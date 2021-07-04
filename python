@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+source $HOME/miniconda3/bin/activate
+conda activate Thesis_code
+python "$@"
