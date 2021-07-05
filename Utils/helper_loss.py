@@ -123,7 +123,6 @@ def consistency_loss(output_logit, num_sets_of_context=1,reduction="mean"):
     probs_set1 = probs_set1/torch.sum(probs_set1,dim=-1,keepdim=True) # re-normalize
     probs_set2 = probs_set2 / torch.sum(probs_set2,dim=-1,keepdim=True) # re-normalize
 
-
     loss = js_divergence(probs_set1,probs_set2, reduction=reduction)
 
     if batch_size > 2:
