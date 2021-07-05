@@ -142,6 +142,7 @@ class OnTheGridConvCNP(nn.Module):
         # general objective
         J = 0
         unsup_loss = 0
+        cons_loss = 0
         discr_loss = 0
         total_discr = 0
         num_correct_discr = 0
@@ -165,7 +166,7 @@ class OnTheGridConvCNP(nn.Module):
             unsup_logp, cons_logp, discr_logp, accuracy_discriminator_local, total_discriminator_local = self.unsupervised_gmm_logp(mask_unlabelled, context_img_unlabelled, target_img_unlabelled, consistency_regularization, num_sets_of_context)
 
             if consistency_regularization:
-                cons_loss = - scale_unsup * cons_logp / batch_size_unlabelled
+                cons_loss -= scale_unsup * cons_logp
             if self.classify_same_image:
                 discr_loss += - scale_unsup * discr_logp
                 total_discr += total_discriminator_local
@@ -190,11 +191,14 @@ class OnTheGridConvCNP(nn.Module):
             batch_size_labelled = mask_labelled.shape[0]
 
             # calculate the loss
-            unsup_logp, sup_logp, accuracy, total, discr_logp, accuracy_discriminator_local, total_discriminator_local = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only)
+            unsup_logp, sup_logp, accuracy, total, cons_logp, discr_logp, accuracy_discriminator_local, total_discriminator_local = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only, consistency_regularization, num_sets_of_context)
 
             unsup_loss += - scale_unsup * unsup_logp
             sup_loss = - scale_sup * alpha * sup_logp
             sup_loss = sup_loss / batch_size_labelled
+
+            if consistency_regularization:
+                cons_loss -= scale_unsup * cons_logp
 
             if self.classify_same_image:
                 discr_loss += - scale_unsup * discr_logp
@@ -211,6 +215,9 @@ class OnTheGridConvCNP(nn.Module):
         sup_task_loss.append(sup_loss)
 
         if consistency_regularization:
+            cons_loss = cons_loss / batch_size
+            if all_labelled:
+                cons_loss = torch.zeros(1)[0]
             unsup_task_loss.append(cons_loss)
 
         if self.classify_same_image:
@@ -264,7 +271,8 @@ class OnTheGridConvCNP(nn.Module):
         unsup_logp = mixture_of_gaussian_logpdf(target_img,mean,std,probs,reduction="sum")
 
         if consistency_regularization:
-            cons_logp = self.gmm_consistency_loss(mean,std,probs,target_img,num_sets_of_context)
+            cons_logp = - consistency_loss(logits, num_sets_of_context,reduction="sum")
+            #cons_logp = self.gmm_consistency_loss(mean,std,probs,target_img,num_sets_of_context)
         else:
             cons_logp = None
 
@@ -277,7 +285,7 @@ class OnTheGridConvCNP(nn.Module):
 
         return unsup_logp, cons_logp, discr_logp, accuracy_discriminator, total_discriminator
 
-    def supervised_gmm_logp(self,mask,context_img,target_img,target_label):
+    def supervised_gmm_logp(self,mask,context_img,target_img,target_label, consistency_regularization=False, num_sets_of_context=1):
 
         # reconstruction loss
         if self.classify_same_image:
@@ -307,6 +315,11 @@ class OnTheGridConvCNP(nn.Module):
         else:
             accuracy = 0
 
+        if consistency_regularization:
+            cons_logp = - consistency_loss(logits, num_sets_of_context,reduction="sum")
+        else:
+            cons_logp = None
+
         if self.classify_same_image:
             discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image,reduction="sum")
         else:
@@ -314,7 +327,7 @@ class OnTheGridConvCNP(nn.Module):
             accuracy_discriminator = None
             total_discriminator = None
 
-        return logp, classification_logp, accuracy, total, discr_logp, accuracy_discriminator, total_discriminator
+        return logp, classification_logp, accuracy, total, cons_logp, discr_logp, accuracy_discriminator, total_discriminator
 
     def gmm_consistency_loss(self,mean,std,probs,target_img,num_sets_of_context):
         """ Consistency loss with a GMM predictive, evaluate the likelihood of a prediction with the component weights
@@ -354,7 +367,7 @@ class OnTheGridConvCNP(nn.Module):
             tensor: std of the sampled component
         """
 
-        assert is_gmm, "Sampling one component only possible if the model has a GMM predictive"
+        assert self.is_gmm, "Sampling one component only possible if the model has a GMM predictive"
 
         # get the means, std and weights of the components
         if self.classify_same_image:
@@ -589,7 +602,7 @@ class OnTheGridConvCNPUNet(nn.Module):
                 h_discriminator.append(nn.Linear(classifier_layer_widths[-2] * 2, classifier_layer_widths[-2]))
                 h_discriminator.append(nn.ReLU())
                 h_discriminator.append(nn.Dropout(0.3))
-                h_discriminator(nn.Linear(classifier_layer_widths[-2], 1))
+                h_discriminator.append(nn.Linear(classifier_layer_widths[-2], 1))
 
                 self.discriminator = nn.Sequential(*h_discriminator)
                 self.discriminator_activation = nn.Sigmoid()
