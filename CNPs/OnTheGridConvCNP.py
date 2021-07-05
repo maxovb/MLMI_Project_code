@@ -947,6 +947,9 @@ class ConvCNPClassifier(nn.Module):
         if consistency_regularization:
             cons_loss = scale_unsup * consistency_loss(output_logit, num_sets_of_context)
             unsup_task_loss.append(cons_loss)
+            #TODO: remove this (debugging)
+            if cons_loss.item() == float("inf") or cons_loss.item() == -float("inf"):
+                u = "debug"
 
         if self.classify_same_image:
             discr_logp, accuracy_discriminator, total_discriminator = discriminator_logp(probs_same_image,reduction="sum")
