@@ -120,8 +120,8 @@ def consistency_loss(output_logit, num_sets_of_context=1,reduction="mean"):
     # avoid numerical issues:
     probs_set1 = torch.clamp(probs_set1,1e-3)
     probs_set2 = torch.clamp(probs_set2, 1e-3)
-    probs_set1 = probs_set1/torch.sum(probs_set1,dim=-1) # re-normalize
-    probs_set2 = probs_set2 / torch.sum(probs_set2, dim=-1) # re-normalize
+    probs_set1 = probs_set1/torch.sum(probs_set1,dim=-1,keepdim=True) # re-normalize
+    probs_set2 = probs_set2 / torch.sum(probs_set2,dim=-1,keepdim=True) # re-normalize
 
 
     loss = js_divergence(probs_set1,probs_set2, reduction=reduction)
