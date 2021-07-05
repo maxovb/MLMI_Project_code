@@ -25,7 +25,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = True  # whether to block the skip connections at the middle layers of the UNet
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
     consistency_regularization = True# whether to use consistency regularization or not
     grad_norm = True # whether to use GradNorm to balance the losses
-    classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
+    classify_same_image = True # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
     validation_split = 0.1
     min_context_points = 2
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     batch_size = 64
     learning_rate = 2e-4
     epochs = 400 - epoch_start
-    save_freq = 20
+    save_freq = 1
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
