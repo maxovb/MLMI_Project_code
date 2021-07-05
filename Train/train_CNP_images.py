@@ -425,7 +425,10 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 iterator.refresh()  # to show immediately the update
 
         if grad_norm_iterator:
-            grad_norm_iterator.grad_norm_iteration()
+            if i >= 50:
+                grad_norm_iterator.grad_norm_iteration()
+            else:
+                grad_norm_iterator.scale_only_grad_norm_iteration()
 
         # compute the average loss over the epoch and store all losses
         epoch_avg_train_joint_loss = np.array(train_losses[0]).mean()

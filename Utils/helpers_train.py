@@ -20,6 +20,7 @@ class GradNorm():
     def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None):
         self.model = model
         self.gamma = gamma
+
         self.ratios = ratios
         self.theoretical_minimum_loss = theoretical_minimum_loss
 
@@ -28,6 +29,18 @@ class GradNorm():
         self.initial_task_loss = None
 
         self.list_task_weights_to_write = []
+
+    def scale_only_grad_norm_iteration(self):
+        if self.ratios:
+            multiplicative_term = torch.from_numpy(np.array(self.ratios)).to(self.model.task_weights.device)
+            self.model.task_weights = multiplicative_term
+
+        # append the new task weights 
+        self.list_task_weights_to_write.append(self.model.task_weights.detach().cpu().numpy())
+
+        # empty the lists
+        self.list_norms = []
+        self.list_task_loss = []
 
     def grad_norm_iteration(self):
 
@@ -47,9 +60,9 @@ class GradNorm():
             print("weights:",self.model.task_weights)
 
         if self.ratios:
-            multiplicative_term = np.array(self.ratios)
+            multiplicative_term = torch.from_numpy(np.array(self.ratios)).to(self.model.task_weights.device)
         else:
-            multiplicative_term = np.ones(avg_norm.shape)
+            multiplicative_term = torch.ones(avg_norm.shape)
 
         if self.theoretical_minimum_loss:
             min_loss = np.array(self.theoretical_minimum_loss)
@@ -98,7 +111,7 @@ class GradNorm():
             norms.append(torch.norm(gygw[0]))
 
         norms = torch.stack(norms).detach().cpu().numpy()
-        norms = torch.clip(norms,a_min=1e-2,a_max=None)
+        norms = np.clip(norms,a_min=1e-2,a_max=None)
 
         if 0 in norms:
             print("weights",self.model.task_weights)

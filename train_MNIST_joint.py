@@ -6,7 +6,6 @@ import torch
 import sys
 import math
 from torchsummary import summary
-print(os.listdir(os.getcwd()))
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
