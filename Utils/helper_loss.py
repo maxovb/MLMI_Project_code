@@ -157,6 +157,6 @@ def js_divergence(probs_set1, probs_set2, reduction="mean"):
     return div
 
 if __name__ == "__main__":
-    x = torch.tensor([[1,2],[3,4],[0.5,2],[3.2,4]]).type(torch.float)
+    x = torch.tensor([[2.,0,0],[0,2.,0],[0,0,2.],[2.,0,0],[0,2.,0],[0,0,2.]],requires_grad=True).type(torch.float)
     l = consistency_loss(x,num_sets_of_context=2)
 
