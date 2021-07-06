@@ -348,7 +348,7 @@ def context_indices_pizza(img,convolutional=False, device=torch.device('cpu'),pe
                 add = torch.flip(torch.tril(torch.ones(size, device=device)) - remove_upper_half_diagonal,[-1])
             local_mask += add * active_slices[:,slice_id][:,None,None,None]
 
-            mask[:,:,i * (img_height // 2):(i + 1) * (img_height // 2), j * (img_width // 2):(j+ 1) * (img_width // 2)] *= local_mask #torch.clamp(local_mask,max=1)
+            mask[:,:,i * (img_height // 2):(i + 1) * (img_height // 2), j * (img_width // 2):(j+ 1) * (img_width // 2)] = local_mask #torch.clamp(local_mask,max=1)
 
     if same_mask:
         mask = mask.repeat(batch_size, 1, 1, 1)
