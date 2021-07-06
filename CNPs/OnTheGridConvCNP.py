@@ -223,7 +223,7 @@ class OnTheGridConvCNP(nn.Module):
         if self.classify_same_image:
             discr_loss = discr_loss/total_discr
             unsup_task_loss.append(discr_loss)
-        print(sup_task_loss)
+            
         task_loss = torch.stack(unsup_task_loss + sup_task_loss)
         unsup_task_loss = torch.stack(unsup_task_loss)
         sup_task_loss = torch.stack(sup_task_loss)
