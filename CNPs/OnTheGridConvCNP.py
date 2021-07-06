@@ -217,13 +217,13 @@ class OnTheGridConvCNP(nn.Module):
         if consistency_regularization:
             cons_loss = cons_loss / batch_size
             if all_labelled:
-                cons_loss = torch.zeros(1)[0]
+                cons_loss = torch.zeros(1,device=unsup_loss.device)[0]
             unsup_task_loss.append(cons_loss)
 
         if self.classify_same_image:
             discr_loss = discr_loss/total_discr
             unsup_task_loss.append(discr_loss)
-
+        print(sup_task_loss)
         task_loss = torch.stack(unsup_task_loss + sup_task_loss)
         unsup_task_loss = torch.stack(unsup_task_loss)
         sup_task_loss = torch.stack(sup_task_loss)

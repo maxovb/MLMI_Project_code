@@ -25,7 +25,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = True  # whether to block the skip connections at the middle layers of the UNet
 
