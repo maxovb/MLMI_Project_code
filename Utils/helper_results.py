@@ -295,7 +295,7 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
         if include_class_predictions:
 
             # true kernel probabilities 
-            logpdfs = np.array([f(x_context.detach().cpu().numpy()[0,:,0]).logpdf(y_context.detach().cpu().numpy()[0,:,0]) for f in data.gps])
+            logpdfs = np.array([f(x_context.detach().cpu().numpy()[0,:,0],1e-5).logpdf(y_context.detach().cpu().numpy()[0,:,0]) for f in data.gps])
             logpdfs -= np.max(logpdfs)
             true_probs = np.exp(logpdfs) / np.sum(np.exp(logpdfs))
 
@@ -303,7 +303,7 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
                 kernel_labels = data.kernel_names
             else:
                 kernel_labels = list(range(num_classes))
-            ax[row+1, col].bar(range(num_classes),probabilities_to_plot,alpha=0.5,color="blue", label="Predicted GP probability")
+            ax[row+1, col].bar(range(num_classes),probabilities_to_plot,alpha=0.5,color="blue", label="Predicted probability")
             ax[row+1, col].bar(range(num_classes),true_probs,alpha=0.5,color="red",label="True GP probability")
             ax[row+1,col].legend(fontsize="x-large")
             ax[row+1, col].set_xticks(np.arange(num_classes))
