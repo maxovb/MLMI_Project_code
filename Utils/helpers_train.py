@@ -38,8 +38,18 @@ class GradNorm():
             multiplicative_term = torch.from_numpy(np.array(self.ratios)).to(self.model.task_weights.device)
             self.model.task_weights = multiplicative_term
 
+        # compute the average and standard deviation of the norms
+        array_norms = np.array(self.list_norms)
+        if self.clip_value != None:
+            array_norms = np.clip(array_norms, a_min=clip_value, a_max=None)
+
+        avg_norm = np.mean(array_norms, dim=0)
+        std_norm = np.std(array_norms, dim=0)
+
         # append the new task weights 
         self.list_task_weights_to_write.append(self.model.task_weights.detach().cpu().numpy())
+        self.list_mean_norms_to_write.append(avg_norm.tolist())
+        self.list_std_norms_to_write.append(std_norm.tolist())
 
         # empty the lists
         self.list_norms = []
