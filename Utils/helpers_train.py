@@ -17,9 +17,10 @@ class GradNorm():
          International Conference on Machine Learning. PMLR, 2018.
     """
 
-    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None):
+    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None, clip_value=None):
         self.model = model
         self.gamma = gamma
+        self.clip_value = clip_value
 
         self.ratios = ratios
         self.theoretical_minimum_loss = theoretical_minimum_loss
@@ -29,6 +30,8 @@ class GradNorm():
         self.initial_task_loss = None
 
         self.list_task_weights_to_write = []
+        self.list_mean_norms_to_write = []
+        self.list_std_norms_to_write = []
 
     def scale_only_grad_norm_iteration(self):
         if self.ratios:
@@ -52,8 +55,15 @@ class GradNorm():
             self.initial_task_loss = avg_task_loss
         print("initial_task_loss",self.initial_task_loss)
 
-        # compute the average norm 
-        avg_norm = sum(self.list_norms) / len(self.list_norms)
+        # compute the average norm
+        array_norms = np.array(self.list_norms)
+
+        if self.clip_value != None:
+            array_norms = np.clip(array_norms,a_min=clip_value,a_max=None)
+
+        avg_norm = np.mean(array_norms,dim=0)
+        std_norm = np.std(array_norms,dim=0)
+
         if 0 in avg_norm:
             print("------ FAIL: 0 in avg_norm ------")
             print("list:",self.list_norms)
@@ -82,6 +92,8 @@ class GradNorm():
 
         # append the new task weights 
         self.list_task_weights_to_write.append(self.model.task_weights.detach().cpu().numpy())
+        self.list_mean_norms_to_write.append(avg_norm.tolist())
+        self.list_std_norms_to_write.append(std_norm.tolist())
 
         # empty the list of norms and task weights
         self.list_norms = []
@@ -111,7 +123,6 @@ class GradNorm():
             norms.append(torch.norm(gygw[0]))
 
         norms = torch.stack(norms).detach().cpu().numpy()
-        norms = np.clip(norms,a_min=1e-2,a_max=None)
 
         if 0 in norms:
             print("weights",self.model.task_weights)
@@ -122,11 +133,26 @@ class GradNorm():
         # store also the task_loss
         self.list_task_loss.append(task_loss.detach().cpu().numpy())
 
-    def write_to_file(self,weights_dir_txt):
-        with open(weights_dir_txt,"a+") as f:
-            for task_weights in self.list_task_weights_to_write:
-                txt_list = [str(weight) for weight in task_weights]
+    def write_epoch_data_to_file(self,gradnorm_dir_txt):
+        weights_dir_txt = gradnorm_dir_txt + "task_weights.txt"
+        self.write_to_file(self, weights_dir_txt, self.list_task_weights_to_write)
+        self.list_task_weights_to_write = []
+
+        mean_dir_txt = gradnorm_dir_txt + "mean_norm.txt"
+        self.write_to_file(self, mean_dir_txt, self.list_mean_norms_to_write)
+        self.list_mean_norms_to_write = []
+
+        std_dir_txt = gradnorm_dir_txt + "std_norm.txt"
+        self.write_to_file(self, std_dir_txt, self.list_std_norms_to_write)
+        self.list_std_norms_to_write = []
+
+    def write_to_file(self,dir_txt,list_values):
+        with open(dir_txt,"a+") as f:
+            for x in list_values
+                if type(x) == list:
+                    txt_list = [str(val) for val in x]
+                else:
+                    txt_list = [str(x)]
                 txt = ", ".join(txt_list) + " \n"
                 f.write(txt)
-        self.list_task_weights_to_write = []
 

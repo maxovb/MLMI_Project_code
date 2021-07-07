@@ -165,7 +165,7 @@ if __name__ == "__main__":
     unsup_loss_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "unsup.svg"
     accuracy_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "acc.svg"
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
-    weights_dir_txt = experiment_dir_txt + "task_weights.txt"
+    gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
     accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
     # create directories for the checkpoints and loss files if they don't exist yet
@@ -209,7 +209,7 @@ if __name__ == "__main__":
                               alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation,
                               std_y=std_y, parallel=parallel, weight_ratio=weight_ratio,
                               consistency_regularization=consistency_regularization,
-                              grad_norm_iterator=grad_norm_iterator, weights_dir_txt=weights_dir_txt,
+                              grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
                               classify_same_image=classify_same_image,
                               train_accuracy_discriminator_dir_txt=train_accuracy_discriminator_dir_txt,
                               validation_accuracy_discriminator_dir_txt=validation_accuracy_discriminator_dir_txt)
