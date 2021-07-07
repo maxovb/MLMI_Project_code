@@ -148,7 +148,7 @@ class GradNorm():
 
     def write_to_file(self,dir_txt,list_values):
         with open(dir_txt,"a+") as f:
-            for x in list_values
+            for x in list_values:
                 if type(x) == list:
                     txt_list = [str(val) for val in x]
                 else:

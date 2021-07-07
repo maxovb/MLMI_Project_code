@@ -51,7 +51,7 @@ if __name__ == "__main__":
     batch_size = 64
     learning_rate = 2e-4
     epochs = 400 - epoch_start
-    save_freq = 20
+    save_freq = 2
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
