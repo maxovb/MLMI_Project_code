@@ -293,11 +293,19 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
                 ax[row, col].plot(x_target[0,:,0].cpu(), mean, 'b-')
                 ax[row, col].fill_between(x_target[0,:,0].cpu(), mean - 1.96 * std, mean + 1.96 * std, alpha=0.5 * weight, color='b')
         if include_class_predictions:
+
+            # true kernel probabilities 
+            logpdfs = np.array([f(x_context).logpdf(y_context) for f in data.gps])
+            logpdfs -= np.max(logpdfs)
+            true_probs = np.exp(logpdfs) / np.sum(np.exp(logpdfs))
+
             if data.kernel_names:
                 kernel_labels = data.kernel_names
             else:
                 kernel_labels = list(range(num_classes))
-            ax[row+1, col].bar(range(num_classes),probabilities_to_plot)
+            ax[row+1, col].bar(range(num_classes),probabilities_to_plot,alpha=0.5,color="blue", label="Predicted GP probability")
+            ax[row+1, col].bar(range(num_classes),true_probs,alpha=0.5,color="red",label="True GP probability")
+            ax[row+1,col].legend(fontsize="x-large")
             ax[row+1, col].set_xticks(np.arange(num_classes))
             ax[row+1, col].set_xticklabels(kernel_labels,rotation=45)
             ax[row+1, col].set_xlabel("Kernel",fontsize=15)
