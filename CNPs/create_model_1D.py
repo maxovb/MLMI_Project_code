@@ -102,14 +102,18 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         pooling_size = 2
         max_size = None
 
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
         if model_size == "LR":
-            classifier_layer_widths = [64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif model_size == "small":
-            classifier_layer_widths = [64, 10, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         model = OffTheGridConvCNP(learn_length_scale=learn_length_scale, points_per_unit=points_per_unit,
                                   type_CNN=type_CNN, num_input_channels=num_input_channels,
@@ -135,14 +139,18 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         pooling_size = 2
         max_size = 64
 
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
         if model_size == "LR":
-            classifier_layer_widths = [64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif model_size == "small":
-            classifier_layer_widths = [64, 10, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         model = OffTheGridConvCNP(learn_length_scale=learn_length_scale, points_per_unit=points_per_unit,
                                   type_CNN=type_CNN, num_input_channels=num_input_channels,
@@ -170,14 +178,18 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         is_gmm = True
         num_classes = num_classes
 
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
         if model_size == "LR":
-            classifier_layer_widths = [64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif model_size == "small":
-            classifier_layer_widths = [64, 10, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         model = OffTheGridConvCNP(learn_length_scale=learn_length_scale, points_per_unit=points_per_unit,
                                   type_CNN=type_CNN, num_input_channels=num_input_channels,
@@ -206,14 +218,18 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         is_gmm = True
         num_classes = num_classes
 
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
         if model_size == "LR":
-            classifier_layer_widths = [64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif model_size == "small":
-            classifier_layer_widths = [64, 10, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         model = OffTheGridConvCNP(learn_length_scale=learn_length_scale, points_per_unit=points_per_unit,
                                   type_CNN=type_CNN, num_input_channels=num_input_channels,
@@ -243,14 +259,18 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         num_classes = num_classes
         block_center_connections = True
 
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
         if model_size == "LR":
-            classifier_layer_widths = [64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif model_size == "small":
-            classifier_layer_widths = [64, 10, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         model = OffTheGridConvCNP(learn_length_scale=learn_length_scale, points_per_unit=points_per_unit,
                                   type_CNN=type_CNN, num_input_channels=num_input_channels,
@@ -281,14 +301,18 @@ def create_model_off_the_grid(model_name, model_size=None, num_classes=10):
         num_classes = num_classes
         block_center_connections = True
 
+        num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
+        if max_size:
+            num_input_features_classifier = min(max_size, num_input_features_classifier)
+
         if model_size == "LR":
-            classifier_layer_widths = [64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif model_size == "small":
-            classifier_layer_widths = [64, 10, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif model_size == "medium":
-            classifier_layer_widths = [64, 64, 64, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif model_size == "large":
-            classifier_layer_widths = [64, 128, 128, 128, 128, num_classes]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         model = OffTheGridConvCNP(learn_length_scale=learn_length_scale, points_per_unit=points_per_unit,
                                   type_CNN=type_CNN, num_input_channels=num_input_channels,

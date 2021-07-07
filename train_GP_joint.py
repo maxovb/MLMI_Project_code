@@ -34,8 +34,8 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # type of model
-    model_name = "NP_UG" # one of ["CNP", "NP_UG", "NP_UG_DT", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
-    model_size = "" # one of ["LR","small","medium","large"]
+    model_name = "UNetCNP_GMM" # one of ["CNP", "NP_UG", "NP_UG_DT", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_size = "medium" # one of ["LR","small","medium","large"]
 
     weight_ratio = True # weight the loss with the ratio of context pixels present
 
@@ -49,11 +49,11 @@ if __name__ == "__main__":
         epoch_start = 0
 
     batch_size = 64
-    num_tasks = 850
+    num_tasks = 10
     num_batches_per_epoch = 256
     learning_rate = 1e-4
     epochs = 200 - epoch_start
-    save_freq = 20
+    save_freq = 1
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1

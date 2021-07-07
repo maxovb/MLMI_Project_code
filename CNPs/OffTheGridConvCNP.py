@@ -591,7 +591,7 @@ class OffTheGridConvCNPUNet(nn.Module):
                 if i < l - 2:
                     h_classifier.append(nn.ReLU())
             self.classifier = nn.Sequential(*h_classifier)
-            self. _activation = nn.Softmax(dim=-1)
+            self.classifier_activation = nn.Softmax(dim=-1)
 
 
     def down(self,input,layers=None):
