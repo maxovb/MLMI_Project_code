@@ -167,7 +167,7 @@ class MultiClassGPGenerator(DataGenerator):
         DataGenerator.__init__(self, **kw_args)
 
     def sample(self, x, class_fct=None):
-        if class_fct:
+        if class_fct != None:
             assert class_fct < self.num_kernels and class_fct >= 0, "The function class is not valid "
             kernel_idx = class_fct
         else:
