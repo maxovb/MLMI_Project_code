@@ -1,6 +1,7 @@
 from Utils.data_processor import image_processor, format_context_points_image, context_points_image_from_mask
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import torch
 import math
 import random
@@ -319,6 +320,106 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
 
     #plt.tight_layout()
     plt.savefig(save_dir)
+
+class LossWriter():
+    """ Object to store the losses after every epochs and write them to the loss file
+
+    Args:
+        dir_txt (list of str): directory where to store the losses (dir_txt[1] is where to insert the loss name)
+    """
+    def __init__(self,list_dir_txt):
+
+        self.list_losses_during_epoch = {}
+        self.list_avg_losses_per_epoch = {}
+        self.list_losses_to_write = {}
+        self.list_dir_txt = list_dir_txt
+
+    def append_losses_during_epoch(self,dic_losses):
+        for (key,value) in dic_losses.items():
+            if not key in self.list_losses_during_epoch:
+                self.list_losses_during_epoch[key] = []
+            self.list_losses_during_epoch[key].append(value)
+
+    def obtain_avg_losses_current_epoch(self,list_losses_name):
+        out = []
+        for loss_name in list_losses_name:
+            if loss_name != "total":
+                out.append(self.compute_epoch_avg_loss(loss_name))
+        return out
+
+    def compute_epoch_avg_loss(self,loss_name):
+        if "accuracy" in loss_name:
+            suffix = loss_name.split("accuracy")[1]
+            accuracies = np.array(self.list_losses_during_epoch[loss_name])
+            total_name = "total" + suffix
+            totals = np.array(self.list_losses_during_epoch[total_name])
+            num_correct = accuracies * totals
+            accuracy = np.sum(num_correct) / np.sum(totals)
+            return accuracy
+        elif "total" in loss_name:
+            sum_total = sum(self.list_losses_during_epoch[loss_name])
+            return sum_total
+        else:
+            list_losses = self.list_losses_during_epoch[loss_name]
+            avg_loss = sum(list_losses)/len(list_losses)
+            return avg_loss
+
+    def append_epoch_avg_losses(self):
+        for (key,value) in self.list_losses_during_epoch.items():
+            if not key in self.list_avg_losses_per_epoch:
+                self.list_avg_losses_per_epoch[key] = []
+                self.list_losses_to_write[key] = []
+            avg_loss = self.compute_epoch_avg_loss(key)
+            self.list_avg_losses_per_epoch[key].append(avg_loss)
+            self.list_losses_to_write[key].append(avg_loss)
+            self.list_losses_during_epoch[key] = []
+
+    def write_losses(self):
+        for (key,list_losses) in self.list_losses_to_write.items():
+
+            local_loss_dirt_txt = self.obtain_loss_dir_txt(key)
+
+            # write the loss
+            for i, values in enumerate(list_losses):
+                with open(local_loss_dir_txt, 'a+') as f:
+                    for loss_item in values:
+                        f.write('%s\n' % loss_item)
+
+            self.list_losses_to_write[key] = []
+
+    def obtain_loss_dir_txt(self,loss_name):
+
+        # get the path to the right loss file
+        list_loss_dir_txt = self.list_dir_txt.copy()
+        list_loss_dir_txt[1] = loss_name
+        local_loss_dir_txt = "".join(list_loss_dir_txt)
+
+        # create the directory if necessary
+        dir_to_create = "".join(local_loss_dir_txt)
+        os.makedirs(dir_to_create, exist_ok=True)
+
+        return local_loss_dir_txt
+
+def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
+    """ Plot the losses given two LossWriter objects
+
+    Args:
+        train_loss_writer (LossWriter): LossWriter object containing the train losses
+        validation_loss_writer (LossWriter), optional: LossWriter object containing the validation losses
+
+    """
+
+    for key in train_loss_writer.list_avg_losses_per_epoch.items():
+
+        list_loss_dir_txt = [train_loss_writer.obtain_loss_dir_txt(key)]
+        if validation_loss_writer and key in validation_loss_writer:
+            list_loss_dir_txt.append(validation_loss_writer.obtain_loss_dir_txt(key))
+
+        plot_dir = "".join(list_loss_dir_txt[0].split("train"))
+        plot_dir = "_".joint(plot_dir.split("__")) # remove double underscores
+
+        plot_loss(list_loss_dir_txt,plot_dir)
+
 
 
 

@@ -291,26 +291,9 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
     return avg_train_loss_per_epoch, avg_validation_loss_per_epoch
 
 
-def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data = None, validation_joint_loss_dir_txt = "", validation_unsup_loss_dir_txt = "", validation_accuracy_dir_txt = "", visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), alpha=None, alpha_validation=None, num_samples_expectation=None, std_y=None, parallel=False, weight_ratio=False, consistency_regularization=False, grad_norm_iterator=None, gradnorm_dir_txt="", classify_same_image=False, train_accuracy_discriminator_dir_txt="", validation_accuracy_discriminator_dir_txt=""):
+def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, validation_data = None, validation_loss_writer=None, visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), alpha=None, alpha_validation=None, num_samples_expectation=None, std_y=None, parallel=False, weight_ratio=False, consistency_regularization=False, grad_norm_iterator=None, gradnorm_dir_txt="", classify_same_image=False):
 
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
-
-    # pre-allocate memory to store the losses
-    avg_train_loss_per_epoch = [[],[]] # [joint,unsupervised]
-    avg_train_accuracy_per_epoch = []
-    avg_validation_loss_per_epoch = [[],[]]
-    avg_validation_accuracy_per_epoch = []
-    train_loss_to_write = [[],[]]
-    train_accuracy_to_write = []
-    validation_loss_to_write = [[],[]]
-    validation_accuracy_to_write = []
-
-    if classify_same_image:
-        avg_train_accuracy_discriminator_per_epoch = []
-        avg_validation_accuracy_discriminator_per_epoch = []
-        train_accuracy_discriminator_to_write = []
-        validation_accuracy_discriminator_to_write = []
-
 
     # define the optimizer
     opt = torch.optim.Adam(model.parameters(),
@@ -336,11 +319,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             
         print("Epoch:", i + epoch_start + 1)
         model.train()
-        train_losses = [[],[]]
-        train_num_correct  = []
-        train_totals = []
-        train_num_correct_discriminator = []
-        train_totals_discriminator = []
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
 
@@ -380,13 +358,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 
                 losses = model.joint_train_step(mask, context_img, target, data, opt, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
 
-                train_joint_loss = losses["joint_loss"]
-                train_sup_loss = losses["sup_loss"]
-                train_unsup_loss = losses["unsup_loss"]
-                accuracy = losses["accuracy"]
-                total = losses["total"]
-
-
             else:
                 x_context, y_context, x_target, y_target, num_context_points, num_target_points = image_processor(data, num_context_points,
                                                                                                                   convolutional=convolutional,
@@ -403,23 +374,10 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 else:
                     train_joint_loss, train_sup_loss, train_unsup_loss, accuracy, total = model.joint_train_step(x_context,y_context,x_target,target,y_target,opt,alpha,num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
 
-            if classify_same_image:
-                accuracy_discriminator = losses["accuracy_discriminator"]
-                total_discriminator = losses["accuracy_discriminator"]
-                train_num_correct_discriminator.append(accuracy_discriminator * total_discriminator)
-                train_totals_discriminator.append(total_discriminator)
-
-            train_losses[0].append(train_joint_loss)
-            train_losses[1].append(train_unsup_loss)
-            train_num_correct.append(accuracy * total)
-            train_totals.append(total)
-
+            train_loss_writer.append_losses_during_epoch(losses)
 
             if batch_idx == 0 or (batch_idx + 1) % report_freq == 0:  # report the loss
-                avg_train_joint_loss = np.array(train_losses[0]).mean()
-                avg_train_unsup_loss = np.array(train_losses[1]).mean()
-                avg_train_accuracy = np.array(train_num_correct).sum()/np.array(train_totals).sum()
-                avg_train_accuracy_discriminator = np.array(train_num_correct_discriminator).sum()/np.array(train_totals_discriminator).sum()
+                avg_train_joint_loss, avg_train_unsup_loss, avg_train_accuracy = train_loss_writer.obtain_avg_losses_current_epoch(["joint_loss","unsup_loss","accuracy"])
                 txt = report_multiple_losses(["Joint", "Unsup", "Accuracy"], [round(avg_train_joint_loss,2), round(avg_train_unsup_loss,2), round(avg_train_accuracy,3)], batch_idx)
                 iterator.set_description(txt)
                 iterator.refresh()  # to show immediately the update
@@ -430,37 +388,15 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             else:
                 grad_norm_iterator.scale_only_grad_norm_iteration()
 
-        # compute the average loss over the epoch and store all losses
-        epoch_avg_train_joint_loss = np.array(train_losses[0]).mean()
-        epoch_avg_train_unsup_loss = np.array(train_losses[1]).mean()
-        total = np.array(train_totals).sum()
-        epoch_avg_train_accuracy = np.array(train_num_correct).sum() / total
-
-        avg_train_loss_per_epoch[0].append(epoch_avg_train_joint_loss)
-        avg_train_loss_per_epoch[1].append(epoch_avg_train_unsup_loss)
-        avg_train_accuracy_per_epoch.append(epoch_avg_train_accuracy)
-        train_loss_to_write[0].append(epoch_avg_train_joint_loss)
-        train_loss_to_write[1].append(epoch_avg_train_unsup_loss)
-        train_accuracy_to_write.append(epoch_avg_train_accuracy)
-
-        if classify_same_image:
-            total_discriminator = np.array(train_totals_discriminator).sum()
-            epoch_avg_train_accuracy_discriminator = np.array(train_num_correct_discriminator).sum() / total_discriminator
-
-            avg_train_accuracy_discriminator_per_epoch.append(epoch_avg_train_accuracy_discriminator)
-            train_accuracy_discriminator_to_write.append(epoch_avg_train_accuracy_discriminator)
-
+        epoch_avg_train_joint_loss, epoch_avg_train_unsup_loss, epoch_avg_train_accuracy, total = train_loss_writer.obtain_avg_losses_current_epoch(["joint_loss", "unsup_loss", "accuracy", "total"])
+        train_loss_writer.append_epoch_avg_losses()
 
         # Print the average epoch loss
         print("Average training joint loss:", epoch_avg_train_joint_loss, "unsup loss:", epoch_avg_train_unsup_loss, "accuracy:", epoch_avg_train_accuracy, "total", total)
 
         # calculate the validation loss
         if validation_data:
-            validation_losses = [[],[]]
-            validation_num_correct= []
-            validation_totals = []
-            validation_num_correct_discriminator = []
-            validation_totals_discriminator = []
+
             for batch_idx, (data, target) in enumerate(validation_data):
                 
                 target = target.to(device)
@@ -491,12 +427,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                     # get the losses
                     _, losses = model.joint_loss(mask,context_img,target,data,alpha=alpha_validation, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
 
-                    joint_loss = losses["joint_loss"]
-                    sup_loss = losses["sup_loss"]
-                    unsup_loss = losses["unsup_loss"]
-                    accuracy = losses["accuracy"]
-                    total = losses["total"]
-
                 else:
                     x_context, y_context, x_target, y_target = image_processor(data, num_context_points,
                                                                                convolutional=convolutional,
@@ -506,41 +436,14 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                         _, joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context, y_context, x_target, target, y_target, alpha=alpha_validation, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
                     else:
                         _, joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context,y_context,x_target,target,y_target,alpha_validation,num_samples_expectation,std_y, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
-                num_correct = accuracy * total
 
-                if classify_same_image:
-                    accuracy_discriminator = losses["accuracy_discriminator"]
-                    total_discriminator = losses["accuracy_discriminator"]
-                    validation_num_correct_discriminator.append(accuracy_discriminator * total_discriminator)
-                    validation_totals_discriminator.append(total_discriminator)
+                validation_loss_writer.append_losses_during_epoch(losses)
 
-                validation_losses[0].append(joint_loss)
-                validation_losses[1].append(unsup_loss)
-                validation_num_correct.append(num_correct)
-                validation_totals.append(total)
-
-            epoch_avg_validation_joint_loss = np.array(validation_losses[0]).mean()
-            epoch_avg_validation_unsup_loss = np.array(validation_losses[1]).mean()
-            total = np.array(validation_totals).sum()
-            epoch_avg_validation_accuracy = np.array(validation_num_correct).sum() / total
-
-            avg_validation_loss_per_epoch[0].append(epoch_avg_validation_joint_loss)
-            avg_validation_loss_per_epoch[1].append(epoch_avg_validation_unsup_loss)
-            avg_validation_accuracy_per_epoch.append(epoch_avg_validation_accuracy)
-            validation_loss_to_write[0].append(epoch_avg_validation_joint_loss)
-            validation_loss_to_write[1].append(epoch_avg_validation_unsup_loss)
-            validation_accuracy_to_write.append(epoch_avg_validation_accuracy)
-
-            if classify_same_image:
-                total_discriminator = np.array(validation_totals_discriminator).sum()
-                epoch_avg_validation_accuracy_discriminator = np.array(validation_num_correct_discriminator).sum() / total_discriminator
-
-                avg_validation_accuracy_discriminator_per_epoch.append(epoch_avg_validation_accuracy_discriminator)
-                validation_accuracy_discriminator_to_write.append(epoch_avg_validation_accuracy_discriminator)
+            epoch_avg_validation_joint_loss, epoch_avg_validation_unsup_loss, epoch_avg_validation_accuracy, total = validation_loss_writer.obtain_avg_losses_current_epoch(["joint_loss", "unsup_loss", "accuracy", "total"])
+            validaiton_loss_writer.append_epoch_avg_losses()
 
             # Print the average epoch loss
-            print("Average validation joint loss:", epoch_avg_validation_joint_loss, "unsup loss:",
-                  epoch_avg_validation_unsup_loss, "accuracy:", epoch_avg_validation_accuracy, "total", total)
+            print("Average validation joint loss:", epoch_avg_validation_joint_loss, "unsup loss:",epoch_avg_validation_unsup_loss, "accuracy:", epoch_avg_validation_accuracy, "total", total)
 
         # save the checkpoint and losses
         if (i + 1) % save_freq == 0:
@@ -553,16 +456,8 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             if not (n_best_checkpoint):
                 torch.save(model.state_dict(), save_dir)
 
-            # write the average epoch train losses to the txt file
-            if classify_same_image:
-                values = [train_loss_to_write[0],train_loss_to_write[1],train_accuracy_to_write, train_accuracy_discriminator_to_write]
-                dirs = [train_joint_loss_dir_txt,train_unsup_loss_dir_txt,train_accuracy_dir_txt, train_accuracy_discriminator_dir_txt]
-                train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write, train_accuracy_discriminator_to_write = write_list_to_files_and_reset(values,dirs)
-
-            else:
-                values = [train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write]
-                dirs = [train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt]
-                train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write = write_list_to_files_and_reset(values,dirs)
+            # write the train losses
+            train_loss_writer.write_losses()
 
             # store the task weights
             if grad_norm_iterator:
@@ -570,17 +465,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
                 
             # write the average epoch validation loss to the txt file if some validation data is supplied
             if validation_data:
-                if classify_same_image:
-                    values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write,
-                              validation_accuracy_discriminator_to_write]
-                    dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt,
-                            validation_accuracy_discriminator_dir_txt]
-                    validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_to_write  = write_list_to_files_and_reset(values, dirs)
 
-                else:
-                    values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]
-                    dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt]
-                    validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write = write_list_to_files_and_reset(values, dirs)
+                # write the validation losses
+                validation_loss_writer.write_losses()
 
                 if visualisation_dir:
                     # get the output directory
@@ -637,30 +524,11 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
             pass
             # TODO: n-best checkpoint saving
 
-    # write the average epoch train losses to the txt file
-    if classify_same_image:
-        values = [train_loss_to_write[0],train_loss_to_write[1],train_accuracy_to_write, train_accuracy_discriminator_to_write]
-        dirs = [train_joint_loss_dir_txt,train_unsup_loss_dir_txt,train_accuracy_dir_txt, train_accuracy_discriminator_dir_txt]
-        train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write, train_accuracy_discriminator_to_write = write_list_to_files_and_reset(values,dirs)
+    # write the train losses
+    train_loss_writer.write_losses()
 
-    else:
-        values = [train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write]
-        dirs = [train_joint_loss_dir_txt, train_unsup_loss_dir_txt, train_accuracy_dir_txt]
-        train_loss_to_write[0], train_loss_to_write[1], train_accuracy_to_write = write_list_to_files_and_reset(values,dirs)
-
-    # write the average epoch validation loss to the txt file if some validation data is supplied
-    if validation_data:
-        if classify_same_image:
-            values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write,
-                        validation_accuracy_discriminator_to_write]
-            dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt,
-                    validation_accuracy_discriminator_dir_txt]
-            validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write, validation_accuracy_discriminator_to_write  = write_list_to_files_and_reset(values, dirs)
-
-        else:
-            values = [validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write]
-            dirs = [validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt]
-            validation_loss_to_write[0], validation_loss_to_write[1], validation_accuracy_to_write = write_list_to_files_and_reset(values, dirs)
+    # write the validation losses
+    validation_loss_writer.write_losses()
 
     return avg_train_loss_per_epoch, avg_train_accuracy_per_epoch, avg_validation_loss_per_epoch, avg_validation_accuracy_per_epoch
 

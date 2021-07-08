@@ -10,7 +10,7 @@ from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
 from Utils.data_loader import load_joint_data_as_generator
-from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_loss
+from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer
 from Utils.helpers_train import GradNorm
 
 if __name__ == "__main__":
@@ -153,20 +153,21 @@ if __name__ == "__main__":
     experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(num_samples) + "S/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
-    train_joint_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
-    train_unsup_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_unsup.txt"
-    train_accuracy_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_accuracy.txt"
-    train_accuracy_discriminator_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_accuracy_discriminator.txt"
-    validation_joint_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_joint.txt"
-    validation_unsup_loss_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_unsup.txt"
-    validation_accuracy_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_accuracy.txt"
-    validation_accuracy_discriminator_dir_txt = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_validation_accuracy_discriminator.txt"
-    joint_loss_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "joint.svg"
-    unsup_loss_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "unsup.svg"
-    accuracy_dir_plot = experiment_dir_txt + "loss/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "acc.svg"
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
     accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+
+    train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
+                             ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
+                             + "_train_","",".txt"]
+    validation_losses_dir_txt = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
+                                ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
+                                + "_validation_", "", ".txt"]
+
+    train_loss_writer = LossWriter(train_losses_dir_list)
+    validation_loss_writer = LossWriter(validation_losses_dir_txt)
+    experiment_dir_txt + "loss/" + model_name + "_" + model_size + (
+        "_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
 
     # create directories for the checkpoints and loss files if they don't exist yet
     dir_to_create = "".join(model_save_dir[:3]) + "loss/"
@@ -179,43 +180,29 @@ if __name__ == "__main__":
 
         if train:
             # check if the loss file is valid
-            with open(train_unsup_loss_dir_txt, 'r') as f:
-                nbr_unsup_losses = len(f.read().split())
-            with open(train_joint_loss_dir_txt, 'r') as f:
+            with open(train_loss_writer.obtain_loss_dir_txt("joint_loss"), 'r') as f:
                 nbr_joint_losses = len(f.read().split())
-            with open(train_accuracy_dir_txt, 'r') as f:
-                nbr_accuracy = len(f.read().split())
 
-            assert nbr_unsup_losses == epoch_start and nbr_joint_losses == epoch_start and nbr_accuracy == epoch_start, "The number of lines in (one or more of) the joint or unsupervised loss, or the accuracy files does not correspond to the number of epochs"
+            assert nbr_joint_losses == epoch_start, "The number of lines in (one or more of) the joint or unsupervised loss, or the accuracy files does not correspond to the number of epochs"
 
         # load the model
         model.load_state_dict(torch.load(load_dir,map_location=device))
     else:
         # if train from scratch, check if a loss file already exists
-        assert not(os.path.isfile(train_unsup_loss_dir_txt)), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_unsup_loss_dir_txt
-        assert not(os.path.isfile(train_joint_loss_dir_txt)), "The corresponding joint loss file already exists, please remove it to train from scratch: " + train_joint_loss_dir_txt
-        assert not (os.path.isfile(train_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + train_accuracy_dir_txt
-        assert not (os.path.isfile(validation_unsup_loss_dir_txt)), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + validation_unsup_loss_dir_txt
-        assert not (os.path.isfile(validation_joint_loss_dir_txt)), "The corresponding joint loss file already exists, please remove it to train from scratch: " + validation_joint_loss_dir_txt
-        assert not (os.path.isfile(validation_accuracy_dir_txt)), "The corresponding accuracy file already exists, please remove it to train from scratch: " + validation_accuracy_dir_txt
+        assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt(["joint_loss"])
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_joint_loss_dir_txt,
-                              train_unsup_loss_dir_txt, train_accuracy_dir_txt, validation_data,
-                              validation_joint_loss_dir_txt, validation_unsup_loss_dir_txt, validation_accuracy_dir_txt,
-                              visualisation_dir, semantics=semantics, convolutional=convolutional,
+        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
+                              validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
                               variational=variational, min_context_points=min_context_points, save_freq=save_freq,
                               epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha,
                               alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation,
                               std_y=std_y, parallel=parallel, weight_ratio=weight_ratio,
                               consistency_regularization=consistency_regularization,
                               grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
-                              classify_same_image=classify_same_image,
-                              train_accuracy_discriminator_dir_txt=train_accuracy_discriminator_dir_txt,
-                              validation_accuracy_discriminator_dir_txt=validation_accuracy_discriminator_dir_txt)
-        plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
-        plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
-        plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)
+                              classify_same_image=classify_same_image)
+
+        plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer)
 
     if save:
         save_dir = model_save_dir.copy()
