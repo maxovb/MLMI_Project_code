@@ -44,7 +44,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 100 # which epoch to start from
+        epoch_start = 400 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -216,7 +216,6 @@ if __name__ == "__main__":
         plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
         plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
         plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)
-
     if save:
         save_dir = model_save_dir.copy()
         save_dir[5] = str(epoch_start + epochs)

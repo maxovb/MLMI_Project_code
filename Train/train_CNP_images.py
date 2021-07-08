@@ -566,7 +566,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_joint_loss_dir_tx
 
             # store the task weights
             if grad_norm_iterator:
-                grad_norm_iterator.write_to_file(gradnorm_dir_txt)
+                grad_norm_iterator.write_epoch_data_to_file(gradnorm_dir_txt)
                 
             # write the average epoch validation loss to the txt file if some validation data is supplied
             if validation_data:
