@@ -78,7 +78,7 @@ class NP(nn.Module):
     def joint_train_step(self, x_context, y_context, x_target, target_label, y_target, opt, alpha,
                          num_samples_expectation=16, std_y=0.1, parallel=False, scale_sup=1, scale_unsup=1):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context, y_context, x_target, target_label,
+        obj, losses = self.joint_loss(x_context, y_context, x_target, target_label,
                                                                      y_target, alpha, num_samples_expectation, std_y,
                                                                      parallel, scale_sup=scale_sup,
                                                                      scale_unsup=scale_unsup)
@@ -88,7 +88,7 @@ class NP(nn.Module):
         opt.step()
         opt.zero_grad()
 
-        return obj.item(), sup_loss, unsup_loss, accuracy, total
+        return obj.item(), losses
 
     def joint_loss(self, x_context, y_context, x_target, target_label, y_target, alpha, num_samples_expectation=16,
                    std_y=0.1, parallel=False, scale_sup=1, scale_unsup=1):
@@ -174,7 +174,12 @@ class NP(nn.Module):
         # loss to minimize
         obj = -J / batch_size
 
-        return obj, sup_loss, unsup_loss, accuracy, total
+        losses = {"joint_loss":obj.item(),
+                  "unsup_loss":unsup_loss.item(),
+                  "accuracy":accuracy,
+                  "total":total}
+
+        return obj, losses
 
     def unlabelled_objective(self, x_context_unlabelled, y_context_unlabelled, x_target_unlabelled, y_target_unlabelled,
                              num_samples_expectation=16, std_y=0.1, parallel=False):

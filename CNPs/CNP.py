@@ -215,7 +215,13 @@ class CNPClassifier(nn.Module):
         else:
             accuracy = 0
 
-        return sup_loss + unsup_loss, sup_loss.item(), unsup_loss.item(), accuracy, total
+        losses = {"joint_loss":(sup_loss + unsup_loss).item(),
+                  "sup_loss":sup_loss.item(),
+                  "unsup_loss":unsup_loss.item(),
+                  "accuracy":accuracy,
+                  "total":total}
+
+        return sup_loss + unsup_loss, losses
 
 
     def train_step(self,x_context,y_context,target_label,opt):
@@ -239,14 +245,14 @@ class CNPClassifier(nn.Module):
 
     def joint_train_step(self,x_context,y_context,target_label,y_target,opt,alpha=1,scale_sup=1,scale_unsup=1):
 
-        obj, sup_loss, unsup_loss, accuracy, total = self.joint_loss(x_context, y_context, x_target, target_label, y_target, alpha, scale_sup=scale_sup, scale_unsup=scale_unsup)
+        obj, losses = self.joint_loss(x_context, y_context, x_target, target_label, y_target, alpha, scale_sup=scale_sup, scale_unsup=scale_unsup)
 
         # Optimization
         obj.backward()
         opt.step()
         opt.zero_grad()
 
-        return obj.item(), sup_loss.item(), unsup_loss.item(), accuracy, total
+        return obj.item(), losses
 
     def unsup_train_step(self,x_context,y_context,y_target,opt,l_unsup=1):
         output_logit, _, mean, std = self.forward(x_context,y_context,joint=True)

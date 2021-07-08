@@ -248,10 +248,15 @@ class OnTheGridConvCNP(nn.Module):
         losses = {"joint_loss": joint_loss.item(),
                   "sup_loss": sup_loss.item(),
                   "unsup_loss": unsup_loss.item(),
+                  "rec_loss": task_loss[0].item(),
                   "accuracy": accuracy,
                   "total": total}
 
+        if consistency_regularization:
+            losses["cons_loss"] = cons_loss.item()
+
         if self.classify_same_image:
+            losses["loss_discriminator"] = discr_loss.item()
             losses["accuracy_discriminator"] = num_correct_discr/total_discr
             losses["total_discriminator"] = total_discr
 
@@ -989,13 +994,18 @@ class ConvCNPClassifier(nn.Module):
         if grad_norm_iterator:
             grad_norm_iterator.store_norm(task_loss)
 
-        losses = {"joint_loss":joint_loss.item(),
-                  "sup_loss":sup_loss.item(),
-                  "unsup_loss":unsup_loss.item(),
-                  "accuracy":accuracy,
-                  "total":total}
+        losses = {"joint_loss": joint_loss.item(),
+                  "sup_loss": sup_loss.item(),
+                  "unsup_loss": unsup_loss.item(),
+                  "rec_loss": task_loss[0].item(),
+                  "accuracy": accuracy,
+                  "total": total}
+
+        if consistency_regularization:
+            losses["cons_loss"] = cons_loss.item()
 
         if self.classify_same_image:
+            losses["loss_discriminator"] = discr_loss.item()
             losses["accuracy_discriminator"] = accuracy_discriminator
             losses["total_discriminator"] = total_discriminator
 
