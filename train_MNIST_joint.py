@@ -44,7 +44,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 100 # which epoch to start from
+        epoch_start = 400 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -200,10 +200,19 @@ if __name__ == "__main__":
                               std_y=std_y, parallel=parallel, weight_ratio=weight_ratio,
                               consistency_regularization=consistency_regularization,
                               grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
+<<<<<<< HEAD
                               classify_same_image=classify_same_image)
 
         plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer)
 
+=======
+                              classify_same_image=classify_same_image,
+                              train_accuracy_discriminator_dir_txt=train_accuracy_discriminator_dir_txt,
+                              validation_accuracy_discriminator_dir_txt=validation_accuracy_discriminator_dir_txt)
+        plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
+        plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
+        plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)
+>>>>>>> c416a37b3c398156d3af69b18c3499c75904a576
     if save:
         save_dir = model_save_dir.copy()
         save_dir[5] = str(epoch_start + epochs)

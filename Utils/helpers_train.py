@@ -1,5 +1,6 @@
 # This was originally copied (but then largely modified) from https://github.com/brianlan/pytorch-grad-norm/blob/067e4accaa119137fca430b23c413a2bee8323b6/train.py
 import numpy as np
+import os
 import random
 import torch
 from torch import nn
@@ -43,8 +44,8 @@ class GradNorm():
         if self.clip_value != None:
             array_norms = np.clip(array_norms, a_min=clip_value, a_max=None)
 
-        avg_norm = np.mean(array_norms, dim=0)
-        std_norm = np.std(array_norms, dim=0)
+        avg_norm = np.mean(array_norms, axis=0)
+        std_norm = np.std(array_norms, axis=0)
 
         # append the new task weights 
         self.list_task_weights_to_write.append(self.model.task_weights.detach().cpu().numpy())
@@ -69,10 +70,10 @@ class GradNorm():
         array_norms = np.array(self.list_norms)
 
         if self.clip_value != None:
-            array_norms = np.clip(array_norms,a_min=clip_value,a_max=None)
+            array_norms = np.clip(array_norms,a_min=self.clip_value,a_max=None)
 
-        avg_norm = np.mean(array_norms,dim=0)
-        std_norm = np.std(array_norms,dim=0)
+        avg_norm = np.mean(array_norms,axis=0)
+        std_norm = np.std(array_norms,axis=0)
 
         if 0 in avg_norm:
             print("------ FAIL: 0 in avg_norm ------")
@@ -144,22 +145,27 @@ class GradNorm():
         self.list_task_loss.append(task_loss.detach().cpu().numpy())
 
     def write_epoch_data_to_file(self,gradnorm_dir_txt):
+        # create directories for the accuracy if they don't exist yet
+        dir_to_create = os.path.dirname(gradnorm_dir_txt)
+        os.makedirs(dir_to_create, exist_ok=True)
+
         weights_dir_txt = gradnorm_dir_txt + "task_weights.txt"
-        self.write_to_file(self, weights_dir_txt, self.list_task_weights_to_write)
+        self.write_to_file(weights_dir_txt, self.list_task_weights_to_write)
         self.list_task_weights_to_write = []
 
         mean_dir_txt = gradnorm_dir_txt + "mean_norm.txt"
-        self.write_to_file(self, mean_dir_txt, self.list_mean_norms_to_write)
+        self.write_to_file(mean_dir_txt, self.list_mean_norms_to_write)
         self.list_mean_norms_to_write = []
 
         std_dir_txt = gradnorm_dir_txt + "std_norm.txt"
-        self.write_to_file(self, std_dir_txt, self.list_std_norms_to_write)
+        self.write_to_file(std_dir_txt, self.list_std_norms_to_write)
         self.list_std_norms_to_write = []
 
     def write_to_file(self,dir_txt,list_values):
         with open(dir_txt,"a+") as f:
             for x in list_values:
-                if type(x) == list:
+                print("dir_txt",type(x))
+                if isinstance(x,(list,np.ndarray)):
                     txt_list = [str(val) for val in x]
                 else:
                     txt_list = [str(x)]

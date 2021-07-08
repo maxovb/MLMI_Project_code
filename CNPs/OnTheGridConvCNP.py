@@ -914,7 +914,7 @@ class ConvCNPClassifier(nn.Module):
         else:
             if self.classify_same_image:
                 probs_same_image = self.discriminate_same_image(x)
-                return output_logit, output_probs, mean, std, probs_same_image
+                return output_logit, output_probs, probs_same_image
             else:
                 return output_logit, output_probs
 
@@ -1058,7 +1058,10 @@ class ConvCNPClassifier(nn.Module):
 
     def evaluate_accuracy(self,mask,context_img,target_label):
         # compute the logits
-        output_logit, output_probs = self.forward(mask,context_img)
+        if self.classify_same_image:
+            output_logit, output_probs, probs_same = self.forward(mask,context_img)
+        else:
+            output_logit, output_probs = self.forward(mask,context_img)
 
         # get the predictions
         _, predicted = torch.max(output_probs,dim=1)
