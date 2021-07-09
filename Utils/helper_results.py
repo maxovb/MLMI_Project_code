@@ -2,6 +2,7 @@ from Utils.data_processor import image_processor, format_context_points_image, c
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import json
 import torch
 import math
 import random
@@ -420,6 +421,57 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
         plot_dir = plot_dir.split(".txt")[0] + ".svg"
 
         plot_loss(list_loss_dir_txt,plot_dir)
+
+class InfoWriter():
+    """Class to store information regarding the training of a network
+
+    Args:
+        info_dir_txt (str): path to the file containing the information
+    """
+
+    def __init__(self,info_dir_txt):
+        self.info_dir_txt = info_dir_txt
+        self.info = {}
+
+    def read_file(self):
+        with open(self.info_dir_txt, 'r') as f:
+            self.info = json.load(f)
+
+    def write_to_file(self):
+        with open(self.info_dir_txt, 'w') as f:
+            f.write(json.dumps(self.info))
+
+    def update_time(self,t):
+
+        # create the directory if necessary
+        dir_to_create = os.path.dirname(self.info_dir_txt)
+        os.makedirs(dir_to_create, exist_ok=True)
+
+        # make sure to have the latest version of the information in the dictionary
+        if os.path.isfile(self.info_dir_txt):
+            self.read_file()
+
+        # update/store the training time
+        if "training_time" in self.info:
+            self.info["training_time"] += t
+        else:
+            self.info["training_time"] = t
+
+        self.write_to_file()
+
+    def update_number_of_parameters(self,n):
+
+        # create the directory if necessary
+        dir_to_create = os.path.dirname(self.info_dir_txt)
+        os.makedirs(dir_to_create, exist_ok=True)
+
+        # make sure to have the latest version of the information in the dictionary
+        if os.path.isfile(self.info_dir_txt):
+            self.read_file()
+
+        self.info["num_params"] = n
+
+        self.write_to_file()
 
 
 

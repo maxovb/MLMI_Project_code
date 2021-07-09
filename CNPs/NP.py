@@ -1,5 +1,6 @@
 # Some parts of this code are taken from https://github.com/cambridge-mlg/convcnp.git
 
+import numpy as np
 import torch
 import time
 from torch import nn

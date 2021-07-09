@@ -1,3 +1,5 @@
+import os
+import pickle
 import torch
 from torchvision import datasets
 from torch.utils.data import DataLoader
@@ -107,62 +109,96 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,che
     num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
     return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels
 
-def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validation_split=None):
+def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validation_split=None, percentage_unlabelled_set=1, data_version=0):
 
-    # Download training data from open datasets.
-    data = datasets.MNIST(
-        root="data",
-        train=True,
-        download=True,
-        transform=ToTensor(),
-    )
+    file_path = "data/MNIST/pre_saved/%sP/save_data_%sS_v%s.pckl" % (percentage_unlabelled_set,
+                                                                     num_labelled_samples,
+                                                                     data_version)
 
-    # Download test data from open datasets.
-    test_data = datasets.MNIST(
-        root="data",
-        train=False,
-        download=True,
-        transform=ToTensor(),
-    )
+    if os.path.isfile(file_path):
 
-    n = data.data.shape[0]
+        # load the data
+        with open(file_path,'rb') as f:
+            dic_data = pickle.load(f)
 
-    # splitting between train and validation
-    if validation_split:
-        num_validation_samples = round(n * validation_split)
-        num_training_samples = (n - num_validation_samples)
-        training_data, validation_data = torch.utils.data.random_split(data,[num_training_samples, num_validation_samples])
+        # extract the data
+        processed_training_data = dic_data["processed_training_data"]
+        test_data = dic_data["test_data"]
+        validation_data = dic_data["validation_data"]
+
     else:
-        training_data = data
+        # Download training data from open datasets.
+        data = datasets.MNIST(
+            root="data",
+            train=True,
+            download=True,
+            transform=ToTensor(),
+        )
 
-    num_classes = max(training_data.dataset.targets).item() + 1
-    assert num_labelled_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
-                                                  +") must be divisible by the number of classes (" + str(num_classes)\
-                                                  +")"
+        # Download test data from open datasets.
+        test_data = datasets.MNIST(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
 
-    num_samples_per_class = num_labelled_samples//num_classes
+        n = data.data.shape[0]
 
-    # separate the data per class
-    data_divided_per_class = [[] for _ in range(num_classes)]
-    for (img,label) in training_data:
-        data_divided_per_class[label].append((img,label))
+        # splitting between train and validation
+        if validation_split:
+            num_validation_samples = round(n * validation_split)
+            num_training_samples = (n - num_validation_samples)
+            training_data, validation_data = torch.utils.data.random_split(data,[num_training_samples, num_validation_samples])
+        else:
+            training_data = data
 
-    # shuffle all lists and select a subset
-    selected_training_labelled_data = []
-    selected_training_unlabelled_data = []
-    for j in range(num_classes):
-        random.shuffle(data_divided_per_class[j])
-        selected_training_labelled_data.extend(data_divided_per_class[j][:num_samples_per_class])
-        selected_training_unlabelled_data.extend(data_divided_per_class[j][num_samples_per_class:])
 
-    # remove the label from the unlabelled data
-    processed_training_unlabelled_data = []
-    for (img,label) in selected_training_unlabelled_data:
-        processed_training_unlabelled_data.append((img,-1))
 
-    # combine both labelled and unlabelled data and shuffle
-    processed_training_data =  processed_training_unlabelled_data + selected_training_labelled_data
-    random.shuffle(processed_training_data)
+        num_classes = max(training_data.dataset.targets).item() + 1
+        assert num_labelled_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
+                                                      +") must be divisible by the number of classes (" + str(num_classes)\
+                                                      +")"
+
+        num_samples_per_class = num_labelled_samples//num_classes
+
+        # separate the data per class
+        data_divided_per_class = [[] for _ in range(num_classes)]
+        for (img,label) in training_data:
+            data_divided_per_class[label].append((img,label))
+
+        # shuffle all lists and select a subset
+        selected_training_labelled_data = []
+        selected_training_unlabelled_data = []
+        for j in range(num_classes):
+            random.shuffle(data_divided_per_class[j])
+            selected_training_labelled_data.extend(data_divided_per_class[j][:num_samples_per_class])
+            selected_training_unlabelled_data.extend(data_divided_per_class[j][num_samples_per_class:])
+
+        # remove the label from the unlabelled data
+        processed_training_unlabelled_data = []
+        for (img,label) in selected_training_unlabelled_data:
+            processed_training_unlabelled_data.append((img,-1))
+        random.shuffle(processed_training_unlabelled_data)
+        num_unlabelled = round(percentage_unlabelled_set * len(processed_training_unlabelled_data))
+        processed_training_unlabelled_data = processed_training_unlabelled_data[:num_unlabelled]
+
+        # combine both labelled and unlabelled data and shuffle
+        processed_training_data =  processed_training_unlabelled_data + selected_training_labelled_data
+        random.shuffle(processed_training_data)
+
+        # save the data to a pickle file
+        dic_data = {"processed_training_data":processed_training_data,
+                "test_data":test_data,
+                "validation_data":validation_data}
+
+        # create the directory if necessary
+        dir_to_create = os.path.dirname("".join(file_path))
+        os.makedirs(dir_to_create, exist_ok=True)
+
+        # save the object
+        with open(file_path, 'wb') as f:
+            pickle.dump(dic_data, f)
 
     # wrap an iterable over the datasets
     train_dataloader = DataLoader(processed_training_data, batch_size=batch_size, shuffle=True)

@@ -5,12 +5,13 @@ import os
 import torch
 import sys
 import math
+import time
 from torchsummary import summary
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
 from Utils.data_loader import load_joint_data_as_generator
-from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer
+from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer, InfoWriter
 from Utils.helpers_train import GradNorm
 
 if __name__ == "__main__":
@@ -24,6 +25,10 @@ if __name__ == "__main__":
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+    # percentage of unlabelled images
+    percentage_unlabelled_set = 0.25
+    data_version = 0
+
     # type of model
     model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
@@ -36,7 +41,6 @@ if __name__ == "__main__":
     classify_same_image = True # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
     validation_split = 0.1
     min_context_points = 2
-
 
     # for continued supervised training
     train = True
@@ -102,7 +106,11 @@ if __name__ == "__main__":
         alpha_validation = 1
     
     # load the supervised set
-    train_data, validation_data, test_data, img_height, img_width, num_channels = load_joint_data_as_generator(batch_size, num_samples, validation_split = 0.1)
+    out = load_joint_data_as_generator(batch_size,num_samples,
+                                       validation_split = 0.1,
+                                       percentage_unlabelled_set = percentage_unlabelled_set,
+                                       data_version = data_version)
+    train_data, validation_data, test_data, img_height, img_width, num_channels = out
 
     if not(variational):
         if not(mixture):
@@ -150,12 +158,13 @@ if __name__ == "__main__":
         grad_norm_iterator = None
 
     # define the directories
-    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(num_samples) + "S/", model_name, "/"]
+    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P/" + str(num_samples) + "S/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
+    info_dir_txt = experiment_dir_txt + "information.txt"
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
-    accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+    accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
     train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
                              ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
@@ -164,10 +173,16 @@ if __name__ == "__main__":
                                 ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
                                 + "_validation_", "", ".txt"]
 
+    # create the loss_writers
     train_loss_writer = LossWriter(train_losses_dir_list)
     validation_loss_writer = LossWriter(validation_losses_dir_txt)
-    experiment_dir_txt + "loss/" + model_name + "_" + model_size + (
-        "_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + "_train_joint.txt"
+
+    # create the info_writer
+    info_writer = InfoWriter(info_dir_txt)
+
+    # get the number of parameters
+    n = int(model.num_params)
+    info_writer.update_number_of_parameters(n)
 
     # create directories for the checkpoints and loss files if they don't exist yet
     dir_to_create = "".join(model_save_dir[:3]) + "loss/"
@@ -192,6 +207,7 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt(["joint_loss"])
 
     if train:
+        t0 = time.time()
         train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
                     validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
                     variational=variational, min_context_points=min_context_points, save_freq=save_freq,
@@ -201,7 +217,8 @@ if __name__ == "__main__":
                     consistency_regularization=consistency_regularization,
                     grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
                     classify_same_image=classify_same_image)
-
+        t = time.time() - t0
+        info_writer.update_time(t)
         plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer)
 
     if save:
