@@ -164,7 +164,6 @@ class GradNorm():
     def write_to_file(self,dir_txt,list_values):
         with open(dir_txt,"a+") as f:
             for x in list_values:
-                print("dir_txt",type(x))
                 if isinstance(x,(list,np.ndarray)):
                     txt_list = [str(val) for val in x]
                 else:

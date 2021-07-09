@@ -440,7 +440,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                 validation_loss_writer.append_losses_during_epoch(losses)
 
             epoch_avg_validation_joint_loss, epoch_avg_validation_unsup_loss, epoch_avg_validation_accuracy, total = validation_loss_writer.obtain_avg_losses_current_epoch(["joint_loss", "unsup_loss", "accuracy", "total"])
-            validaiton_loss_writer.append_epoch_avg_losses()
+            validation_loss_writer.append_epoch_avg_losses()
 
             # Print the average epoch loss
             print("Average validation joint loss:", epoch_avg_validation_joint_loss, "unsup loss:",epoch_avg_validation_unsup_loss, "accuracy:", epoch_avg_validation_accuracy, "total", total)
@@ -530,7 +530,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
     # write the validation losses
     validation_loss_writer.write_losses()
 
-    return avg_train_loss_per_epoch, avg_train_accuracy_per_epoch, avg_validation_loss_per_epoch, avg_validation_accuracy_per_epoch
+    return None
 
 def report_loss(name,avg_loss,step):
     txt = name + " loss, step " + str(step) + ": " + str(avg_loss)

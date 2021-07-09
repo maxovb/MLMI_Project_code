@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     batch_size = 64
     learning_rate = 2e-4
-    epochs = 400 - epoch_start
+    epochs = 4 - epoch_start
     save_freq = 2
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -192,27 +192,18 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt(["joint_loss"])
 
     if train:
-        _,_,_,_ = train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
-                              validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
-                              variational=variational, min_context_points=min_context_points, save_freq=save_freq,
-                              epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha,
-                              alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation,
-                              std_y=std_y, parallel=parallel, weight_ratio=weight_ratio,
-                              consistency_regularization=consistency_regularization,
-                              grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
-<<<<<<< HEAD
-                              classify_same_image=classify_same_image)
+        train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
+                    validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
+                    variational=variational, min_context_points=min_context_points, save_freq=save_freq,
+                    epoch_start=epoch_start, device=device, learning_rate=learning_rate, alpha=alpha,
+                    alpha_validation=alpha_validation, num_samples_expectation=num_samples_expectation,
+                    std_y=std_y, parallel=parallel, weight_ratio=weight_ratio,
+                    consistency_regularization=consistency_regularization,
+                    grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
+                    classify_same_image=classify_same_image)
 
         plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer)
 
-=======
-                              classify_same_image=classify_same_image,
-                              train_accuracy_discriminator_dir_txt=train_accuracy_discriminator_dir_txt,
-                              validation_accuracy_discriminator_dir_txt=validation_accuracy_discriminator_dir_txt)
-        plot_loss([train_unsup_loss_dir_txt,validation_unsup_loss_dir_txt], unsup_loss_dir_plot)
-        plot_loss([train_joint_loss_dir_txt, validation_joint_loss_dir_txt], joint_loss_dir_plot)
-        plot_loss([train_accuracy_dir_txt, validation_accuracy_dir_txt], accuracy_dir_plot)
->>>>>>> c416a37b3c398156d3af69b18c3499c75904a576
     if save:
         save_dir = model_save_dir.copy()
         save_dir[5] = str(epoch_start + epochs)
@@ -226,7 +217,7 @@ if __name__ == "__main__":
 
         # compute the accuracy
         num_context_points = 28 * 28
-        accuracy = test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_accuracy_dir_txt,test_data,device,convolutional=convolutional,num_context_points=num_context_points, save_freq=save_freq, is_CNP=True, best="max")
+        accuracy = test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_writer.obtain_loss_dir_txt("accuracy"),test_data,device,convolutional=convolutional,num_context_points=num_context_points, save_freq=save_freq, is_CNP=True, best="max")
         print("Number of samples:",num_samples,"Test accuracy: ", accuracy)
 
         # write the accuracy to the text file

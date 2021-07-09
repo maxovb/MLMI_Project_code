@@ -343,8 +343,7 @@ class LossWriter():
     def obtain_avg_losses_current_epoch(self,list_losses_name):
         out = []
         for loss_name in list_losses_name:
-            if loss_name != "total":
-                out.append(self.compute_epoch_avg_loss(loss_name))
+            out.append(self.compute_epoch_avg_loss(loss_name))
         return out
 
     def compute_epoch_avg_loss(self,loss_name):
@@ -375,15 +374,16 @@ class LossWriter():
             self.list_losses_during_epoch[key] = []
 
     def write_losses(self):
+        
         for (key,list_losses) in self.list_losses_to_write.items():
 
-            local_loss_dirt_txt = self.obtain_loss_dir_txt(key)
+            local_loss_dir_txt = self.obtain_loss_dir_txt(key)
 
             # write the loss
-            for i, values in enumerate(list_losses):
-                with open(local_loss_dir_txt, 'a+') as f:
-                    for loss_item in values:
-                        f.write('%s\n' % loss_item)
+            with open(local_loss_dir_txt, 'a+') as f:
+                for i, value in enumerate(list_losses):
+                    with open(local_loss_dir_txt, 'a+') as f:
+                        f.write('%s\n' % value)
 
             self.list_losses_to_write[key] = []
 
@@ -395,7 +395,7 @@ class LossWriter():
         local_loss_dir_txt = "".join(list_loss_dir_txt)
 
         # create the directory if necessary
-        dir_to_create = "".join(local_loss_dir_txt)
+        dir_to_create = os.path.dirname("".join(local_loss_dir_txt))
         os.makedirs(dir_to_create, exist_ok=True)
 
         return local_loss_dir_txt
@@ -409,14 +409,15 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
 
     """
 
-    for key in train_loss_writer.list_avg_losses_per_epoch.items():
+    for (key,value) in train_loss_writer.list_avg_losses_per_epoch.items():
 
         list_loss_dir_txt = [train_loss_writer.obtain_loss_dir_txt(key)]
-        if validation_loss_writer and key in validation_loss_writer:
+        if (validation_loss_writer != None) and (key in validation_loss_writer.list_avg_losses_per_epoch):
             list_loss_dir_txt.append(validation_loss_writer.obtain_loss_dir_txt(key))
 
         plot_dir = "".join(list_loss_dir_txt[0].split("train"))
-        plot_dir = "_".joint(plot_dir.split("__")) # remove double underscores
+        plot_dir = "_".join(plot_dir.split("__")) # remove double underscores
+        plot_dir = plot_dir.split(".txt")[0] + ".svg"
 
         plot_loss(list_loss_dir_txt,plot_dir)
 
