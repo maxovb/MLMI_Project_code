@@ -1,0 +1,20 @@
+# Source Me
+
+module purge
+module load python-3.6.1-gcc-5.4.0-64u3a4w
+module load anaconda/3.2019-10
+
+## set base env
+eval "$(conda 'shell.bash' 'hook')"
+
+## conda activate /rds/project/$USER/rds-wjb31-nmt2020/wjb31/MLMI8/envs/MLMI8.2
+## conda activate /rds/user/wjb31/rds-mlmi-2020-21-xyBFuSj0hm0/MLMI8.L2021/envs/MLMI8.2
+
+conda activate Thesis_code
+
+module load slurm
+
+WDIR=/rds/hpc-work/MLMI_Project_code
+
+echo "BDIR: $BDIR"
+echo "EDIR: $EDIR"

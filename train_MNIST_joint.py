@@ -6,6 +6,7 @@ import torch
 import sys
 import math
 import time
+import argparse
 from torchsummary import summary
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
@@ -14,13 +15,36 @@ from Utils.data_loader import load_joint_data_as_generator
 from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer, InfoWriter
 from Utils.helpers_train import GradNorm
 
+def parseArguments():
+    # Create argument parser
+    parser = argparse.ArgumentParser()
+
+    # Positional mandatory arguments
+    parser.add_argument("n", help="Number of labelled samples", type=int)
+
+    # Optional arguments
+    parser.add_argument("-CL", "--consitencyloss", help="Use consistency loss", type=bool, default=False)
+    parser.add_argument("-ET", "--extratask", help="Use extra classification task", type=bool, default=False)
+    parser.add_argument("-GN", "--gradnorm", help="Use grad norm", type=bool, default=False)
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    return args
+
 if __name__ == "__main__":
 
     random.seed(1234)
 
     # pass the arguments
-    assert int(sys.argv[1]) == float(sys.argv[1]), "The number of samples should be an integer but was given " + str(float(sys.argv[1]))
-    num_samples = int(sys.argv[1])
+    args = parseArguments()
+
+    num_samples = args.n
+    assert int(num_samples) == float(num_samples), "The number of samples should be an integer but was given " + str(float(sys.argv[1]))
+
+    consistency_regularization = args.consitencyloss
+    classify_same_image = args.extratask
+    grad_norm = args.gradnorm
 
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -30,15 +54,15 @@ if __name__ == "__main__":
     data_version = 0
 
     # type of model
-    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-    consistency_regularization = False # whether to use consistency regularization or not
-    grad_norm = False # whether to use GradNorm to balance the losses
-    classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
+    #consistency_regularization = False # whether to use consistency regularization or not
+    #grad_norm = False # whether to use GradNorm to balance the losses
+    #classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
     validation_split = 0.1
     min_context_points = 2
 
