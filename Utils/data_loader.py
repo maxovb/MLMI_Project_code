@@ -111,94 +111,110 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,che
 
 def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validation_split=None, percentage_unlabelled_set=1, data_version=0):
 
-    file_path = "data/MNIST/pre_saved/%sP/save_data_%sS_v%s.pckl" % (percentage_unlabelled_set,
-                                                                     num_labelled_samples,
-                                                                     data_version)
+    file_path = "data/MNIST/pre_saved/save_data_%sS_v%s.pckl" % (num_labelled_samples, data_version)
 
     if os.path.isfile(file_path):
 
-        # load the data
         with open(file_path,'rb') as f:
-            dic_data = pickle.load(f)
+            dic_saved = pickle.load(f)
 
-        # extract the data
-        processed_training_data = dic_data["processed_training_data"]
-        test_data = dic_data["test_data"]
-        validation_data = dic_data["validation_data"]
+        pre_saved_shuffling = dic_saved["pre_saved_shuffling"]
+        seed = dic_saved["seed"]
 
     else:
-        # Download training data from open datasets.
-        data = datasets.MNIST(
-            root="data",
-            train=True,
-            download=True,
-            transform=ToTensor(),
-        )
 
-        # Download test data from open datasets.
-        test_data = datasets.MNIST(
-            root="data",
-            train=False,
-            download=True,
-            transform=ToTensor(),
-        )
+        pre_saved_shuffling = None
+        pre_saved_shuffling_to_save = []
+        seed = 1234
 
-        n = data.data.shape[0]
+    # Download training data from open datasets.
+    data = datasets.MNIST(
+        root="data",
+        train=True,
+        download=True,
+        transform=ToTensor(),
+    )
 
-        # splitting between train and validation
-        if validation_split:
-            num_validation_samples = round(n * validation_split)
-            num_training_samples = (n - num_validation_samples)
-            training_data, validation_data = torch.utils.data.random_split(data,[num_training_samples, num_validation_samples])
+    # Download test data from open datasets.
+    test_data = datasets.MNIST(
+        root="data",
+        train=False,
+        download=True,
+        transform=ToTensor(),
+    )
+
+    n = data.data.shape[0]
+
+    # splitting between train and validation
+    if validation_split:
+        num_validation_samples = round(n * validation_split)
+        num_training_samples = (n - num_validation_samples)
+        training_data, validation_data = torch.utils.data.random_split(data,
+                                                                       [num_training_samples, num_validation_samples],
+                                                                       generator=torch.Generator().manual_seed(seed))
+    else:
+        training_data = data
+
+    num_classes = max(training_data.dataset.targets).item() + 1
+    assert num_labelled_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
+                                                    +") must be divisible by the number of classes (" + str(num_classes)\
+                                                    +")"
+
+    num_samples_per_class = num_labelled_samples//num_classes
+
+    # separate the data per class
+    data_divided_per_class = [[] for _ in range(num_classes)]
+    for (img,label) in training_data:
+        data_divided_per_class[label].append((img,label))
+
+    # shuffle all lists and select a subset
+    selected_training_labelled_data = []
+    selected_training_unlabelled_data = []
+    if pre_saved_shuffling == None:
+        pre_saved_shuffling_to_save.append([])
+    for j in range(num_classes):
+        if pre_saved_shuffling != None:
+            indices = pre_saved_shuffling[0][j]
         else:
-            training_data = data
+            indices = list(range(len(data_divided_per_class[j])))
+            random.shuffle(indices)
+            pre_saved_shuffling_to_save[0].append(indices)
+        data_divided_per_class[j] = [data_divided_per_class[j][i] for i in indices]
+        selected_training_labelled_data.extend(data_divided_per_class[j][:num_samples_per_class])
+        selected_training_unlabelled_data.extend(data_divided_per_class[j][num_samples_per_class:])
 
+    # remove the label from the unlabelled data
+    processed_training_unlabelled_data = []
+    for (img,label) in selected_training_unlabelled_data:
+        processed_training_unlabelled_data.append((img,-1))
 
+    if pre_saved_shuffling != None:
+        indices = pre_saved_shuffling[1]
+    else:
+        indices = list(range(len(processed_training_unlabelled_data)))
+        random.shuffle(indices)
+        pre_saved_shuffling_to_save.append(indices)
+    processed_training_unlabelled_data = [processed_training_unlabelled_data[i] for i in indices]
+    num_unlabelled = round(percentage_unlabelled_set * len(processed_training_unlabelled_data))
+    processed_training_unlabelled_data = processed_training_unlabelled_data[:num_unlabelled]
 
-        num_classes = max(training_data.dataset.targets).item() + 1
-        assert num_labelled_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
-                                                      +") must be divisible by the number of classes (" + str(num_classes)\
-                                                      +")"
+    # combine both labelled and unlabelled data and shuffle
+    processed_training_data =  processed_training_unlabelled_data + selected_training_labelled_data
+    indices = list(range(len(processed_training_data)))
+    random.shuffle(indices)
+    processed_training_data = [processed_training_data[i] for i in indices]
 
-        num_samples_per_class = num_labelled_samples//num_classes
-
-        # separate the data per class
-        data_divided_per_class = [[] for _ in range(num_classes)]
-        for (img,label) in training_data:
-            data_divided_per_class[label].append((img,label))
-
-        # shuffle all lists and select a subset
-        selected_training_labelled_data = []
-        selected_training_unlabelled_data = []
-        for j in range(num_classes):
-            random.shuffle(data_divided_per_class[j])
-            selected_training_labelled_data.extend(data_divided_per_class[j][:num_samples_per_class])
-            selected_training_unlabelled_data.extend(data_divided_per_class[j][num_samples_per_class:])
-
-        # remove the label from the unlabelled data
-        processed_training_unlabelled_data = []
-        for (img,label) in selected_training_unlabelled_data:
-            processed_training_unlabelled_data.append((img,-1))
-        random.shuffle(processed_training_unlabelled_data)
-        num_unlabelled = round(percentage_unlabelled_set * len(processed_training_unlabelled_data))
-        processed_training_unlabelled_data = processed_training_unlabelled_data[:num_unlabelled]
-
-        # combine both labelled and unlabelled data and shuffle
-        processed_training_data =  processed_training_unlabelled_data + selected_training_labelled_data
-        random.shuffle(processed_training_data)
-
-        # save the data to a pickle file
-        dic_data = {"processed_training_data":processed_training_data,
-                "test_data":test_data,
-                "validation_data":validation_data}
+    if pre_saved_shuffling == None:
 
         # create the directory if necessary
         dir_to_create = os.path.dirname("".join(file_path))
         os.makedirs(dir_to_create, exist_ok=True)
 
+        dic_to_save = {"pre_saved_shuffling":pre_saved_shuffling_to_save,
+                       "seed":seed}
         # save the object
         with open(file_path, 'wb') as f:
-            pickle.dump(dic_data, f)
+            pickle.dump(dic_to_save, f)
 
     # wrap an iterable over the datasets
     train_dataloader = DataLoader(processed_training_data, batch_size=batch_size, shuffle=True)
