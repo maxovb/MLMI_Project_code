@@ -14,7 +14,7 @@ from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_
 
 if __name__ == "__main__":
     num_of_kernels = 4
-    noise = 5e-2
+    noise = 5e-2 ** 2
 
     if num_of_kernels == 1:
         list_kernels = [stheno.EQ().stretch(1)]
