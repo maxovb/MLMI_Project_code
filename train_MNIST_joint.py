@@ -26,7 +26,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # percentage of unlabelled images
-    percentage_unlabelled_set = 0.25
+    percentage_unlabelled_set = 1
     data_version = 0
 
     # type of model
@@ -36,9 +36,9 @@ if __name__ == "__main__":
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-    consistency_regularization = True# whether to use consistency regularization or not
-    grad_norm = True # whether to use GradNorm to balance the losses
-    classify_same_image = True # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
+    consistency_regularization = False # whether to use consistency regularization or not
+    grad_norm = False # whether to use GradNorm to balance the losses
+    classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
     validation_split = 0.1
     min_context_points = 2
 
@@ -54,8 +54,8 @@ if __name__ == "__main__":
 
     batch_size = 64
     learning_rate = 2e-4
-    epochs = 4 - epoch_start
-    save_freq = 2
+    epochs = 400 - epoch_start
+    save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
@@ -158,13 +158,13 @@ if __name__ == "__main__":
         grad_norm_iterator = None
 
     # define the directories
-    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P/" + str(num_samples) + "S/", model_name, "/"]
+    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
     info_dir_txt = experiment_dir_txt + "information.txt"
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
-    accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+    accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
     train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
                              ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")

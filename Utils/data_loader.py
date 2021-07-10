@@ -125,7 +125,7 @@ def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validat
 
         pre_saved_shuffling = None
         pre_saved_shuffling_to_save = []
-        seed = 1234
+        seed = 1234 + data_version
 
     # Download training data from open datasets.
     data = datasets.MNIST(
