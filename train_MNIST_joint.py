@@ -36,8 +36,8 @@ if __name__ == "__main__":
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-    consistency_regularization = False # whether to use consistency regularization or not
-    grad_norm = False # whether to use GradNorm to balance the losses
+    consistency_regularization = True# whether to use consistency regularization or not
+    grad_norm = True # whether to use GradNorm to balance the losses
     classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
     validation_split = 0.1
     min_context_points = 2
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     theoretical_minimum_loss.append(0) # cross-entropy
 
     ratios = [1 for _ in range(num_losses)]
-    ratios[-1] = (60000 * (1 - validation_split)) / num_samples
+    ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples
 
     if grad_norm:
         gamma = 1.5 # hyper-parameter for grad_norm
