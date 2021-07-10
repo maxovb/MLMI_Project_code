@@ -157,11 +157,12 @@ class MultiClassGPGenerator(DataGenerator):
         list_kernels (list of :class:`stheno.Kernel`): kernels to sample from.
     """
 
-    def __init__(self, list_kernels, percentage_label=1, kernel_names=None, **kw_args):
+    def __init__(self, list_kernels, percentage_label=1, kernel_names=None, noise=0, **kw_args):
         self.gps = []
         self.num_kernels = len(list_kernels)
         self.percentage_label = percentage_label
         self.kernel_names = kernel_names
+        self.noise = noise
         for kernel in list_kernels:
             self.gps.append(stheno.GP(kernel))
         DataGenerator.__init__(self, **kw_args)
@@ -180,7 +181,7 @@ class MultiClassGPGenerator(DataGenerator):
         mask_label = bool(np.random.binomial(1,1-self.percentage_label))
         label = (-1 if mask_label else kernel_idx)
 
-        return np.squeeze(gp(x).sample()), label
+        return np.squeeze(gp(x,self.noise).sample()), label
 
 
 class SawtoothGenerator(DataGenerator):

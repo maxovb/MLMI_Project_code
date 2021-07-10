@@ -297,7 +297,7 @@ def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=1
         if include_class_predictions:
 
             # true kernel probabilities 
-            logpdfs = np.array([f(x_context.detach().cpu().numpy()[0,:,0],1e-5).logpdf(y_context.detach().cpu().numpy()[0,:,0]) for f in data.gps])
+            logpdfs = np.array([f(x_context.detach().cpu().numpy()[0,:,0],data.noise).logpdf(y_context.detach().cpu().numpy()[0,:,0]) for f in data.gps])
             logpdfs -= np.max(logpdfs)
             true_probs = np.exp(logpdfs) / np.sum(np.exp(logpdfs))
 

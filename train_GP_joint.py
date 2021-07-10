@@ -14,6 +14,7 @@ from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_
 
 if __name__ == "__main__":
     num_of_kernels = 4
+    noise = 5e-2
 
     if num_of_kernels == 1:
         list_kernels = [stheno.EQ().stretch(1)]
@@ -97,8 +98,8 @@ if __name__ == "__main__":
         alpha_validation = 1
 
     # load the supervised set
-    train_data = MultiClassGPGenerator(list_kernels,percentage_label, kernel_names=kernel_names, batch_size=batch_size, num_tasks=num_tasks)
-    test_data = MultiClassGPGenerator(list_kernels, 1, kernel_names=kernel_names, batch_size=batch_size, num_tasks=num_tasks)
+    train_data = MultiClassGPGenerator(list_kernels,percentage_label, kernel_names=kernel_names, batch_size=batch_size, num_tasks=num_tasks, noise=noise)
+    test_data = MultiClassGPGenerator(list_kernels, 1, kernel_names=kernel_names, batch_size=batch_size, num_tasks=num_tasks, noise=noise)
 
     if not(variational):
         if not(mixture):
