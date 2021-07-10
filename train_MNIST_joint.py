@@ -60,15 +60,9 @@ if __name__ == "__main__":
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-<<<<<<< HEAD
     #consistency_regularization = False # whether to use consistency regularization or not
     #grad_norm = False # whether to use GradNorm to balance the losses
     #classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
-=======
-    consistency_regularization = True# whether to use consistency regularization or not
-    grad_norm = True # whether to use GradNorm to balance the losses
-    classify_same_image = True # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
->>>>>>> 9ee28b7f4442cd6599d9a5aae2f84cac4ee29583
     validation_split = 0.1
     min_context_points = 2
 
@@ -122,17 +116,17 @@ if __name__ == "__main__":
     # hyper-parameters
     if not(variational):
         if mixture:
-            alpha = 789 * (60000 * (1-validation_split))/num_samples
+            alpha = 789 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
             alpha_validation = 789
         else:
             if grad_norm:
                 alpha = 1
                 alpha_validation = 1
             else:
-                alpha = (60000 * (1-validation_split))/num_samples
+                alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
                 alpha_validation = 1
     else:
-        alpha = 1 * (60000 * (1-validation_split))/num_samples
+        alpha = 1 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
         alpha_validation = 1
     
     # load the supervised set
