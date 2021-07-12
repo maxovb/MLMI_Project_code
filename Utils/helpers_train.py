@@ -1,4 +1,5 @@
 # This was originally copied (but then largely modified) from https://github.com/brianlan/pytorch-grad-norm/blob/067e4accaa119137fca430b23c413a2bee8323b6/train.py
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import random
@@ -150,4 +151,74 @@ class GradNorm():
                     txt_list = [str(x)]
                 txt = ", ".join(txt_list) + " \n"
                 f.write(txt)
+
+    def read_from_file(self,file_dir_txt):
+        all_values = []
+        with open(file_dir_txt, "r") as f:
+            for i, line in enumerate(f.readlines()):
+                line_values = line.split("\n")[0].split(", ")
+                line_values = [[float(x)] for x in line_values]
+                if i == 0:
+                    all_values = line_values
+                else:
+                    [all_values[j].extend(line_values[j]) for j in range(len(line_values))]
+        return all_values
+
+    def plot_weights(self,gradnorm_dir_txt, losses_name=None):
+
+        weights_dir_txt = gradnorm_dir_txt + "task_weights.txt"
+        weights_dir_plot = gradnorm_dir_txt + "task_weights.svg"
+
+        weights = self.read_from_file(weights_dir_txt)
+        n = len(weights)
+        l = len(weights[0])
+        weights = np.array(weights)
+
+        plt.figure()
+        plt.semilogy(np.stack([np.arange(l)] *  n).T,weights.T)
+        if losses_name != None:
+            plt.legend(labels=losses_name,fontsize="x-large")
+        plt.ylabel("GradNorm weight",fontsize=15)
+        plt.xlabel("Epoch", fontsize=15)
+
+        plt.savefig(weights_dir_plot)
+
+    def plot_mean_and_std_norms(self,gradnorm_dir_txt, losses_name=None):
+
+        mean_dir_txt = gradnorm_dir_txt + "mean_norm.txt"
+        std_dir_txt = gradnorm_dir_txt + "std_norm.txt"
+        dir_plot = gradnorm_dir_txt + "mean_std_norm.svg"
+
+        means = self.read_from_file(mean_dir_txt)
+        stds = self.read_from_file(std_dir_txt)
+        l = len(means[0])
+        n = len(means)
+        assert l == len(stds[0]), "The number of values for the means of the norms should be the same as the stds"
+        means = np.array(means)
+        stds = np.array(stds)
+        colors = ["blue","orange","green","red"]
+        plt.figure()
+        for j in range(n):
+            if losses_name != None:
+                plt.semilogy(np.arange(l),means[j], label=losses_name[j],color=colors[j])
+            else:
+                plt.semilogy(np.arange(l), means[j],color=colors[j])
+            #plt.fill_between(np.arange(l),means[j] - 1.96 * stds[j], means[j] + 1.96 * stds[j], alpha=0.25,color=colors[j])
+        if losses_name != None:
+            plt.legend(fontsize="x-large")
+        plt.ylabel("Gradient norm",fontsize=15)
+        plt.xlabel("Epoch", fontsize=15)
+
+        plt.savefig(dir_plot)
+
+
+if __name__ == "__main__":
+    grad_norm_iterator = GradNorm(model=None,gamma=None)
+    grad_norm_dir_txt = "../saved_models/MNIST/joint_semantics_GN_1.5_ET/0.25P_0V/100S/UNetCNP/grad_norm/"
+    losses_name = ["Regression loss","Consistency loss","Extra task classification loss","Classification loss"]
+    grad_norm_iterator.plot_weights(grad_norm_dir_txt,losses_name)
+    grad_norm_iterator.plot_mean_and_std_norms(grad_norm_dir_txt, losses_name)
+
+
+
 

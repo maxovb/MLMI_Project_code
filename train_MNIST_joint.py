@@ -54,7 +54,7 @@ if __name__ == "__main__":
     data_version = 0
 
     # type of model
-    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
@@ -116,8 +116,12 @@ if __name__ == "__main__":
     # hyper-parameters
     if not(variational):
         if mixture:
-            alpha = 789 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
-            alpha_validation = 789
+            if grad_norm:
+                alpha = 1
+                alpha_validation = 1
+            else:
+                alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
+                alpha_validation = 1
         else:
             if grad_norm:
                 alpha = 1
