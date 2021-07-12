@@ -51,9 +51,7 @@ if __name__ == "__main__":
 
     # percentage of unlabelled imagesc
     percentage_unlabelled_set = 0.25
-    data_version = 1
-
-    error, "change data version and epoch to start gradNorm !!!"
+    data_version = 0
 
     # type of model
     model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]

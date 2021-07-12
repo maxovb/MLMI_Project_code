@@ -214,7 +214,7 @@ class GradNorm():
 
 if __name__ == "__main__":
     grad_norm_iterator = GradNorm(model=None,gamma=None)
-    grad_norm_dir_txt = "../saved_models/MNIST/joint_semantics_GN_1.5_ET/0.25P_0V/100S/UNetCNP/grad_norm/"
+    grad_norm_dir_txt = "../saved_models/MNIST/joint_semantics_cons_GN_1.5_ET/0.25P_0V/100S/UNetCNP_GMM/grad_norm/"
     losses_name = ["Regression loss","Consistency loss","Extra task classification loss","Classification loss"]
     grad_norm_iterator.plot_weights(grad_norm_dir_txt,losses_name)
     grad_norm_iterator.plot_mean_and_std_norms(grad_norm_dir_txt, losses_name)
