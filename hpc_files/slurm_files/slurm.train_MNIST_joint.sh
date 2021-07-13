@@ -19,7 +19,7 @@ module load cuda/10.2 intel/mkl/2017.4
 source /home/mov22/rds/hpc-work/MLMI_Project_code/hpc_files/activate_environment/README.Thesis_code.activate
 export OMP_NUM_THREADS=1
 
-STEPARRAY=(100 100)
+STEPARRAY=(100 100 100 100 100)
 CLARRAY=(True True)
 ETARRAY=(True True)
 GNARRAY=(False True)
