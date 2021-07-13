@@ -23,9 +23,9 @@ def parseArguments():
     parser.add_argument("n", help="Number of labelled samples", type=int)
 
     # Optional arguments
-    parser.add_argument("-CL", "--consitencyloss", help="Use consistency loss", type=bool, default=False)
-    parser.add_argument("-ET", "--extratask", help="Use extra classification task", type=bool, default=False)
-    parser.add_argument("-GN", "--gradnorm", help="Use grad norm", type=bool, default=False)
+    parser.add_argument("-CL", "--consitencyloss", help="Use consistency loss", type=str, default="False")
+    parser.add_argument("-ET", "--extratask", help="Use extra classification task", type=str, default="False")
+    parser.add_argument("-GN", "--gradnorm", help="Use grad norm", type=str, default="False")
 
     # Parse arguments
     args = parser.parse_args()
@@ -42,9 +42,9 @@ if __name__ == "__main__":
     num_samples = args.n
     assert int(num_samples) == float(num_samples), "The number of samples should be an integer but was given " + str(float(sys.argv[1]))
 
-    consistency_regularization = args.consitencyloss
-    classify_same_image = args.extratask
-    grad_norm = args.gradnorm
+    consistency_regularization = args.consitencyloss.lower() == "true"
+    classify_same_image = args.extratask.lower() == "true"
+    grad_norm = args.gradnorm.lower() == "true"
 
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -109,6 +109,7 @@ if __name__ == "__main__":
         model_size_creation = model_size
 
     print(model_name, model_size)
+    print("CL",consistency_regularization,"GN",grad_norm,"ET",classify_same_image)
 
     # training parameters
     num_training_samples = [10,20,40,60,80,100,600,1000,3000]
