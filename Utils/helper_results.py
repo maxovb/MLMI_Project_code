@@ -476,15 +476,6 @@ class InfoWriter():
 
         self.write_to_file()
 
-if __name__ == "__main__":
-    filepath1 = "../saved_models/MNIST/joint_semantics_ET/0.25P_0V/100S/UNetCNP/loss/UNetCNP_medium_dropout_4L_average_validation_accuracy.txt"
-    filepath2 = "../saved_models/MNIST/joint_semantics_GN_1.5_ET/0.25P_0V/100S/UNetCNP/loss/UNetCNP_medium_dropout_4L_average_validation_accuracy.txt"
-    list_files =[filepath1,filepath2]
-    labels = ["Without GradNorm","WithGradNorm"]
-    y_label = "Accuracy"
-    dir_plot = "../Results/figures/comparisons_with_gradnorm/joint_UNet/ET_with_and_without_gradnorm_joint_UNet.svg"
-
-    plot_loss(list_files,dir_plot,labels,y_label)
 
 
 
