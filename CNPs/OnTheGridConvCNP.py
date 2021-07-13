@@ -195,7 +195,7 @@ class OnTheGridConvCNP(nn.Module):
             unsup_logp, sup_logp, accuracy, total, cons_logp, discr_logp, accuracy_discriminator_local, total_discriminator_local = self.supervised_gmm_logp(mask_labelled, context_img_labelled, target_img_labelled, target_labelled_only, consistency_regularization, num_sets_of_context)
 
             unsup_loss += - scale_unsup * unsup_logp
-            sup_loss = - scale_sup * alpha * sup_logp
+            sup_loss = - scale_sup * sup_logp
             sup_loss = sup_loss / batch_size_labelled
 
             if consistency_regularization:
@@ -231,6 +231,8 @@ class OnTheGridConvCNP(nn.Module):
 
         if not (hasattr(self, "task_weights")):
             self.task_weights = torch.ones(len(task_loss), device=unsup_loss.device).float()
+        if alpha != 1:
+            self.task_weights[-1] = alpha
 
         # weights
         n_unsup = len(unsup_task_loss)
@@ -244,6 +246,7 @@ class OnTheGridConvCNP(nn.Module):
         obj = torch.sum(torch.mul(self.task_weights, task_loss))
 
         if grad_norm_iterator:
+            assert alpha == 1, "alpha should be 1 when using grad norm"
             grad_norm_iterator.store_norm(task_loss)
 
         losses = {"joint_loss": joint_loss.item(),
@@ -947,7 +950,7 @@ class ConvCNPClassifier(nn.Module):
         n_labelled = torch.sum(select_labelled)
         if n_labelled > 0 :
             target_label_for_evaluating[torch.logical_not(select_labelled)] = 0
-            sup_loss = scale_sup * select_labelled.float() * alpha * self.loss(output_logit,target_label_for_evaluating, reduction='none')
+            sup_loss = scale_sup * select_labelled.float() * self.loss(output_logit,target_label_for_evaluating, reduction='none')
             sup_loss = sup_loss.sum()/n_labelled
         else:
             sup_loss = torch.zeros(1,device=mean.device)[0]
@@ -980,6 +983,8 @@ class ConvCNPClassifier(nn.Module):
 
         if not (hasattr(self, "task_weights")):
             self.task_weights = torch.ones(len(task_loss),device=mean.device).float()
+        if alpha != 1:
+            self.task_weights[-1] = alpha
 
         # weights
         n_unsup = len(unsup_task_loss)
@@ -993,6 +998,7 @@ class ConvCNPClassifier(nn.Module):
         obj = torch.sum(torch.mul(self.task_weights, task_loss))
 
         if grad_norm_iterator:
+            assert alpha == 1, "alpha should be 1 when using grad norm"
             grad_norm_iterator.store_norm(task_loss)
 
         losses = {"joint_loss": joint_loss.item(),
