@@ -82,7 +82,7 @@ def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size
     return epoch
 
 
-def plot_loss(list_loss_dir_txt,loss_dir_plot):
+def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss"):
     l = len(list_loss_dir_txt)
     losses = [[] for _ in range(l)]
     for i,filename in enumerate(list_loss_dir_txt):
@@ -95,10 +95,13 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot):
     plt.figure()
     for i in range(l):
         plt.plot(np.arange(1,len(losses[i])+1),losses[i])
-    if l == 2:
-        plt.legend(["Train loss", "Validation loss"])
+    if labels == None:
+        if l == 2:
+            plt.legend(["Train loss", "Validation loss"])
+    else:
+        plt.legend(labels)
     plt.xlabel("Epoch",fontsize=15)
-    plt.ylabel("Loss",fontsize=15)
+    plt.ylabel(y_label,fontsize=15)
     plt.savefig(loss_dir_plot)
 
 def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False):
@@ -473,7 +476,15 @@ class InfoWriter():
 
         self.write_to_file()
 
+if __name__ == "__main__":
+    filepath1 = "../saved_models/MNIST/joint_semantics_ET/0.25P_0V/100S/UNetCNP/loss/UNetCNP_medium_dropout_4L_average_validation_accuracy.txt"
+    filepath2 = "../saved_models/MNIST/joint_semantics_GN_1.5_ET/0.25P_0V/100S/UNetCNP/loss/UNetCNP_medium_dropout_4L_average_validation_accuracy.txt"
+    list_files =[filepath1,filepath2]
+    labels = ["Without GradNorm","WithGradNorm"]
+    y_label = "Accuracy"
+    dir_plot = "../Results/figures/comparisons_with_gradnorm/joint_UNet/ET_with_and_without_gradnorm_joint_UNet.svg"
 
+    plot_loss(list_files,dir_plot,labels,y_label)
 
 
 
