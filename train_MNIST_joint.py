@@ -54,7 +54,7 @@ if __name__ == "__main__":
     data_version = 0
 
     # type of model
-    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = False
+    load = True
     save = False
     evaluate = True
     if load:
@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     batch_size = 64
     learning_rate = 2e-4
-    epochs = 400 - epoch_start
+    epochs = 600 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -110,6 +110,7 @@ if __name__ == "__main__":
 
     print(model_name, model_size)
     print("CL",consistency_regularization,"GN",grad_norm,"ET",classify_same_image)
+    print("n",num_samples)
 
     # training parameters
     num_training_samples = [10,20,40,60,80,100,600,1000,3000]

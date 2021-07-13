@@ -370,9 +370,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                     scale_sup, scale_unsup = 1,1
 
                 if not(variational):
-                    train_joint_loss, train_sup_loss, train_unsup_loss, accuracy, total = model.joint_train_step(x_context, y_context, x_target, target, y_target, opt, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
+                    losses = model.joint_train_step(x_context, y_context, x_target, target, y_target, opt, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
                 else:
-                    train_joint_loss, train_sup_loss, train_unsup_loss, accuracy, total = model.joint_train_step(x_context,y_context,x_target,target,y_target,opt,alpha,num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
+                    losses = model.joint_train_step(x_context,y_context,x_target,target,y_target,opt,alpha,num_samples_expectation=num_samples_expectation, std_y=std_y, parallel=parallel, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
 
             train_loss_writer.append_losses_during_epoch(losses)
 
@@ -419,23 +419,36 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
 
                 # TODO: add variational conv
                 if convolutional:
-                    mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,
-                                                        semantic_blocks=semantic_blocks, device=device,
-                                                        disjoint_half=classify_same_image)
+                    mask, context_img, num_context_points, num_target_points = image_processor(data, num_context_points, convolutional=convolutional,
+                                                                                               semantic_blocks=semantic_blocks, device=device,
+                                                                                               return_num_points = True, disjoint_half=classify_same_image)
                     data = data.to(device)
+
+                    if weight_ratio:
+                        scale_sup = num_context_points / num_target_points
+                        scale_unsup = 1 - scale_sup
+                    else:
+                        scale_sup, scale_unsup = 1, 1
 
                     # get the losses
                     _, losses = model.joint_loss(mask,context_img,target,data,alpha=alpha_validation, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
 
                 else:
-                    x_context, y_context, x_target, y_target = image_processor(data, num_context_points,
-                                                                               convolutional=convolutional,
-                                                                               semantic_blocks=semantic_blocks,
-                                                                               device=device)
-                    if not(variational):
-                        _, joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context, y_context, x_target, target, y_target, alpha=alpha_validation, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
+                    x_context, y_context, x_target, y_target, num_context_points, num_target_points = image_processor(data, num_context_points,
+                                                                                                                      convolutional=convolutional,
+                                                                                                                      semantic_blocks=semantic_blocks,
+                                                                                                                      device=device, return_num_points=True)
+
+                    if weight_ratio:
+                        scale_sup = num_context_points / num_target_points
+                        scale_unsup = 1 - scale_sup
                     else:
-                        _, joint_loss, sup_loss, unsup_loss, accuracy, total = model.joint_loss(x_context,y_context,x_target,target,y_target,alpha_validation,num_samples_expectation,std_y, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
+                        scale_sup, scale_unsup = 1, 1
+
+                    if not(variational):
+                        _, losses = model.joint_loss(x_context, y_context, x_target, target, y_target, alpha=alpha_validation, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
+                    else:
+                        _, losses = model.joint_loss(x_context,y_context,x_target,target,y_target,alpha_validation,num_samples_expectation,std_y, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
 
                 validation_loss_writer.append_losses_during_epoch(losses)
 
@@ -532,9 +545,11 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
 
     return None
 
+
 def report_loss(name,avg_loss,step):
     txt = name + " loss, step " + str(step) + ": " + str(avg_loss)
     return txt
+
 
 def write_list_to_files_and_reset(list_values,list_dir):
     out = []
@@ -544,6 +559,7 @@ def write_list_to_files_and_reset(list_values,list_dir):
                 f.write('%s\n' % loss_item)
         out.append([])
     return out
+
 
 def report_multiple_losses(names,avg_losses,step):
     txt = "Step: " + str(step)
