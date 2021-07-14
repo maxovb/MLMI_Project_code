@@ -13,7 +13,7 @@ if __name__ == "__main__":
     num_samples = 100
 
 
-    for model_name in ["UNetCNP","UNetCNP_GMM"]:
+    for model_name in ["UNetCNP"]:#,"UNetCNP_GMM"]:
 
         labels = [model_name, "+ consistency", "+ extra task", "+ both"]
         for grad_norm in [False, True]:
