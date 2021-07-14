@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=14:00:00
 #SBATCH --mail-type=FAIL
-#SBATCH --array=0-1
+#SBATCH --array=0-4
 #! Uncomment this to prevent the job from being requeued (e.g. if
 #! interrupted by node failure or system downtime):
 ##SBATCH --no-requeue
@@ -19,10 +19,10 @@ module load cuda/10.2 intel/mkl/2017.4
 source /home/mov22/rds/hpc-work/MLMI_Project_code/hpc_files/activate_environment/README.Thesis_code.activate
 export OMP_NUM_THREADS=1
 
-STEPARRAY=(100 100 100 100 100)
-CLARRAY=(True True)
-ETARRAY=(True True)
-GNARRAY=(False True)
+STEPARRAY=(100 100 100 100 100 100)
+CLARRAY=(False True True False False)
+ETARRAY=(False False False True True)
+GNARRAY=(False False True False True)
 STEP=${STEPARRAY[$SLURM_ARRAY_TASK_ID]}
 CL=${CLARRAY[$SLURM_ARRAY_TASK_ID]}
 ET=${ETARRAY[$SLURM_ARRAY_TASK_ID]}
