@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import random
 import torch
 from CNPs.OnTheGridConvCNP import ConvCNPExtractRepresentation
 from Utils.simple_models import KNN_classifier, LR_classifier, SVM_classifier
@@ -60,10 +61,12 @@ if __name__ == "__main__":
     num_training_samples = [10, 20, 40, 60, 80, 100, 600, 1000, 3000]
     batch_size = 64
 
+    random.seed(1234)
+
     # create the model
     model_name = "CNP"
     epoch_unsup = 400
-    semantics = True
+    semantics = False
     cheat_validation = False
     pooling = ""#"flatten"
     model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
@@ -123,6 +126,7 @@ if __name__ == "__main__":
 
     for j in range(len(num_training_samples)):
         # KNN
+        num_samples = num_training_samples[j]
         vals = [str(x) for x in accuracies_knn[:,j]]
         txt_line = str(num_samples) + ", " + " ".join(vals) + "\n"
         with open(accuracies_dir_txt_knn, 'a+') as f:
