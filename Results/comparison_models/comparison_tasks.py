@@ -13,14 +13,17 @@ if __name__ == "__main__":
     num_samples = 100
 
 
-    for model_name in ["UNetCNP"]:#,"UNetCNP_GMM"]:
+    for model_name in ["UNetCNP","UNetCNP_GMM"]:
 
         labels = [model_name, "+ consistency", "+ extra task", "+ both"]
+        styles = ["-","--","-.",":"]
         for grad_norm in [False, True]:
+            if "GMM" in model_name and grad_norm == True:
+                continue
             loss_base_dir = ["", "", "", ""]
             i = -1
-            for consistency_regularization in [False,True]:
-                for classify_same_image in [False,True]:
+            for classify_same_image in [False, True]:
+                for consistency_regularization in [False, True]:
                     i += 1
                     experiment_dir_list = [path_to_base_dir + "saved_models/MNIST/joint"
                                            + ("_semantics" if semantics else "_")
@@ -51,4 +54,4 @@ if __name__ == "__main__":
                     elif "total" in file_name:
                         y_label = "Total"
                     plot_current_dir = plots_dir + file_name[:-4] + ".svg"
-                    plot_loss(list_files,plot_current_dir,labels,y_label)
+                    plot_loss(list_files,plot_current_dir,labels,y_label,styles)

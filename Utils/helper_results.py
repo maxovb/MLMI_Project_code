@@ -82,7 +82,7 @@ def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size
     return epoch
 
 
-def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss"):
+def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=None):
     l = len(list_loss_dir_txt)
     losses = [[] for _ in range(l)]
     for i,filename in enumerate(list_loss_dir_txt):
@@ -94,7 +94,10 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss"):
     # plot
     plt.figure()
     for i in range(l):
-        plt.plot(np.arange(1,len(losses[i])+1),losses[i])
+        if styles != None:
+            plt.plot(np.arange(1,len(losses[i])+1),losses[i], styles[i])
+        else:
+            plt.plot(np.arange(1, len(losses[i]) + 1), losses[i])
     if labels == None:
         if l == 2:
             plt.legend(["Train loss", "Validation loss"])
@@ -102,6 +105,8 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss"):
         plt.legend(labels)
     plt.xlabel("Epoch",fontsize=15)
     plt.ylabel(y_label,fontsize=15)
+    if "Accuracy" in y_label:
+        plt.ylim([0,1])
     plt.savefig(loss_dir_plot)
 
 def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False):
@@ -423,7 +428,12 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
         plot_dir = "_".join(plot_dir.split("__")) # remove double underscores
         plot_dir = plot_dir.split(".txt")[0] + ".svg"
 
-        plot_loss(list_loss_dir_txt,plot_dir)
+        if "accuracy" in key.lower():
+            y_label = "Accuracy"
+        else:
+            y_label = None
+
+        plot_loss(list_loss_dir_txt,plot_dir,y_label=y_label)
 
 class InfoWriter():
     """Class to store information regarding the training of a network

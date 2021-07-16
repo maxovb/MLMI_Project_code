@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     labels = ["Without GradNorm","With GradNorm"]
 
-    for model_name in ["UNetCNP"]:#,"UNetCNP_GMM"]:
+    for model_name in ["UNetCNP","UNetCNP_GMM"]:
         for consistency_regularization in [False,True]:
             for classify_same_image in [False,True]:
                 loss_base_dir = ["",""]
