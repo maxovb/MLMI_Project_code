@@ -67,7 +67,7 @@ if __name__ == "__main__":
         # create the model
         model_name = "CNP" # now in for loop
         pooling = "" # now in for loop
-        semantics = True
+        semantics = False
         cheat_validation = False
         for model_name in ["CNP","ConvCNP","UNetCNP"]:
             
@@ -92,14 +92,14 @@ if __name__ == "__main__":
             for pooling in pooling_types:
 
                 accuracies_dir_txt_knn = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") +\
-                                        ("_cheat_validation" if cheat_validation else "") +  "/"\
-                                        + str(data_version) + "V" + "/accuracies/KNN_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
+                                        ("_cheat_validation" if cheat_validation else "") +  "/accuracies/"\
+                                        + str(data_version) + "V" + "/KNN_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
                 accuracies_dir_txt_lr = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") +\
-                                        ("_cheat_validation" if cheat_validation else "") +  "/"\
-                                        + str(data_version) + "V" + "/accuracies/LR_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
+                                        ("_cheat_validation" if cheat_validation else "") +  "/accuracies/"\
+                                        + str(data_version) + "V" + "/LR_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
                 accuracies_dir_txt_svm = "saved_models/MNIST/supervised" + ("_semantics" if semantics else "") + \
-                                        ("_cheat_validation" if cheat_validation else "") + "/"\
-                                        + str(data_version) + "V" +"/accuracies/SVM_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
+                                        ("_cheat_validation" if cheat_validation else "") +  "/accuracies/"\
+                                        + str(data_version) + "V" + "/SVM_on_r_" + model_name + "_" + pooling + "_" + str(epoch_unsup) + "E" + ".txt"
 
                 shape_results = (num_layers,len(num_training_samples))
                 optimal_k = np.zeros(shape_results)
@@ -113,8 +113,9 @@ if __name__ == "__main__":
                     continue
 
                 for layer_id in range(num_layers):
-
+                    print("--------------------------------------")
                     print("model name:",model_name,"pooling:",pooling,"layer id:",layer_id)
+                    print("--------------------------------------")
 
                     if layer_id == 0:
                         check_file_not_existent(accuracies_dir_txt_knn)
