@@ -20,10 +20,11 @@ class GradNorm():
          International Conference on Machine Learning. PMLR, 2018.
     """
 
-    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None, clip_value=None):
+    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None, clip_value=None, losses_name=None):
         self.model = model
         self.gamma = gamma
         self.clip_value = clip_value
+        self.losses_name = None
 
         self.ratios = ratios
         self.theoretical_minimum_loss = theoretical_minimum_loss
@@ -211,6 +212,9 @@ class GradNorm():
 
         plt.savefig(dir_plot)
 
+    def plot_all(self,gradnorm_dir_txt):
+        self.plot_weights(gradnorm_dir_txt,self.losses_name)
+        self.plot_mean_and_std_norms(gradnorm_dir_txt,self.losses_name)
 
 if __name__ == "__main__":
     grad_norm_iterator = GradNorm(model=None,gamma=None)

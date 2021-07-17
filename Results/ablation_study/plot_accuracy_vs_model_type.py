@@ -20,10 +20,16 @@ if __name__ == "__main__":
     dir_plot = "../figures/write_up/ablation_study/scatter_" + model_name + "_" + model_size \
                + ("_semantics" if semantics else "_") \
                + str(percentage_unlabelled_set) + "P.svg"
+    dir_plot_connected = dir_plot[:-4] + "_connected.svg"
 
     plt.figure()
+
+    x_connected = []
+    y_connected = []
     for i,(key,value) in enumerate(all_accuracies.items()):
         x_val = i//2 * 3 + i % 2 + 1
+        x_connected.append(x_val)
+        y_connected.append(value)
 
         if "GN" in key:
             style = "r."
@@ -38,9 +44,17 @@ if __name__ == "__main__":
             plt.plot(xs,ys,style,label=label)
         else:
             plt.plot(xs, ys, style)
+        plt.plot()
     plt.ylabel("Accuracy",fontsize=15)
     plt.xticks(x_ticks_location,x_ticks_label,fontsize=12)
     plt.legend(fontsize="x-large")
     plt.savefig(dir_plot)
+
+    y_connected = np.array(y_connected)
+    plt.plot(x_connected,y_connected,"k-",alpha=0.5)
+
+    plt.savefig(dir_plot_connected)
+
+
 
 

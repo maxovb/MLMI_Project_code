@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     batch_size = 64
     learning_rate = 2e-4
     epochs = 410 - epoch_start
-    save_freq = 20
+    save_freq = 1
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
@@ -170,20 +170,24 @@ if __name__ == "__main__":
     """
     num_losses = 2
     theoretical_minimum_loss = [- img_width * img_height * num_channels * math.log(1/(math.sqrt(2*math.pi)*0.01))] # reconstruction loss
+    losses_name = ["Regression"]
     if consistency_regularization:
         num_losses += 1
         theoretical_minimum_loss.append(-math.log(2))
+        losses_name.append("Consistency")
     if classify_same_image:
         num_losses += 1
         theoretical_minimum_loss.append(0)
+        losses_name.append("Extra classification task")
     theoretical_minimum_loss.append(0) # cross-entropy
+    losses_name.append("Supervised")
 
     ratios = [1 for _ in range(num_losses)]
     ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples
 
     if grad_norm:
         gamma = 1.5 # hyper-parameter for grad_norm
-        grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss)
+        grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss,losses_name=losses_name)
     else:
         grad_norm_iterator = None
 
@@ -249,7 +253,7 @@ if __name__ == "__main__":
                     classify_same_image=classify_same_image)
         t = time.time() - t0
         info_writer.update_time(t)
-        plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer)
+        plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
 
     if save:
         save_dir = model_save_dir.copy()

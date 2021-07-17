@@ -5,7 +5,7 @@ import time
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from Utils.data_processor import image_processor, format_context_points_image
-from Utils.helper_results import qualitative_evaluation_images
+from Utils.helper_results import qualitative_evaluation_images, plot_losses_from_loss_writer
 
 def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, semantics=False, validation_data=None, validation_loss_dir_txt="",min_context_points=2,max_percentage_context = None, convolutional=False, visualisation_dir=None, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, epoch_start = 0, device=torch.device('cpu')):
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
@@ -471,6 +471,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
             # store the task weights
             if grad_norm_iterator:
                 grad_norm_iterator.write_epoch_data_to_file(gradnorm_dir_txt)
+                grad_norm_iterator.plot_all(gradnorm_dir_txt)
                 
             # write the average epoch validation loss to the txt file if some validation data is supplied
             if validation_data:
@@ -528,6 +529,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                                                           save_dir=img_output_dir_validation, convolutional=convolutional,
                                                           semantic_blocks=semantic_blocks, variational=variational,
                                                           include_class_predictions=True)
+                
+            # plot the losses
+            plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
 
         if n_best_checkpoint:
             pass
