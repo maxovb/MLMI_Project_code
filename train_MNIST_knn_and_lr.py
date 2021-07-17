@@ -68,7 +68,7 @@ if __name__ == "__main__":
         model_name = "CNP" # now in for loop
         pooling = "" # now in for loop
         semantics = False
-        cheat_validation = False
+        cheat_validation = True
         for model_name in ["CNP","ConvCNP","UNetCNP"]:
             
             epoch_unsup = 400
