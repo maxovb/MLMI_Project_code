@@ -46,7 +46,7 @@ def test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_los
     return accuracy
 
 
-def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolutional=False,is_CNP=False):
+def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolutional=False,is_CNP=True):
 
     accuracies = []
     epochs = []
@@ -67,7 +67,7 @@ def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolu
     return accuracies, epochs
 
 
-def evaluate_model_full_accuracy(model,model_save_dir_base,acc_dir_txt,data,device,convolutional=False,is_CNP=False):
+def evaluate_model_full_accuracy(model,model_save_dir_base,acc_dir_txt,data,device,convolutional=False,is_CNP=True):
     accuracies, epochs = test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,
                                                         convolutional=convolutional,is_CNP=is_CNP)
 
