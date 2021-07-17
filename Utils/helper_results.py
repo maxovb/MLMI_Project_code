@@ -255,6 +255,7 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
 
     plt.tight_layout()
     plt.savefig(save_dir)
+    plt.close()
 
 def qualitative_evaluation_GP(model, data, num_context_points, num_test_points=100, device=torch.device('cpu'), save_dir="", variational=False, num_samples_variational=50, include_class_predictions=False):
 
@@ -476,7 +477,7 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
             current_col = 0
         plot_loss(loss_dir, plot_dir, y_label=y_label_subplots[i],ax=ax[current_row,current_col])
 
-    fig.savefig()
+    fig.savefig(plot_dir)
 
 class InfoWriter():
     """Class to store information regarding the training of a network
