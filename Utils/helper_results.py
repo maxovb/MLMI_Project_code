@@ -460,6 +460,8 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
     num_plots = len(list_loss_dir_txt_for_subplots)
     num_rows = math.ceil(num_plots / num_cols)
 
+    plot_dir = plot_dir.split("average")[0] + "overview.svg"
+
     fig, ax = plt.subplots(num_rows, num_cols, figsize=(num_cols * 5, num_rows * 5))
     if num_rows == 1:
         ax = ax[None, :]
@@ -475,6 +477,7 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
             current_col = 0
         plot_loss(list_loss_dir_txt, plot_dir, y_label=y_label_subplots[j],ax=ax[current_row,current_col])
 
+    fig.savefig()
 
 class InfoWriter():
     """Class to store information regarding the training of a network
