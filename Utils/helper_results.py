@@ -54,7 +54,7 @@ def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolu
     for load_dir in os.listdir(model_save_dir_base):
 
         # load the weights
-        model.load_state_dict(torch.load(load_dir, map_location=device))
+        model.load_state_dict(torch.load(model_save_dir_base + load_dir, map_location=device))
 
         # find the epoch number
         epoch_num = float(load_dir.split["-"][1].split("E")[0])
