@@ -12,7 +12,7 @@ from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
 from Utils.data_loader import load_joint_data_as_generator
-from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer, InfoWriter
+from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer, InfoWriter, evaluate_model_full_accuracy
 from Utils.helpers_train import GradNorm
 
 def parseArguments():
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # percentage of unlabelled imagesc
-    percentage_unlabelled_set = 0.25 /4 #TODO: remove this debugging
+    percentage_unlabelled_set = 0.25
     data_version = 0
 
     # type of model
@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = False
+    load = True
     save = False
     evaluate = True
     if load:
@@ -200,16 +200,23 @@ if __name__ == "__main__":
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
     accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
+
     train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
                              ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
                              + "_train_","",".txt"]
-    validation_losses_dir_txt = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
-                                ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
-                                + "_validation_", "", ".txt"]
+    validation_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
+                                  ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
+                                  + "_validation_", "", ".txt"]
+
+    # for evaluating the true model accuracy at the saved checkpoints
+    loss_train_full_accuracies_dir_txt = train_losses_dir_list.copy()
+    loss_train_full_accuracies_dir_txt[1] = "full_accuracy"
+    loss_validation_full_accuracies_dir_txt = validation_losses_dir_list.copy()
+    loss_validation_full_accuracies_dir_txt[1] = "full_accuracy"
 
     # create the loss_writers
     train_loss_writer = LossWriter(train_losses_dir_list)
-    validation_loss_writer = LossWriter(validation_losses_dir_txt)
+    validation_loss_writer = LossWriter(validation_losses_dir_list)
 
     # create the info_writer
     info_writer = InfoWriter(info_dir_txt)
@@ -241,6 +248,7 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
     if train:
+        """
         t0 = time.time()
         train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
                     validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
@@ -253,7 +261,13 @@ if __name__ == "__main__":
                     classify_same_image=classify_same_image)
         t = time.time() - t0
         info_writer.update_time(t)
+        """
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
+        evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
+                                     convolutional=convolutional)
+        evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, validation_data,
+                                     device, convolutional=convolutional)
+
 
     if save:
         save_dir = model_save_dir.copy()

@@ -45,6 +45,40 @@ def test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_los
 
     return accuracy
 
+
+def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolutional=False,is_CNP=False):
+
+    accuracies = []
+    epochs = []
+    # load the corresponding model
+    for load_dir in os.listdir(model_save_dir_base):
+
+        # load the weights
+        model.load_state_dict(torch.load(load_dir, map_location=device))
+
+        # find the epoch number
+        epoch_num = float(load_dir.split["-"][1].split("E")[0])
+        epochs.append(epoch_num)
+
+        # get the accuracy
+        accuracy = test_model_accuracy(model, data, device, convolutional=convolutional, is_CNP=is_CNP)
+        accuracies.append(accuracy)
+
+    return accuracies, epochs
+
+def evaluate_model_full_accuracy(model,model_save_dir_base,acc_dir_txt,data,device,convolutional=False,is_CNP=False):
+    accuracies, epochs = test_model_accuracy_all_epochs
+
+    with open(acc_dir_txt, "w") as f:
+    for i,acc in enumerate(accuracies):
+        epoch = epochs[i]
+        txt = str(epoch) + ", " + str(acc) + "\n"
+        f.write(txt)
+
+
+
+
+
 def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size=10, best="min"):
 
     assert best in ["min","max"], "Argument best should be one of [min,max] but was given: " + str(best)
@@ -462,7 +496,7 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
 
     plot_dir = plot_dir.split("average")[0] + "overview.svg"
 
-    fig, ax = plt.subplots(num_rows, num_cols, figsize=(num_cols * 5, num_rows * 5))
+    fig, ax = plt.subplots(num_rows, min(num_cols,num_plots), figsize=(num_cols * 5, num_rows * 5))
     if num_rows == 1:
         ax = ax[None, :]
     elif num_cols == 1:
