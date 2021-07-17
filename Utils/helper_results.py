@@ -82,7 +82,7 @@ def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size
     return epoch
 
 
-def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=None):
+def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=None,ax=None):
     l = len(list_loss_dir_txt)
     losses = [[] for _ in range(l)]
     for i,filename in enumerate(list_loss_dir_txt):
@@ -91,8 +91,12 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=
                 if x != "":
                     losses[i].append(float(x))
 
-    # plot
-    plt.figure()
+    # plot on given figure if passed as input (to allow using as subplots)
+    if ax != None:
+        plt = ax
+    else:
+        plt.figure()
+
     for i in range(l):
         if styles != None:
             plt.plot(np.arange(1,len(losses[i])+1),losses[i], styles[i])
@@ -103,11 +107,19 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=
             plt.legend(["Train loss", "Validation loss"])
     else:
         plt.legend(labels)
-    plt.xlabel("Epoch",fontsize=15)
-    plt.ylabel(y_label,fontsize=15)
-    if "Accuracy" in y_label:
-        plt.ylim([0,1])
-    plt.savefig(loss_dir_plot)
+
+    if ax != None:
+        ax.set_xlabel("Epoch",fontsize=15)
+        ax.set_ylabel(y_label,fontsize=15)
+        if y_label != None and "accuracy" in y_label.lower():
+            ax.set_ylim([0,1])
+
+    else:
+        plt.xlabel("Epoch",fontsize=15)
+        plt.ylabel(y_label,fontsize=15)
+        if y_label != None and "accuracy" in y_label.lower():
+            plt.ylim([0,1])
+        plt.savefig(loss_dir_plot)
 
 def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False):
 
@@ -418,6 +430,9 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
 
     """
 
+    list_loss_dir_txt_subplots = []
+    y_label_subplots = []
+
     for (key,value) in train_loss_writer.list_avg_losses_per_epoch.items():
 
         list_loss_dir_txt = [train_loss_writer.obtain_loss_dir_txt(key)]
@@ -434,6 +449,32 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
             y_label = None
 
         plot_loss(list_loss_dir_txt,plot_dir,y_label=y_label)
+
+        # keep the four losses to plot them in the subplot
+        if key in ["rec_loss", "cons_loss", "accuracy_discriminator", "accuracy"]:
+            list_loss_dir_txt_subplots.append(list_loss_dir_txt)
+            y_label_subplots.append(y_label)
+
+    # Make the subplot
+    num_cols = 4
+    num_plots = len(list_loss_dir_txt_for_subplots)
+    num_rows = math.ceil(num_plots / num_cols)
+
+    fig, ax = plt.subplots(num_rows, num_cols, figsize=(num_cols * 5, num_rows * 5))
+    if num_rows == 1:
+        ax = ax[None, :]
+    elif num_cols == 1:
+        ax = ax[:, None]
+
+    current_col = -1
+    current_row = 0
+    for i,loss_dir in enumerate(list_loss_dir_txt_subplots):
+        current_col += 1
+        if current_col > num_cols-1:
+            current_row += 1
+            current_col = 0
+        plot_loss(list_loss_dir_txt, plot_dir, y_label=y_label_subplots[j],ax=ax[current_row,current_col])
+
 
 class InfoWriter():
     """Class to store information regarding the training of a network
