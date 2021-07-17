@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     batch_size = 64
     learning_rate = 2e-4
-    epochs = 410 - epoch_start
+    epochs = 400 - epoch_start
     save_freq = 1
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -261,8 +261,8 @@ if __name__ == "__main__":
                     classify_same_image=classify_same_image)
         t = time.time() - t0
         info_writer.update_time(t)
-        """
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
+        """
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
                                      convolutional=convolutional)
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, validation_data,
