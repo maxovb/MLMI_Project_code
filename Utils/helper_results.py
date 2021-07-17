@@ -66,8 +66,10 @@ def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolu
 
     return accuracies, epochs
 
+
 def evaluate_model_full_accuracy(model,model_save_dir_base,acc_dir_txt,data,device,convolutional=False,is_CNP=False):
-    accuracies, epochs = test_model_accuracy_all_epochs
+    accuracies, epochs = test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,
+                                                        convolutional=convolutional,is_CNP=is_CNP)
 
     with open(acc_dir_txt, "w") as f:
         for i,acc in enumerate(accuracies):
