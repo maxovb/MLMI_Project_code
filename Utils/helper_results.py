@@ -53,16 +53,17 @@ def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolu
     # load the corresponding model
     for load_dir in os.listdir(model_save_dir_base):
 
-        # load the weights
-        model.load_state_dict(torch.load(model_save_dir_base + load_dir, map_location=device))
+        if ".pth" in load_dir:
+            # load the weights
+            model.load_state_dict(torch.load(model_save_dir_base + load_dir, map_location=device))
 
-        # find the epoch number
-        epoch_num = float(load_dir.split("-")[1].split("E")[0])
-        epochs.append(epoch_num)
+            # find the epoch number
+            epoch_num = float(load_dir.split("-")[1].split("E")[0])
+            epochs.append(epoch_num)
 
-        # get the accuracy
-        accuracy = test_model_accuracy(model, data, device, convolutional=convolutional, is_CNP=is_CNP)
-        accuracies.append(accuracy)
+            # get the accuracy
+            accuracy = test_model_accuracy(model, data, device, convolutional=convolutional, is_CNP=is_CNP)
+            accuracies.append(accuracy)
 
     return accuracies, epochs
 
