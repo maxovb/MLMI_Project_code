@@ -63,13 +63,13 @@ if __name__ == "__main__":
 
     random.seed(1234)
 
-    for data_version in range(10):
+    for data_version in range(10,20):
         # create the model
         model_name = "CNP" # now in for loop
         pooling = "" # now in for loop
-        semantics = False
-        cheat_validation = True
-        for model_name in ["CNP","ConvCNP","UNetCNP"]:
+        semantics = True
+        cheat_validation = False
+        for model_name in ["UNetCNP"]:#["CNP","ConvCNP","UNetCNP"]:
             
             epoch_unsup = 400
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                 pooling_types = ["average","flatten"]
             elif model_name in ["UNetCNP","UNetCNP_restrained"]:
                 num_layers = 2 * model.CNN.num_down_blocks + 1
-                pooling_types = ["average","flatten"]
+                pooling_types = ["average"]#["average","flatten"]
             else:
                 raise "Model name invalid"
             
