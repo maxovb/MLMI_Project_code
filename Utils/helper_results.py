@@ -92,33 +92,30 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=
                     losses[i].append(float(x))
 
     # plot on given figure if passed as input (to allow using as subplots)
-    if ax != None:
-        plt = ax
+    if ax == None:
+        ax_given = False
+        fig, ax = plt.figure()
     else:
-        plt.figure()
+        ax_given = True
+
 
     for i in range(l):
         if styles != None:
-            plt.plot(np.arange(1,len(losses[i])+1),losses[i], styles[i])
+            ax.plot(np.arange(1, len(losses[i]) + 1), losses[i], styles[i])
         else:
-            plt.plot(np.arange(1, len(losses[i]) + 1), losses[i])
+            ax.plot(np.arange(1, len(losses[i]) + 1), losses[i])
     if labels == None:
         if l == 2:
-            plt.legend(["Train loss", "Validation loss"])
+            ax.legend(["Train loss", "Validation loss"])
     else:
-        plt.legend(labels)
+        ax.legend(labels)
 
-    if ax != None:
-        ax.set_xlabel("Epoch",fontsize=15)
-        ax.set_ylabel(y_label,fontsize=15)
-        if y_label != None and "accuracy" in y_label.lower():
-            ax.set_ylim([0,1])
+    ax.set_xlabel("Epoch",fontsize=15)
+    ax.set_ylabel(y_label,fontsize=15)
+    if y_label != None and "accuracy" in y_label.lower():
+        ax.set_ylim([0,1])
 
-    else:
-        plt.xlabel("Epoch",fontsize=15)
-        plt.ylabel(y_label,fontsize=15)
-        if y_label != None and "accuracy" in y_label.lower():
-            plt.ylim([0,1])
+    if not(ax_given):
         plt.savefig(loss_dir_plot)
 
 def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False):
