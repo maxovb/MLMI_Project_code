@@ -118,7 +118,7 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=
 
     if not(ax_given):
         plt.savefig(loss_dir_plot)
-        plt.closer(fig)
+        plt.close(fig)
 
 def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False):
 
