@@ -456,7 +456,7 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
 
     # Make the subplot
     num_cols = 4
-    num_plots = len(list_loss_dir_txt_for_subplots)
+    num_plots = len(list_loss_dir_txt_subplots)
     num_rows = math.ceil(num_plots / num_cols)
 
     plot_dir = plot_dir.split("average")[0] + "overview.svg"
