@@ -70,10 +70,10 @@ def evaluate_model_full_accuracy(model,model_save_dir_base,acc_dir_txt,data,devi
     accuracies, epochs = test_model_accuracy_all_epochs
 
     with open(acc_dir_txt, "w") as f:
-    for i,acc in enumerate(accuracies):
-        epoch = epochs[i]
-        txt = str(epoch) + ", " + str(acc) + "\n"
-        f.write(txt)
+        for i,acc in enumerate(accuracies):
+            epoch = epochs[i]
+            txt = str(epoch) + ", " + str(acc) + "\n"
+            f.write(txt)
 
 
 
