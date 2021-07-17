@@ -211,10 +211,10 @@ if __name__ == "__main__":
     # for evaluating the true model accuracy at the saved checkpoints
     loss_train_full_accuracies_dir_list = train_losses_dir_list.copy()
     loss_train_full_accuracies_dir_list[1] = "full_accuracy"
-    loss_train_full_accuracies_dir_txt = "".join(loss_train_full_accuracies_list)
+    loss_train_full_accuracies_dir_txt = "".join(loss_train_full_accuracies_dir_list)
     loss_validation_full_accuracies_dir_list = validation_losses_dir_list.copy()
     loss_validation_full_accuracies_dir_list[1] = "full_accuracy"
-    loss_validation_full_accuracies_dir_txt = "".join(loss_validation_full_accuracies_list)
+    loss_validation_full_accuracies_dir_txt = "".join(loss_validation_full_accuracies_dir_list)
 
     # create the loss_writers
     train_loss_writer = LossWriter(train_losses_dir_list)
