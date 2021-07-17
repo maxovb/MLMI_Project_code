@@ -241,7 +241,7 @@ class OnTheGridConvCNP(nn.Module):
 
         unsup_loss = torch.sum(unsup_task_loss)
         sup_loss = torch.sum(sup_task_loss)
-        joint_loss = torch.sum(task_loss)
+        joint_loss = torch.nansum(task_loss)
 
         obj = torch.nansum(torch.mul(self.task_weights, task_loss))
 
@@ -993,7 +993,7 @@ class ConvCNPClassifier(nn.Module):
 
         unsup_loss = torch.sum(unsup_task_loss)
         sup_loss = torch.sum(sup_task_loss)
-        joint_loss = torch.sum(task_loss)
+        joint_loss = torch.nansum(task_loss)
 
         obj = torch.nansum(torch.mul(self.task_weights, task_loss))
 
