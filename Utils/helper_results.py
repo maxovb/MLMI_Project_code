@@ -94,7 +94,8 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=
     # plot on given figure if passed as input (to allow using as subplots)
     if ax == None:
         ax_given = False
-        fig, ax = plt.figure()
+        fig, ax = plt.subplots(1)
+
     else:
         ax_given = True
 
