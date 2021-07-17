@@ -319,10 +319,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
 
-            # TODO: remove this debugging
-            if batch_idx >0:
-                break
-
             target = target.to(device)
 
             if consistency_regularization or classify_same_image:
