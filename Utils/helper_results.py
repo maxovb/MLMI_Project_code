@@ -57,7 +57,7 @@ def test_model_accuracy_all_epochs(model,model_save_dir_base,data,device,convolu
         model.load_state_dict(torch.load(model_save_dir_base + load_dir, map_location=device))
 
         # find the epoch number
-        epoch_num = float(load_dir.split["-"][1].split("E")[0])
+        epoch_num = float(load_dir.split("-")[1].split("E")[0])
         epochs.append(epoch_num)
 
         # get the accuracy
