@@ -474,7 +474,7 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
         if current_col > num_cols-1:
             current_row += 1
             current_col = 0
-        plot_loss(list_loss_dir_txt, plot_dir, y_label=y_label_subplots[j],ax=ax[current_row,current_col])
+        plot_loss(loss_dir, plot_dir, y_label=y_label_subplots[i],ax=ax[current_row,current_col])
 
     fig.savefig()
 
