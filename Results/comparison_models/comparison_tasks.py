@@ -18,8 +18,6 @@ if __name__ == "__main__":
         labels = [model_name, "+ consistency", "+ extra task", "+ both"]
         styles = ["-","--","-.",":"]
         for grad_norm in [False, True]:
-            if "GMM" in model_name and grad_norm == True:
-                continue
             loss_base_dir = ["", "", "", ""]
             i = -1
             for classify_same_image in [False, True]:

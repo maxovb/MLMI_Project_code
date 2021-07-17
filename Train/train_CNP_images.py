@@ -307,10 +307,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
         semantic_blocks = None
 
     # use more sets of context sets if using consistency regularization
-    if consistency_regularization:
-        num_sets_of_context = 2
-    else:
-        num_sets_of_context = 1
+    num_sets_of_context = 1
 
     # define the sampling threshold to use if max_percentage_context is None
     threshold = 1 / 3
@@ -322,11 +319,14 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
         iterator = tqdm(train_data)
         for batch_idx, (data, target) in enumerate(iterator):
 
+            # TODO: remove this debugging
+            if batch_idx >0:
+                break
+
             target = target.to(device)
 
             if consistency_regularization or classify_same_image:
-                if classify_same_image:
-                    num_sets_of_context = 2
+                num_sets_of_context = 2
                 repeat_size_target = [1] * len(target.shape)
                 repeat_size_target[0] = num_sets_of_context
                 repeat_size_target = tuple(repeat_size_target)
@@ -401,7 +401,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                 
                 target = target.to(device)
 
-                if consistency_regularization:
+                if consistency_regularization or classify_same_image:
                     repeat_size_target = [1] * len(target.shape)
                     repeat_size_target[0] = num_sets_of_context
                     repeat_size_target = tuple(repeat_size_target)
