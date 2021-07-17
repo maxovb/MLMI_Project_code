@@ -69,7 +69,7 @@ if __name__ == "__main__":
         pooling = "" # now in for loop
         semantics = True
         cheat_validation = False
-        for model_name in ["UNetCNP"]:#["CNP","ConvCNP","UNetCNP"]:
+        for model_name in ["ConvCNP"]:#["CNP","ConvCNP","UNetCNP"]:
             
             epoch_unsup = 400
 
@@ -82,10 +82,10 @@ if __name__ == "__main__":
                 pooling_types = [""]
             elif model_name == "ConvCNP":
                 num_layers = model.CNN.num_residual_blocks
-                pooling_types = ["average","flatten"]
+                pooling_types = ["flatten"]#["average","flatten"]
             elif model_name in ["UNetCNP","UNetCNP_restrained"]:
                 num_layers = 2 * model.CNN.num_down_blocks + 1
-                pooling_types = ["average"]#["average","flatten"]
+                pooling_types = ["flatten"]#["average","flatten"]
             else:
                 raise "Model name invalid"
             

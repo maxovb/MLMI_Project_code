@@ -52,6 +52,9 @@ if __name__ == "__main__":
     # percentage of unlabelled imagesc
     percentage_unlabelled_set = 0.25
     data_version = 0
+    
+    # divide the ratio of weights for the supervised task
+    R = 2 ** 0
 
     # type of model
     model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
@@ -122,17 +125,17 @@ if __name__ == "__main__":
                 alpha = 1
                 alpha_validation = 1
             else:
-                alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
+                alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
                 alpha_validation = 1
         else:
             if grad_norm:
                 alpha = 1
                 alpha_validation = 1
             else:
-                alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
+                alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
                 alpha_validation = 1
     else:
-        alpha = 1 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
+        alpha = 1 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
         alpha_validation = 1
     
     # load the supervised set
@@ -183,7 +186,7 @@ if __name__ == "__main__":
     losses_name.append("Supervised")
 
     ratios = [1 for _ in range(num_losses)]
-    ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples
+    ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples / R
 
     if grad_norm:
         gamma = 1.5 # hyper-parameter for grad_norm
@@ -192,13 +195,13 @@ if __name__ == "__main__":
         grad_norm_iterator = None
 
     # define the directories
-    experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
+    experiment_dir_list = ["saved_models/MNIST/joint_" + str(R) + "R" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
     info_dir_txt = experiment_dir_txt + "information.txt"
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
-    accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+    accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
 
     train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
@@ -250,7 +253,6 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
     if train:
-        """
         t0 = time.time()
         train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
                     validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
@@ -264,10 +266,9 @@ if __name__ == "__main__":
         t = time.time() - t0
         info_writer.update_time(t)
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
-        """
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
                                      convolutional=convolutional)
-        evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, validation_data,
+        evaluate_model_full_accuracy(model, experiment_dir_txt, loss_validation_full_accuracies_dir_txt, validation_data,
                                      device, convolutional=convolutional)
 
 
