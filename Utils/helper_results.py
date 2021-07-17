@@ -368,8 +368,8 @@ class LossWriter():
             sum_total = sum(self.list_losses_during_epoch[loss_name])
             return sum_total
         else:
-            list_losses = self.list_losses_during_epoch[loss_name]
-            avg_loss = sum(list_losses)/len(list_losses)
+            array_losses = np.array(self.list_losses_during_epoch[loss_name])
+            avg_loss = np.nanmean(array_losses)
             return avg_loss
 
     def append_epoch_avg_losses(self):

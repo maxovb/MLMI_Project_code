@@ -234,7 +234,7 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(load_dir,map_location=device))
     else:
         # if train from scratch, check if a loss file already exists
-        assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt(["joint_loss"])
+        assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
     if train:
         t0 = time.time()

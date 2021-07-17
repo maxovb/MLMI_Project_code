@@ -206,7 +206,7 @@ class OnTheGridConvCNP(nn.Module):
                 total_discr += total_discriminator_local
                 num_correct_discr += total_discriminator_local * accuracy_discriminator_local
         else:
-            sup_loss = torch.zeros(1,device=unsup_loss.device)[0]
+            sup_loss = torch.zeros(1,device=mean.device)[0] * float('nan')
             total = 0
             accuracy = 0
 
@@ -243,7 +243,7 @@ class OnTheGridConvCNP(nn.Module):
         sup_loss = torch.sum(sup_task_loss)
         joint_loss = torch.sum(task_loss)
 
-        obj = torch.sum(torch.mul(self.task_weights, task_loss))
+        obj = torch.nansum(torch.mul(self.task_weights, task_loss))
 
         if grad_norm_iterator:
             assert alpha == 1, "alpha should be 1 when using grad norm"
@@ -953,7 +953,7 @@ class ConvCNPClassifier(nn.Module):
             sup_loss = scale_sup * select_labelled.float() * self.loss(output_logit,target_label_for_evaluating, reduction='none')
             sup_loss = sup_loss.sum()/n_labelled
         else:
-            sup_loss = torch.zeros(1,device=mean.device)[0]
+            sup_loss = torch.zeros(1,device=mean.device)[0] * float('nan')
         rec_loss = scale_unsup * self.loss_unsup(mean,std,target_image)
 
         # append to the list of tasks loss
@@ -995,7 +995,7 @@ class ConvCNPClassifier(nn.Module):
         sup_loss = torch.sum(sup_task_loss)
         joint_loss = torch.sum(task_loss)
 
-        obj = torch.sum(torch.mul(self.task_weights, task_loss))
+        obj = torch.nansum(torch.mul(self.task_weights, task_loss))
 
         if grad_norm_iterator:
             assert alpha == 1, "alpha should be 1 when using grad norm"
