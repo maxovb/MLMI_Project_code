@@ -379,7 +379,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                 iterator.refresh()  # to show immediately the update
 
         if grad_norm_iterator:
-            if i >= 100: # TODO change to 50 (test with reducing weight of classification task)
+            if i + epoch_start >= 100: 
                 grad_norm_iterator.grad_norm_iteration()
             else:
                 grad_norm_iterator.scale_only_grad_norm_iteration()

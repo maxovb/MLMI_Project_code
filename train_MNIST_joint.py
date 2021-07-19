@@ -74,7 +74,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 100 # which epoch to start from
+        epoch_start = 1000 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     else:
         batch_size = 64
     learning_rate = 2e-4
-    epochs = 600 - epoch_start
+    epochs = 2000 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -176,23 +176,36 @@ if __name__ == "__main__":
     num_losses = 2
     theoretical_minimum_loss = [- img_width * img_height * num_channels * math.log(1/(math.sqrt(2*math.pi)*0.01))] # reconstruction loss
     losses_name = ["Regression"]
+    acronym_losses = ["rec_loss"]
+    initial_loss = [0]
     if consistency_regularization:
         num_losses += 1
         theoretical_minimum_loss.append(-math.log(2))
         losses_name.append("Consistency")
+        acronym_losses.append("cons_loss")
+        initial_loss.append(0)
     if classify_same_image:
         num_losses += 1
         theoretical_minimum_loss.append(0)
         losses_name.append("Extra classification task")
+        acronym_losses.append("loss_discriminator")
+        initial_loss.append(0.3)
+
     theoretical_minimum_loss.append(0) # cross-entropy
     losses_name.append("Supervised")
+    acronym_losses.append("sup_loss")
+    initial_loss.append(1.3)
 
     ratios = [1 for _ in range(num_losses)]
     ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples / R
 
     if grad_norm:
+        if load:
+            initial_task_loss = np.array(initial_loss)
+        else:
+            initial_task_loss = None
         gamma = 1.5 # hyper-parameter for grad_norm
-        grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss,losses_name=losses_name)
+        grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss,losses_name=losses_name,initial_task_loss=initial_task_loss)
     else:
         grad_norm_iterator = None
 

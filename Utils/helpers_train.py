@@ -20,18 +20,18 @@ class GradNorm():
          International Conference on Machine Learning. PMLR, 2018.
     """
 
-    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None, clip_value=None, losses_name=None):
+    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None, clip_value=None, losses_name=None, initial_task_loss=None):
         self.model = model
         self.gamma = gamma
         self.clip_value = clip_value
         self.losses_name = None
+        self.initial_task_loss = initial_task_loss
 
         self.ratios = ratios
         self.theoretical_minimum_loss = theoretical_minimum_loss
 
         self.list_norms = []
         self.list_task_loss = []
-        self.initial_task_loss = None
 
         self.list_task_weights_to_write = []
         self.list_mean_norms_to_write = []
@@ -61,7 +61,7 @@ class GradNorm():
 
         # compute the inverse training rate
         avg_task_loss = sum(self.list_task_loss)/len(self.list_task_loss)
-
+        
         if self.initial_task_loss is None: # first epoch store the loss
             self.initial_task_loss = avg_task_loss
 
@@ -104,7 +104,7 @@ class GradNorm():
     def store_norm(self, task_loss):
 
         for loss in task_loss:
-            if loss.item() == 0:
+            if loss.item() == 0 or torch.isnan(loss):
                 return
 
         # get layer of shared weights
