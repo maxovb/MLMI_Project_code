@@ -26,6 +26,7 @@ def parseArguments():
     parser.add_argument("-CL", "--consitencyloss", help="Use consistency loss", type=str, default="False")
     parser.add_argument("-ET", "--extratask", help="Use extra classification task", type=str, default="False")
     parser.add_argument("-GN", "--gradnorm", help="Use grad norm", type=str, default="False")
+    parser.add_argument("-R","--ratiodivide",help="Value by which to divide the ratio for the grad loss",type=float,default=1)
 
     # Parse arguments
     args = parser.parse_args()
@@ -45,16 +46,14 @@ if __name__ == "__main__":
     consistency_regularization = args.consitencyloss.lower() == "true"
     classify_same_image = args.extratask.lower() == "true"
     grad_norm = args.gradnorm.lower() == "true"
+    R = args.ratiodivide
 
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # percentage of unlabelled imagesc
-    percentage_unlabelled_set = 0.25
+    percentage_unlabelled_set = 0.25 / 4
     data_version = 0
-    
-    # divide the ratio of weights for the supervised task
-    R = 2 ** 0
 
     # type of model
     model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
@@ -75,14 +74,17 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 400 # which epoch to start from
+        epoch_start = 100 # which epoch to start from
     else:
         epoch_start = 0
 
-    batch_size = 64
+    if percentage_unlabelled_set < 0.25:
+        batch_size = 16
+    else:
+        batch_size = 64
     learning_rate = 2e-4
-    epochs = 400 - epoch_start
-    save_freq = 1
+    epochs = 600 - epoch_start
+    save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
