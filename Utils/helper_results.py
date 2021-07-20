@@ -515,6 +515,7 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
         plot_loss(loss_dir, plot_dir, y_label=y_label_subplots[i],ax=ax[current_row,current_col])
 
     fig.savefig(plot_dir)
+    plt.close(fig)
 
 class InfoWriter():
     """Class to store information regarding the training of a network

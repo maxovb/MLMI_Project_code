@@ -277,7 +277,7 @@ class OffTheGridConvCNP(nn.Module):
 
         # compute the accuracy
         _, predicted = torch.max(probs, dim=1)
-        total = len(target_label)
+        total = troch.sum((target_label != 1).foat())
         if total != 0:
             accuracy = ((predicted == target_label).sum()).item() / total
         else:
@@ -319,7 +319,7 @@ class OffTheGridConvCNP(nn.Module):
 
         # compute the accuracy
         _, predicted = torch.max(probs, dim=1)
-        total = len(target_label)
+        total = torch.sum((target_label != -1).float())
         if total != 0:
             accuracy = ((predicted == target_label).sum()).item() / total
         else:
