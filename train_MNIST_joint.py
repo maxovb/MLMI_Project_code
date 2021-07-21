@@ -52,7 +52,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # percentage of unlabelled imagesc
-    percentage_unlabelled_set = 0.25 / 4
+    percentage_unlabelled_set = 1
     data_version = 0
 
     # type of model
