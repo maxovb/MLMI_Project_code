@@ -80,6 +80,13 @@ def extract_accuracies_form_file_with_multiple_columns(acc_dir_txt):
     return accuracies, list_num_samples
 
 
+def extract_accuracies_from_list_of_file_specific_column(list_acc_dir_txt,column):
+    accuracies = []
+    for i,dir in enumerate(list_acc_dir_txt):
+        local_acc, list_num_samples = extract_accuracies_form_file_with_multiple_columns(dir)
+        accuracies.append(local_acc[column])
+    return accuracies, local_acc
+
 
 if __name__ == "__main__":
 
