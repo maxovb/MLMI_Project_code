@@ -69,12 +69,12 @@ if __name__ == "__main__":
     min_context_points = 2
 
     # for continued supervised training
-    train = True
-    load = False
+    train = False
+    load = True
     save = False
     evaluate = True
     if load:
-        epoch_start = 1000 # which epoch to start from
+        epoch_start = 2000 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -285,7 +285,6 @@ if __name__ == "__main__":
                                      convolutional=convolutional)
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_validation_full_accuracies_dir_txt, validation_data,
                                      device, convolutional=convolutional)
-
 
     if save:
         save_dir = model_save_dir.copy()
