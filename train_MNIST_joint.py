@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
     # percentage of unlabelled imagesc
     percentage_unlabelled_set = 1
-    data_version = 0
-
+    data_version = 1
+    error
     # type of model
     model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
@@ -69,8 +69,8 @@ if __name__ == "__main__":
     min_context_points = 2
 
     # for continued supervised training
-    train = False
-    load = True
+    train = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -81,7 +81,8 @@ if __name__ == "__main__":
     if percentage_unlabelled_set < 0.25:
         batch_size = 16
     else:
-        batch_size = 64
+        batch_size = 16 # 64
+    error
     learning_rate = 2e-4
     epochs = 2000 - epoch_start
     save_freq = 20
