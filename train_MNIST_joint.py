@@ -23,6 +23,7 @@ def parseArguments():
     parser.add_argument("n", help="Number of labelled samples", type=int)
 
     # Optional arguments
+    parser.add_argument("-RL","--regressionloss",help="Use the regression loss", type=str, default="True")
     parser.add_argument("-CL", "--consitencyloss", help="Use consistency loss", type=str, default="False")
     parser.add_argument("-ET", "--extratask", help="Use extra classification task", type=str, default="False")
     parser.add_argument("-GN", "--gradnorm", help="Use grad norm", type=str, default="False")
@@ -43,6 +44,7 @@ if __name__ == "__main__":
     num_samples = args.n
     assert int(num_samples) == float(num_samples), "The number of samples should be an integer but was given " + str(float(sys.argv[1]))
 
+    regression_loss = args.regresssionloss.lower() = "true"
     consistency_regularization = args.consitencyloss.lower() == "true"
     classify_same_image = args.extratask.lower() == "true"
     grad_norm = args.gradnorm.lower() == "true"
@@ -54,7 +56,7 @@ if __name__ == "__main__":
     # percentage of unlabelled imagesc
     percentage_unlabelled_set = 1
     data_version = 1
-    error
+
     # type of model
     model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
@@ -200,6 +202,9 @@ if __name__ == "__main__":
     ratios = [1 for _ in range(num_losses)]
     ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples / R
 
+    if not(regression_loss):
+        ratios[0] = 0
+
     if grad_norm:
         if load:
             initial_task_loss = np.array(initial_loss)
@@ -211,13 +216,13 @@ if __name__ == "__main__":
         grad_norm_iterator = None
 
     # define the directories
-    experiment_dir_list = ["saved_models/MNIST/joint_" + str(R) + "R" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
+    experiment_dir_list = ["saved_models/MNIST/joint_" + str(R) + "R" + ("_semantics" if semantics else "_") + ("no_rec_" if consistency_regularization else "")  + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
     info_dir_txt = experiment_dir_txt + "information.txt"
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
-    accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+    accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("no_rec_" if consistency_regularization else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
 
     train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
