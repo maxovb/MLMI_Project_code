@@ -105,9 +105,10 @@ class OnTheGridConvCNP(nn.Module):
         obj, losses = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
 
         # Optimization
-        obj.backward()
-        opt.step()
-        opt.zero_grad()
+        if obj.requires_grad:
+            obj.backward()
+            opt.step()
+            opt.zero_grad()
 
         return losses
     
@@ -930,7 +931,7 @@ class ConvCNPClassifier(nn.Module):
         loss = criterion(output_logit,target_label)
         return loss
 
-    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm_iterator=None):
+    def joint_loss(self,mask,context_img,target_label,target_image,alpha=1,scale_sup=1,scale_unsup=1,consistency_regularization=False,num_sets_of_context=1,grad_norm_iterator=None, regression_loss=True):
         
         target_image = target_image.permute(0, 2, 3, 1)
         
@@ -956,6 +957,8 @@ class ConvCNPClassifier(nn.Module):
             sup_loss = torch.zeros(1,device=mean.device)[0] * float('nan')
         rec_loss = scale_unsup * self.loss_unsup(mean,std,target_image)
 
+        if regression_loss == False:
+            rec_loss = torch.zeros(1)[0].to(rec_loss.device)
         # append to the list of tasks loss
         unsup_task_loss.append(rec_loss)
         sup_task_loss.append(sup_loss)
@@ -995,7 +998,10 @@ class ConvCNPClassifier(nn.Module):
         sup_loss = torch.sum(sup_task_loss)
         joint_loss = torch.nansum(task_loss)
 
-        obj = torch.nansum(torch.mul(self.task_weights, task_loss))
+        if regression_loss:
+            obj = torch.nansum(torch.mul(self.task_weights, task_loss))
+        else:
+            obj = torch.nansum(torch.mul(self.task_weights[1:], task_loss[1:]))
 
         if grad_norm_iterator:
             assert alpha == 1, "alpha should be 1 when using grad norm"
@@ -1038,17 +1044,18 @@ class ConvCNPClassifier(nn.Module):
 
         return obj.item(), accuracy, total
 
-    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm_iterator=None):
+    def joint_train_step(self,mask,context_img,target_label,target_image,opt,alpha=1, scale_sup=1, scale_unsup=1,consistency_regularization=False,num_sets_of_context=1, grad_norm_iterator=None, regression_loss=True):
 
         #obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
-        obj, losses = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator)
+        obj, losses = self.joint_loss(mask,context_img,target_label,target_image,alpha=alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context,grad_norm_iterator=grad_norm_iterator, regression_loss=regression_loss)
 
         # optimization
         if grad_norm_iterator:
             opt.zero_grad()
-        obj.backward()
-        opt.step()
-        opt.zero_grad()
+        if obj.requires_grad:
+            obj.backward()
+            opt.step()
+            opt.zero_grad()
 
         return losses
 

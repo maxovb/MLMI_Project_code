@@ -89,7 +89,10 @@ class GradNorm():
         target_norm = np.mean(avg_norm) * (inverse_train_rate ** self.gamma)
 
         self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
-        normalization_cst = len(self.model.task_weights) / torch.sum(self.model.task_weights, dim=0).detach()
+        if 0 in multiplicative_term:
+            normalization_cst = torch.sum((multiplicative_term != 0).float()) / torch.sum(self.model.task_weights * (multiplicative_term != 0).float(), dim=0).detach()
+        else:
+            normalization_cst = len(self.model.task_weights) / torch.sum(self.model.task_weights, dim=0).detach()
         self.model.task_weights = self.model.task_weights * normalization_cst * multiplicative_term
 
         # append the new task weights 

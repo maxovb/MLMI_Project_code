@@ -49,6 +49,8 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
                 else:
                     num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
 
+            #num_context_points = 789 # for debugging only
+
             if convolutional:
                 mask, context_img = image_processor(data, num_context_points, convolutional=convolutional, semantic_blocks=semantic_blocks, device=device)
                 data = data.to(device).permute(0,2,3,1)
@@ -291,7 +293,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
     return avg_train_loss_per_epoch, avg_validation_loss_per_epoch
 
 
-def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, validation_data = None, validation_loss_writer=None, visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), alpha=None, alpha_validation=None, num_samples_expectation=None, std_y=None, parallel=False, weight_ratio=False, consistency_regularization=False, grad_norm_iterator=None, gradnorm_dir_txt="", classify_same_image=False):
+def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, validation_data = None, validation_loss_writer=None, visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), alpha=None, alpha_validation=None, num_samples_expectation=None, std_y=None, parallel=False, weight_ratio=False, consistency_regularization=False, grad_norm_iterator=None, gradnorm_dir_txt="", classify_same_image=False, regression_loss=True):
 
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
 
@@ -352,7 +354,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
 
                 data = data.to(device)
                 
-                losses = model.joint_train_step(mask, context_img, target, data, opt, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
+                losses = model.joint_train_step(mask, context_img, target, data, opt, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator, regression_loss=regression_loss)
 
             else:
                 x_context, y_context, x_target, y_target, num_context_points, num_target_points = image_processor(data, num_context_points,
@@ -427,7 +429,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                         scale_sup, scale_unsup = 1, 1
 
                     # get the losses
-                    _, losses = model.joint_loss(mask,context_img,target,data,alpha=alpha_validation, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context)
+                    _, losses = model.joint_loss(mask,context_img,target,data,alpha=alpha_validation, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context,regression_loss=regression_loss)
 
                 else:
                     x_context, y_context, x_target, y_target, num_context_points, num_target_points = image_processor(data, num_context_points,

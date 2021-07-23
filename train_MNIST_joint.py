@@ -23,6 +23,8 @@ def parseArguments():
     parser.add_argument("n", help="Number of labelled samples", type=int)
 
     # Optional arguments
+    parser.add_argument("-V","--dataversion",help="Data version to use",type=int, default=0)
+    parser.add_argument("-P","--percentage",help="Percentage of the unlabelled set to use", type=float,default=1.0)
     parser.add_argument("-RL","--regressionloss",help="Use the regression loss", type=str, default="True")
     parser.add_argument("-CL", "--consitencyloss", help="Use consistency loss", type=str, default="False")
     parser.add_argument("-ET", "--extratask", help="Use extra classification task", type=str, default="False")
@@ -44,7 +46,7 @@ if __name__ == "__main__":
     num_samples = args.n
     assert int(num_samples) == float(num_samples), "The number of samples should be an integer but was given " + str(float(sys.argv[1]))
 
-    regression_loss = args.regresssionloss.lower() = "true"
+    regression_loss = args.regressionloss.lower() == "true"
     consistency_regularization = args.consitencyloss.lower() == "true"
     classify_same_image = args.extratask.lower() == "true"
     grad_norm = args.gradnorm.lower() == "true"
@@ -54,8 +56,8 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # percentage of unlabelled imagesc
-    percentage_unlabelled_set = 1
-    data_version = 1
+    percentage_unlabelled_set = args.percentage
+    data_version = args.dataversion
 
     # type of model
     model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
@@ -64,9 +66,7 @@ if __name__ == "__main__":
 
     semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-    #consistency_regularization = False # whether to use consistency regularization or not
-    #grad_norm = False # whether to use GradNorm to balance the losses
-    #classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
+   
     validation_split = 0.1
     min_context_points = 2
 
@@ -83,9 +83,9 @@ if __name__ == "__main__":
     if percentage_unlabelled_set < 0.25:
         batch_size = 16
     else:
-        batch_size = 16 # 64
-    error
+        batch_size = 256 #64
     learning_rate = 2e-4
+
     epochs = 2000 - epoch_start
     save_freq = 20
 
@@ -216,13 +216,13 @@ if __name__ == "__main__":
         grad_norm_iterator = None
 
     # define the directories
-    experiment_dir_list = ["saved_models/MNIST/joint_" + str(R) + "R" + ("_semantics" if semantics else "_") + ("no_rec_" if consistency_regularization else "")  + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
+    experiment_dir_list = ["saved_models/MNIST/joint_" + str(R) + "R" + ("_semantics" if semantics else "") + ("_no_rec" if not(regression_loss) else "")  + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
     experiment_dir_txt = "".join(experiment_dir_list)
     info_dir_txt = experiment_dir_txt + "information.txt"
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
-    accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("no_rec_" if consistency_regularization else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+    accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("_no_rec_" if not(regression_loss) else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
 
     train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
@@ -283,7 +283,7 @@ if __name__ == "__main__":
                     std_y=std_y, parallel=parallel, weight_ratio=weight_ratio,
                     consistency_regularization=consistency_regularization,
                     grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
-                    classify_same_image=classify_same_image)
+                    classify_same_image=classify_same_image, regression_loss=regression_loss)
         t = time.time() - t0
         info_writer.update_time(t)
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
