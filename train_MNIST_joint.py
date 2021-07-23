@@ -55,7 +55,7 @@ if __name__ == "__main__":
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # percentage of unlabelled imagesc
+    # percentage of unlabelled images
     percentage_unlabelled_set = args.percentage
     data_version = args.dataversion
 

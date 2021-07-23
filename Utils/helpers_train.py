@@ -20,12 +20,14 @@ class GradNorm():
          International Conference on Machine Learning. PMLR, 2018.
     """
 
-    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None, clip_value=None, losses_name=None, initial_task_loss=None):
+    def __init__(self, model, gamma, ratios=None, theoretical_minimum_loss=None, clip_value=None, losses_name=None, initial_task_loss=None, regression_loss=True):
         self.model = model
         self.gamma = gamma
         self.clip_value = clip_value
-        self.losses_name = None
+        self.losses_name = losses_name
         self.initial_task_loss = initial_task_loss
+        self.regression_loss = regression_loss
+
 
         self.ratios = ratios
         self.theoretical_minimum_loss = theoretical_minimum_loss
@@ -68,6 +70,7 @@ class GradNorm():
         # compute the average norm
         array_norms = np.array(self.list_norms)
 
+        nan_norms = np.isnan(np.mean(array_norms,axis=0))
         avg_norm = np.mean(array_norms,axis=0)
         std_norm = np.std(array_norms,axis=0)
 
@@ -82,13 +85,24 @@ class GradNorm():
         if self.theoretical_minimum_loss:
             min_loss = np.array(self.theoretical_minimum_loss)
             loss_ratio = (avg_task_loss - min_loss) / (self.initial_task_loss - min_loss)
-            inverse_train_rate = loss_ratio / np.mean(loss_ratio)
+            if self.regression_loss:
+                inverse_train_rate = loss_ratio / np.mean(loss_ratio)
+            else:
+                inverse_train_rate = loss_ratio / np.mean(loss_ratio[1:])
         else:
             inverse_train_rate = np.ones(avg_norm.shape)
 
-        target_norm = np.mean(avg_norm) * (inverse_train_rate ** self.gamma)
+        if self.regression_loss:
+            target_norm = np.nan(avg_norm) * (inverse_train_rate ** self.gamma)
+        else:
+            target_norm = np.nan(avg_norm[1:]) * (inverse_train_rate ** self.gamma)
 
-        self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
+        if self.regression_loss:
+            self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
+        else:
+            self.model.task_weights[1:] = torch.from_numpy(target_norm[1:] / avg_norm[1:]).to(self.model.task_weights.device)
+            self.model.task_weights[0] = 0
+
         if 0 in multiplicative_term:
             normalization_cst = torch.sum((multiplicative_term != 0).float()) / torch.sum(self.model.task_weights * (multiplicative_term != 0).float(), dim=0).detach()
         else:
@@ -106,7 +120,7 @@ class GradNorm():
 
     def store_norm(self, task_loss):
 
-        for loss in task_loss:
+        for loss in task_loss[1:]:
             if loss.item() == 0 or torch.isnan(loss):
                 return
 
@@ -117,10 +131,13 @@ class GradNorm():
         # G^{(i)}_w(t)
         norms = []
         for i in range(len(task_loss)):
-            # get the gradient of this task loss with respect to the shared parameters
-            gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
-            # compute the norm
-            norms.append(torch.norm(gygw[0]))
+            if task_loss[i].requires_grad:
+                # get the gradient of this task loss with respect to the shared parameters
+                gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
+                # compute the norm
+                norms.append(torch.norm(gygw[0]))
+            else:
+                norms.append(torch.zeros(1,device=task_loss[i].device)[0] * float('nan'))
 
         norms = torch.stack(norms).detach().cpu().numpy()
 
