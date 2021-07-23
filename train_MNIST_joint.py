@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     # pass the arguments
     args = parseArguments()
-
+    x = os.getcwd()
     num_samples = args.n
     assert int(num_samples) == float(num_samples), "The number of samples should be an integer but was given " + str(float(sys.argv[1]))
 
