@@ -2,7 +2,6 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import os
-x = os.getcwd()
 import torch
 import sys
 import math
