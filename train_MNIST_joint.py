@@ -210,7 +210,7 @@ if __name__ == "__main__":
         else:
             initial_task_loss = None
         gamma = 1.5 # hyper-parameter for grad_norm
-        grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss,losses_name=losses_name,initial_task_loss=initial_task_loss)
+        grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss,losses_name=losses_name,initial_task_loss=initial_task_loss,regression_loss=regression_loss)
     else:
         grad_norm_iterator = None
 

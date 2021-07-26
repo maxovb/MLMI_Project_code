@@ -94,9 +94,9 @@ class GradNorm():
             inverse_train_rate = np.ones(avg_norm.shape)
 
         if self.regression_loss:
-            target_norm = np.nan(avg_norm) * (inverse_train_rate ** self.gamma)
+            target_norm = np.mean(avg_norm) * (inverse_train_rate ** self.gamma)
         else:
-            target_norm = np.nan(avg_norm[1:]) * (inverse_train_rate ** self.gamma)
+            target_norm = np.mean(avg_norm[1:]) * (inverse_train_rate ** self.gamma)
 
         if self.regression_loss:
             self.model.task_weights = torch.from_numpy(target_norm / avg_norm).to(self.model.task_weights.device)
