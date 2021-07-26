@@ -39,6 +39,8 @@ class GradNorm():
         self.list_mean_norms_to_write = []
         self.list_std_norms_to_write = []
 
+        self.trainable_loss = {}
+
     def scale_only_grad_norm_iteration(self):
         if self.ratios:
             multiplicative_term = torch.from_numpy(np.array(self.ratios)).to(self.model.task_weights.device)
@@ -70,7 +72,6 @@ class GradNorm():
         # compute the average norm
         array_norms = np.array(self.list_norms)
 
-        nan_norms = np.isnan(np.mean(array_norms,axis=0))
         avg_norm = np.mean(array_norms,axis=0)
         std_norm = np.std(array_norms,axis=0)
 
@@ -136,8 +137,10 @@ class GradNorm():
                 gygw = torch.autograd.grad(task_loss[i], W.parameters(), retain_graph=True)
                 # compute the norm
                 norms.append(torch.norm(gygw[0]))
+                self.trainable_loss[i] = True
             else:
-                norms.append(torch.zeros(1,device=task_loss[i].device)[0] * float('nan'))
+                norms.append(torch.zeros(1,device=task_loss[i].device)[0])
+                self.trainable_loss[i] = False
 
         norms = torch.stack(norms).detach().cpu().numpy()
 
