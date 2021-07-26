@@ -63,7 +63,7 @@ if __name__ == "__main__":
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
-    semantics = False # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
+    semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
     weight_ratio = True # weight the loss with the ratio of context pixels present in the image
    
     validation_split = 0.1
@@ -80,10 +80,10 @@ if __name__ == "__main__":
         epoch_start = 0
 
     if percentage_unlabelled_set < 0.25:
-        batch_size = 16
+        batch_size = 256 #16
     else:
         batch_size = 256 #TODO: 64
-    learning_rate = 2e-4 #TODO: 2e-4
+    learning_rate = 2e-4 
 
     epochs = 2000 - epoch_start
     save_freq = 20

@@ -333,22 +333,12 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                 repeat_size_data[0] = num_sets_of_context
                 repeat_size_data = tuple(repeat_size_data)
                 data = data.repeat(repeat_size_data)
-
+            
             s = np.random.rand()
             if s < 1 / 2:
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
             else:
                 num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
-
-            # TODO: remove this debugging
-            num_context_points = 789
-
-            if i == 0 and batch_idx == 0:
-                x = data
-                y = target
-            else:
-                data = x
-                target = y
 
             # TODO: add variational conv
             if convolutional:
@@ -406,10 +396,6 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
         if validation_data:
 
             for batch_idx, (data, target) in enumerate(validation_data):
-
-                # TODO: remove this debugging
-                if batch_idx >= 1:
-                    break
 
                 target = target.to(device)
 

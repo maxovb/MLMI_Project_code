@@ -7,7 +7,9 @@ from torch.distributions import Categorical
 from torch.distributions.kl import kl_divergence
 from torchsummary import summary
 from CNPs.model_part import discriminate_same_image
+from Utils.helpful_functions import nansum
 from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf, discriminator_logp, consistency_loss
+
 
 
 class OnTheGridConvCNP(nn.Module):
@@ -242,9 +244,9 @@ class OnTheGridConvCNP(nn.Module):
 
         unsup_loss = torch.sum(unsup_task_loss)
         sup_loss = torch.sum(sup_task_loss)
-        joint_loss = torch.nansum(task_loss)
+        joint_loss = nansum(task_loss)
 
-        obj = torch.nansum(torch.mul(self.task_weights, task_loss))
+        obj = nansum(torch.mul(self.task_weights, task_loss))
 
         if grad_norm_iterator:
             assert alpha == 1, "alpha should be 1 when using grad norm"
@@ -961,7 +963,7 @@ class ConvCNPClassifier(nn.Module):
             sup_loss = scale_sup * select_labelled.float() * self.loss(output_logit,target_label_for_evaluating, reduction='none')
             sup_loss = sup_loss.sum()/n_labelled
         else:
-            sup_loss = torch.zeros(1,device=mean.device)[0] * float('nan')
+            sup_loss = torch.zeros(1,device=output_logit.device)[0] * float('nan')
 
         if regression_loss:
             rec_loss = scale_unsup * self.loss_unsup(mean, std, target_image)
@@ -1005,17 +1007,17 @@ class ConvCNPClassifier(nn.Module):
 
         unsup_loss = torch.sum(unsup_task_loss)
         sup_loss = torch.sum(sup_task_loss)
-        joint_loss = torch.nansum(task_loss)
+        joint_loss = nansum(task_loss)
+
 
         if regression_loss:
-            obj = torch.nansum(torch.mul(self.task_weights, task_loss))
+            obj = nansum(torch.mul(self.task_weights, task_loss))
         else:
-            obj = torch.nansum(torch.mul(self.task_weights[1:], task_loss[1:]))
+            obj = nansum(torch.mul(self.task_weights[1:], task_loss[1:]))
 
         if grad_norm_iterator:
             assert alpha == 1, "alpha should be 1 when using grad norm"
             grad_norm_iterator.store_norm(task_loss)
-
         losses = {"joint_loss": joint_loss.item(),
                   "sup_loss": sup_loss.item(),
                   "unsup_loss": unsup_loss.item(),
