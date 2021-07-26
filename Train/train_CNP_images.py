@@ -339,7 +339,17 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                 num_context_points = np.random.randint(min_context_points, int(img_height * img_width * threshold))
             else:
                 num_context_points = np.random.randint(int(img_height * img_width * threshold), img_height * img_width)
-            
+
+            # TODO: remove this debugging
+            num_context_points = 789
+
+            if i == 0 and batch_idx == 0:
+                x = data
+                y = target
+            else:
+                data = x
+                target = y
+
             # TODO: add variational conv
             if convolutional:
                 mask, context_img, num_context_points, num_target_points = image_processor(data, num_context_points, convolutional=convolutional,
@@ -396,7 +406,11 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
         if validation_data:
 
             for batch_idx, (data, target) in enumerate(validation_data):
-                
+
+                # TODO: remove this debugging
+                if batch_idx >= 1:
+                    break
+
                 target = target.to(device)
 
                 if consistency_regularization or classify_same_image:

@@ -459,6 +459,8 @@ class OnTheGridConvCNPEncoder(nn.Module):
         return torch.cat([density,signal],dim=1)
 
 
+
+
 class OnTheGridConvCNPCNN(nn.Module):
     """CNN for the on-the-grid version of the Convolutional Conditional Neural Process. See https://arxiv.org/abs/1910.13556 for details.
 
@@ -904,21 +906,21 @@ class ConvCNPClassifier(nn.Module):
             x = torch.amax(x, dim=[2, 3])
         elif self.pooling == "min":
             x = torch.amin(x, dim=[2, 3])
-        x = self.classifier_up_to_last(x)
-        output_logit = self.last_layer_classifier(x)
+        x_last_layer = self.classifier_up_to_last(x)
+        output_logit = self.last_layer_classifier(x_last_layer)
         output_probs = self.classifier_activation(output_logit)
 
         if joint:
             # unsupervised part
             mean, std = self.decoder(output_CNN)
             if self.classify_same_image:
-                probs_same_image = self.discriminate_same_image(x)
+                probs_same_image = self.discriminate_same_image(x_last_layer)
                 return output_logit, output_probs, mean, std, probs_same_image
             else:
                 return output_logit, output_probs, mean, std
         else:
             if self.classify_same_image:
-                probs_same_image = self.discriminate_same_image(x)
+                probs_same_image = self.discriminate_same_image(x_last_layer)
                 return output_logit, output_probs, probs_same_image
             else:
                 return output_logit, output_probs
@@ -936,10 +938,15 @@ class ConvCNPClassifier(nn.Module):
         target_image = target_image.permute(0, 2, 3, 1)
         
         # obtain the predictions
-        if self.classify_same_image:
-            output_logit, output_probs, mean, std, probs_same_image = self(mask,context_img,joint=True)
+
+        if not(regression_loss):
+            assert not(self.classify_same_image), "Cannot have extra task and no regression loss at the same time"
+            output_logit, output_probs = self(mask,context_img)
         else:
-            output_logit, output_probs, mean, std = self(mask, context_img, joint=True)
+            if self.classify_same_image:
+                output_logit, output_probs, mean, std, probs_same_image = self(mask, context_img, joint=True)
+            else:
+                output_logit, output_probs, mean, std = self(mask, context_img, joint=True)
 
         # pre-allocate variables:
         unsup_task_loss = []
@@ -955,10 +962,12 @@ class ConvCNPClassifier(nn.Module):
             sup_loss = sup_loss.sum()/n_labelled
         else:
             sup_loss = torch.zeros(1,device=mean.device)[0] * float('nan')
-        rec_loss = scale_unsup * self.loss_unsup(mean,std,target_image)
 
-        if regression_loss == False:
-            rec_loss = torch.zeros(1)[0].to(rec_loss.device)
+        if regression_loss:
+            rec_loss = scale_unsup * self.loss_unsup(mean, std, target_image)
+        else:
+            rec_loss = torch.zeros(1)[0].to(sup_loss.device)
+
         # append to the list of tasks loss
         unsup_task_loss.append(rec_loss)
         sup_task_loss.append(sup_loss)
@@ -985,7 +994,7 @@ class ConvCNPClassifier(nn.Module):
             accuracy = 0
 
         if not (hasattr(self, "task_weights")):
-            self.task_weights = torch.ones(len(task_loss),device=mean.device).float()
+            self.task_weights = torch.ones(len(task_loss),device=target_image.device).float()
         if alpha != 1:
             self.task_weights[-1] = alpha
 
