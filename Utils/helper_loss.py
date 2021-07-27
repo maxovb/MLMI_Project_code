@@ -111,7 +111,7 @@ def consistency_loss(output_logit, num_sets_of_context=1,reduction="mean"):
 
     # get the original batch size
     single_set_batch_size = batch_size / num_sets_of_context
-    assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(mean.shape[0]) + " and num of context sets: " + str(num_sets_of_context)
+    assert single_set_batch_size == int(single_set_batch_size), "The tensor batch size should be a multiple of the number of sets of context (when using consistency regularization), but got batch size: " + str(batch_size) + " and num of context sets: " + str(num_sets_of_context)
     single_set_batch_size = int(single_set_batch_size)
 
     # split between the two sets of context sets

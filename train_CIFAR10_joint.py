@@ -81,13 +81,13 @@ if __name__ == "__main__":
         epoch_start = 0
 
     if percentage_unlabelled_set < 0.25:
-        batch_size = 256 #16
+        batch_size = 16 #16
     else:
         batch_size = 256 #TODO: 64
     learning_rate = 2e-4 
 
     epochs = 2000 - epoch_start
-    save_freq = 20
+    save_freq = 1
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
