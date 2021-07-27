@@ -8,14 +8,56 @@ import numpy as np
 import random
 
 
-def load_data_unsupervised(batch_size=64, validation_split = None):
+def load_data_unsupervised(batch_size=64, validation_split = None, dataset="MNIST"):
     # Download training data from open datasets.
-    data = datasets.MNIST(
-        root="data",
-        train=True,
-        download=True,
-        transform=ToTensor(),
-    )
+
+    if dataset == "MNIST":
+        data = datasets.MNIST(
+            root="data",
+            train=True,
+            download=True,
+            transform=ToTensor(),
+        )
+
+        # Download test data from open datasets.
+        test_data = datasets.MNIST(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
+
+    elif dataset == "SVHN":
+        data = datasets.SVHN(
+            root="data",
+            split="train",
+            download=True,
+            transform=ToTensor(),
+        )
+
+        test_data = datasets.SVHN(
+            root="data",
+            split="test",
+            download=True,
+            transform=ToTensor(),
+        )
+
+    elif dataset == "CIFAR10":
+        data = datasets.CIFAR10(
+            root="data",
+            train=True,
+            download=True,
+            transform=ToTensor(),
+        )
+
+        # Download test data from open datasets.
+        test_data = datasets.CIFAR10(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
+
 
     n = data.data.shape[0]
 
@@ -26,15 +68,6 @@ def load_data_unsupervised(batch_size=64, validation_split = None):
         training_data,  validation_data = torch.utils.data.random_split(data, [num_training_samples,num_validation_samples])
     else:
         training_data = data
-
-
-    # Download test data from open datasets.
-    test_data = datasets.MNIST(
-        root="data",
-        train=False,
-        download=True,
-        transform=ToTensor(),
-    )
 
     # wrap an iterable over the datasets
     train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
@@ -48,25 +81,62 @@ def load_data_unsupervised(batch_size=64, validation_split = None):
     return train_dataloader, validation_dataloader, test_dataloader
 
 
-def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,cheat_validation=False):
+def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,cheat_validation=False,dataset="MNIST"):
 
     # Download training data from open datasets.
-    training_data = datasets.MNIST(
-        root="data",
-        train=True,
-        download=True,
-        transform=ToTensor(),
-    )
+    if dataset == "MNIST":
+        training_data = datasets.MNIST(
+            root="data",
+            train=True,
+            download=True,
+            transform=ToTensor(),
+        )
 
-    # Download test data from open datasets.
-    test_data = datasets.MNIST(
-        root="data",
-        train=False,
-        download=True,
-        transform=ToTensor(),
-    )
+        # Download test data from open datasets.
+        test_data = datasets.MNIST(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
+    elif dataset == "SVHN":
+        training_data = datasets.SVHN(
+            root="data",
+            split="train",
+            download=True,
+            transform=ToTensor(),
+        )
 
-    num_classes = max(training_data.targets).item() + 1
+        # Download test data from open datasets.
+        test_data = datasets.SVHN(
+            root="data",
+            split="test",
+            download=True,
+            transform=ToTensor(),
+        )
+    elif dataset == "CIFAR10":
+        training_data = datasets.CIFAR10(
+            root="data",
+            train=True,
+            download=True,
+            transform=ToTensor(),
+        )
+
+        # Download test data from open datasets.
+        test_data = datasets.CIFAR10(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
+
+    if dataset in "MNIST":
+        num_classes = max(training_data.dataset.targets).item() + 1
+    elif dataset == "SVHN":
+        num_classes = max(training_data.dataset.labels).item() + 1
+    elif dataset == "CIFAR10":
+        num_classes = max(training_data.dataset.targets) + 1
+
     assert num_training_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
                                                   +") must be divisible by the number of classes (" + str(num_classes)\
                                                   +")"
@@ -109,9 +179,9 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,che
     num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
     return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels
 
-def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validation_split=None, percentage_unlabelled_set=1, data_version=0):
+def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validation_split=None, percentage_unlabelled_set=1, data_version=0, dataset="MNIST"):
 
-    file_path = "data/MNIST/pre_saved/save_data_%sS_v%s.pckl" % (num_labelled_samples, data_version)
+    file_path = "data/" + dataset + "/pre_saved/save_data_%sS_v%s.pckl" % (num_labelled_samples, data_version)
 
     if os.path.isfile(file_path):
 
@@ -127,21 +197,53 @@ def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validat
         pre_saved_shuffling_to_save = []
         seed = 1234 + data_version
 
-    # Download training data from open datasets.
-    data = datasets.MNIST(
-        root="data",
-        train=True,
-        download=True,
-        transform=ToTensor(),
-    )
+    if dataset == "MNIST":
+        # Download training data from open datasets.
+        data = datasets.MNIST(
+            root="data",
+            train=True,
+            download=True,
+            transform=ToTensor(),
+        )
 
-    # Download test data from open datasets.
-    test_data = datasets.MNIST(
-        root="data",
-        train=False,
-        download=True,
-        transform=ToTensor(),
-    )
+        # Download test data from open datasets.
+        test_data = datasets.MNIST(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
+    elif dataset == "SVHN":
+        data = datasets.SVHN(
+            root="data",
+            split="train",
+            download=True,
+            transform=ToTensor(),
+        )
+
+        # Download test data from open datasets.
+        test_data = datasets.SVHN(
+            root="data",
+            split="test",
+            download=True,
+            transform=ToTensor(),
+        )
+
+    elif dataset == "CIFAR10":
+        data = datasets.CIFAR10(
+            root="data",
+            train=True,
+            download=True,
+            transform=ToTensor(),
+        )
+
+        # Download test data from open datasets.
+        test_data = datasets.CIFAR10(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
 
     n = data.data.shape[0]
 
@@ -155,7 +257,13 @@ def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validat
     else:
         training_data = data
 
-    num_classes = max(training_data.dataset.targets).item() + 1
+    if dataset in "MNIST":
+        num_classes = max(training_data.dataset.targets).item() + 1
+    elif dataset == "SVHN":
+        num_classes = max(training_data.dataset.labels).item() + 1
+    elif dataset == "CIFAR10":
+        num_classes = max(training_data.dataset.targets) + 1
+
     assert num_labelled_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
                                                     +") must be divisible by the number of classes (" + str(num_classes)\
                                                     +")"
@@ -226,7 +334,7 @@ def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validat
 
     # get img_width and height
     num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
-    return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels
+    return train_dataloader, validation_dataloader, test_dataloader, num_classes, img_height, img_width, num_channels
 
 def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=False):
 

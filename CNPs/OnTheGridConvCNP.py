@@ -448,9 +448,6 @@ class OnTheGridConvCNPEncoder(nn.Module):
             tensor (int): latent representation of the input context (batch, img_width, img_size, num_of_filters)
         """
 
-        # repeat the mask on the last dimension to have the same shape as the input image
-        mask = torch.cat(self.num_input_channels * [mask],dim=1)
-
         # apply the convolutions
         density = self.depthwise_sep_conv(mask)
         numerator = self.depthwise_sep_conv(context_image)

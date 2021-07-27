@@ -79,9 +79,6 @@ def evaluate_model_full_accuracy(model,model_save_dir_base,acc_dir_txt,data,devi
             f.write(txt)
 
 
-
-
-
 def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size=10, best="min"):
 
     assert best in ["min","max"], "Argument best should be one of [min,max] but was given: " + str(best)

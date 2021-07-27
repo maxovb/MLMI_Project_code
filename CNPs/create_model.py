@@ -3,7 +3,7 @@ from CNPs.NP import NP
 from CNPs.OnTheGridConvCNP import  OnTheGridConvCNP
 from torchsummary import summary
 
-def create_model(model_name, model_size=None, classify_same_image=False):
+def create_model(model_name, model_size=None, classify_same_image=False, num_channels=1, num_classes=10):
     """ Create and return the appropriate CNP model
 
     Args:
@@ -25,7 +25,7 @@ def create_model(model_name, model_size=None, classify_same_image=False):
     if model_name == "CNP":
 
         # parameters
-        encoder_layer_widths = [3, 128, 128, 128]
+        encoder_layer_widths = [2 + num_channels, 128, 128, 128]
         decoder_layer_widths = [2, 128, 128, 128, 128, 2]
 
         # create the model
@@ -36,7 +36,7 @@ def create_model(model_name, model_size=None, classify_same_image=False):
 
         # parameters
         type_CNN = "CNN"
-        num_input_channels, num_output_channels = 1, 2
+        num_input_channels, num_output_channels = 1 * num_channels, 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution, kernel_size_CNN = 9, 5
         num_residual_blocks = 4
@@ -55,7 +55,7 @@ def create_model(model_name, model_size=None, classify_same_image=False):
     elif model_name == "ConvCNPXL":
         # parameters
         type_CNN = "CNN"
-        num_input_channels, num_output_channels = 1, 2
+        num_input_channels, num_output_channels = 1 * num_channels, 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution, kernel_size_CNN = 9, 11
         num_residual_blocks = 6
@@ -73,8 +73,8 @@ def create_model(model_name, model_size=None, classify_same_image=False):
 
     elif model_name == "UNetCNP":
         type_CNN = "UNet"
-        num_input_channels = 1
-        num_output_channels = 2
+        num_input_channels = 1 * num_channels
+        num_output_channels = 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 5
@@ -101,8 +101,8 @@ def create_model(model_name, model_size=None, classify_same_image=False):
 
     elif model_name == "UNetCNP_restrained":
         type_CNN = "UNet"
-        num_input_channels = 1
-        num_output_channels = 2
+        num_input_channels = 1 * num_channels
+        num_output_channels = 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 3
@@ -130,15 +130,15 @@ def create_model(model_name, model_size=None, classify_same_image=False):
     elif model_name == "NP_UG":
         encoder_layer_widths = [3, 128, 128, 128]
         decoder_layer_widths = [2, 128, 128, 128, 1]
-        classifier_layer_widths = [128, 128, 10]
+        classifier_layer_widths = [128, 128, num_classes]
         latent_network_layer_widths = [138, 128, 128]
         prior = "UnitGaussian"
         model = NP(encoder_layer_widths, decoder_layer_widths, classifier_layer_widths, latent_network_layer_widths,prior)
 
     elif model_name == "UNetCNP_GMM":
         type_CNN = "UNet"
-        num_input_channels = 1
-        num_output_channels = 2
+        num_input_channels = 1 * num_channels
+        num_output_channels = 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 5
@@ -151,20 +151,20 @@ def create_model(model_name, model_size=None, classify_same_image=False):
         pooling_size = 2
         max_size = None
         is_gmm = True
-        num_classes = 10
+        num_classes = num_classes
 
         num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks-1)
         if max_size:
             num_input_features_classifier = min(max_size,num_input_features_classifier)
 
         if "LR" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif "small" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif "medium" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif "large" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         dropout = False
         if "dropout" in model_size:
@@ -184,8 +184,8 @@ def create_model(model_name, model_size=None, classify_same_image=False):
 
     elif model_name == "UNetCNP_restrained_GMM":
         type_CNN = "UNet"
-        num_input_channels = 1
-        num_output_channels = 2
+        num_input_channels = 1 * num_channels
+        num_output_channels = 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 3
@@ -198,20 +198,20 @@ def create_model(model_name, model_size=None, classify_same_image=False):
         pooling_size = 2
         max_size = 64
         is_gmm = True
-        num_classes = 10
+        num_classes = num_classes
 
         num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
         if max_size:
             num_input_features_classifier = min(max_size, num_input_features_classifier)
 
         if "LR" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif "small" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif "medium" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif "large" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         dropout = False
         if "dropout" in model_size:
@@ -230,8 +230,8 @@ def create_model(model_name, model_size=None, classify_same_image=False):
 
     elif model_name == "UNetCNP_GMM_blocked":
         type_CNN = "UNet"
-        num_input_channels = 1
-        num_output_channels = 2
+        num_input_channels = 1 * num_channels
+        num_output_channels = 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 5
@@ -244,7 +244,7 @@ def create_model(model_name, model_size=None, classify_same_image=False):
         pooling_size = 2
         max_size = None
         is_gmm = True
-        num_classes = 10
+        num_classes = num_classes
         block_center_connections = True
 
         num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
@@ -252,13 +252,13 @@ def create_model(model_name, model_size=None, classify_same_image=False):
             num_input_features_classifier = min(max_size, num_input_features_classifier)
 
         if "LR" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif "small" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif "medium" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif "large" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         dropout = False
         if "dropout" in model_size:
@@ -279,8 +279,8 @@ def create_model(model_name, model_size=None, classify_same_image=False):
 
     elif model_name == "UNetCNP_restrained_GMM_blocked":
         type_CNN = "UNet"
-        num_input_channels = 1
-        num_output_channels = 2
+        num_input_channels = 1 * num_channels
+        num_output_channels = 2 * num_channels
         num_of_filters = 128
         kernel_size_first_convolution = 9
         kernel_size_CNN = 3
@@ -293,7 +293,7 @@ def create_model(model_name, model_size=None, classify_same_image=False):
         pooling_size = 2
         max_size = 64
         is_gmm = True
-        num_classes = 10
+        num_classes = num_classes
         block_center_connections = True
 
         num_input_features_classifier = num_of_filters_top_UNet * 2 ** (num_down_blocks - 1)
@@ -301,13 +301,13 @@ def create_model(model_name, model_size=None, classify_same_image=False):
             num_input_features_classifier = min(max_size, num_input_features_classifier)
 
         if "LR" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10]
+            classifier_layer_widths = [num_input_features_classifier, num_classes]
         elif "small" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 10, 10]
+            classifier_layer_widths = [num_input_features_classifier, 10, num_classes]
         elif "medium" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 64, 64, 10]
+            classifier_layer_widths = [num_input_features_classifier, 64, 64, num_classes]
         elif "large" in model_size:
-            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, 10]
+            classifier_layer_widths = [num_input_features_classifier, 128, 128, 128, 128, num_classes]
 
         dropout = False
         if "dropout" in model_size:

@@ -2,7 +2,7 @@ from CNPs.CNP import CNP, CNPClassifier
 from CNPs.OnTheGridConvCNP import  OnTheGridConvCNP, ConvCNPClassifier, ConvCNPExtractRepresentation
 import torch
 
-def modify_model_for_classification(model,model_size,convolutional = False, freeze = True, img_height = None, img_width = None, num_channels = None, layer_id = None, pooling = None, joint = False, classify_same_image=False):
+def modify_model_for_classification(model,model_size, num_classes = 10, convolutional = False, freeze = True, img_height = None, img_width = None, num_channels = None, layer_id = None, pooling = None, joint = False, classify_same_image=False):
     """ Modify the given model and return the supervised version
 
     Args:
@@ -39,13 +39,13 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
         tmp, r_size = out.shape
 
         if "LR" in model_size:
-            dense_layer_widths = [r_size,10]
+            dense_layer_widths = [r_size,num_classes]
         elif "small" in model_size:
-            dense_layer_widths = [r_size,10,10]
+            dense_layer_widths = [r_size,10,num_classes]
         elif "medium" in model_size:
-            dense_layer_widths = [r_size,64,64,10]
+            dense_layer_widths = [r_size,64,64,num_classes]
         elif "large" in model_size:
-            dense_layer_widths = [r_size, 128, 128, 128, 128, 10]
+            dense_layer_widths = [r_size, 128, 128, 128, 128, num_classes]
 
         dropout = False
         if "dropout" in model_size:
@@ -63,13 +63,13 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
 
     else:
         if "LR" in model_size:
-            classification_head_layer_widths = [128,10]
+            classification_head_layer_widths = [128,num_classes]
         elif "small" in model_size:
-            classification_head_layer_widths = [128,10,10]
+            classification_head_layer_widths = [128,10,num_classes]
         elif "medium" in model_size:
-            classification_head_layer_widths = [128, 64, 64, 10]
+            classification_head_layer_widths = [128, 64, 64, num_classes]
         elif "large" in model_size:
-            classification_head_layer_widths = [128, 128, 128, 128, 128, 10]
+            classification_head_layer_widths = [128, 128, 128, 128, 128, num_classes]
 
         dropout = False
         if "dropout" in model_size:
@@ -85,7 +85,7 @@ def modify_model_for_classification(model,model_size,convolutional = False, free
 
     return classification_model
 
-def modify_model_for_classification_off_the_grid(model,model_size, freeze = True, layer_id = None, pooling = None, joint = False):
+def modify_model_for_classification_off_the_grid(model,model_size, num_classes = 10, freeze = True, layer_id = None, pooling = None, joint = False):
     """ Modify the given model and return the supervised version
 
     Args:
@@ -120,13 +120,13 @@ def modify_model_for_classification_off_the_grid(model,model_size, freeze = True
         tmp, r_size = out.shape
 
         if model_size == "LR":
-            dense_layer_widths = [r_size,10]
+            dense_layer_widths = [r_size,num_classes]
         elif model_size == "small":
-            dense_layer_widths = [r_size,10,10]
+            dense_layer_widths = [r_size,10,num_classes]
         elif model_size == "medium":
-            dense_layer_widths = [r_size,64,64,10]
+            dense_layer_widths = [r_size,64,64,num_classes]
         elif model_size == "large":
-            dense_layer_widths = [r_size, 128, 128, 128, 128, 10]
+            dense_layer_widths = [r_size, 128, 128, 128, 128, num_classes]
 
         # create the model
         classification_model = ConvCNPClassifier(model, dense_layer_widths, layer_id=layer_id, pooling=pooling)
@@ -140,13 +140,13 @@ def modify_model_for_classification_off_the_grid(model,model_size, freeze = True
 
     else:
         if model_size == "LR":
-            classification_head_layer_widths = [128,10]
+            classification_head_layer_widths = [128,num_classes]
         elif model_size == "small":
-            classification_head_layer_widths = [128,10,10]
+            classification_head_layer_widths = [128,10,num_classes]
         elif model_size == "medium":
-            classification_head_layer_widths = [128, 64, 64, 10]
+            classification_head_layer_widths = [128, 64, 64, num_classes]
         elif model_size == "large":
-            classification_head_layer_widths = [128, 128, 128, 128, 128, 10]
+            classification_head_layer_widths = [128, 128, 128, 128, 128, num_classes]
 
         # create the model
         classification_model = CNPClassifier(model, classification_head_layer_widths)

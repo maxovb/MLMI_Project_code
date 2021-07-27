@@ -147,7 +147,7 @@ if __name__ == "__main__":
                                        validation_split = 0.1,
                                        percentage_unlabelled_set = percentage_unlabelled_set,
                                        data_version = data_version)
-    train_data, validation_data, test_data, img_height, img_width, num_channels = out
+    train_data, validation_data, test_data, num_classes, img_height, img_width, num_channels = out
 
     if not(variational):
         if not(mixture):
@@ -303,7 +303,7 @@ if __name__ == "__main__":
         os.makedirs(dir_to_create, exist_ok=True)
 
         # compute the accuracy
-        num_context_points = 28 * 28
+        num_context_points = img_height * img_width * num_channels
         accuracy = test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_writer.obtain_loss_dir_txt("accuracy"),test_data,device,convolutional=convolutional,num_context_points=num_context_points, save_freq=save_freq, is_CNP=True, best="max")
         print("Number of samples:",num_samples,"Test accuracy: ", accuracy)
 
