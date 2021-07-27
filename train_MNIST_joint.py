@@ -147,7 +147,7 @@ if __name__ == "__main__":
                                        validation_split = 0.1,
                                        percentage_unlabelled_set = percentage_unlabelled_set,
                                        data_version = data_version)
-    train_data, validation_data, test_data, num_classes, img_height, img_width, num_channels = out
+    train_data, validation_data, test_data, num_classes, num_unlabelled, img_height, img_width, num_channels = out
 
     if not(variational):
         if not(mixture):

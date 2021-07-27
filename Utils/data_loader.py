@@ -334,7 +334,7 @@ def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validat
 
     # get img_width and height
     num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
-    return train_dataloader, validation_dataloader, test_dataloader, num_classes, img_height, img_width, num_channels
+    return train_dataloader, validation_dataloader, test_dataloader, num_classes, num_unlabelled, img_height, img_width, num_channels
 
 def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=False):
 
