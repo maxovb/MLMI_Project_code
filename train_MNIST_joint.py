@@ -75,9 +75,9 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 480 # which epoch to start from
+        epoch_start = 2000 # which epoch to start from
     else:
-        epoch_start = 480
+        epoch_start = 0
 
     if percentage_unlabelled_set < 0.25:
         batch_size = 256 #16
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         batch_size = 256 #TODO: 64
     learning_rate = 2e-4 
 
-    epochs = 2000 - epoch_start
+    epochs =  4000 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -221,7 +221,7 @@ if __name__ == "__main__":
     model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
     visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
     gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
-    accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("_no_rec_" if not(regression_loss) else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+    accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("_no_rec" if not(regression_loss) else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
 
 
     train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
