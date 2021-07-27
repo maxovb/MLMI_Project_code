@@ -7,6 +7,7 @@ import sys
 import math
 import time
 import argparse
+from scipy.stats import hypergeom
 from torchsummary import summary
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
@@ -135,7 +136,6 @@ if __name__ == "__main__":
     num_batches = math.ceil((num_unlabelled + num_samples)/batch_size)
     expected_num_batches_with_sup = num_batches * (1 - rv.pmf(0))
     ratio_of_batches_with_labelled_data_to_without = num_batches/expected_num_batches_with_sup
-
 
     # hyper-parameters
     if not(variational):
