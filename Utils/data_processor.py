@@ -29,7 +29,7 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
 
     # grab shapes
     batch_size, num_channels, img_height, img_width = data.shape[0], data.shape[1], data.shape[2], data.shape[3]
-    num_target_points = img_height * img_width
+    num_target_points = img_height * img_width * num_channels
 
     same_mask = False
     if disjoint_half:

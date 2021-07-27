@@ -76,7 +76,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 480 # which epoch to start from
+        epoch_start = 20 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     learning_rate = 2e-4 
 
     epochs = 2000 - epoch_start
-    save_freq = 1
+    save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
