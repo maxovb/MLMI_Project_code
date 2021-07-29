@@ -72,18 +72,18 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = False
+    load = True
     save = False
-    evaluate = True
+    evaluate = False
     if load:
-        epoch_start = 480 # which epoch to start from
+        epoch_start = 220 # which epoch to start from
     else:
         epoch_start = 0
 
     if percentage_unlabelled_set < 0.25:
         batch_size = 256 #16
     else:
-        batch_size = 256 #TODO: 64
+        batch_size = 64 #TODO: 64
     learning_rate = 2e-4 
 
     epochs = 2000 - epoch_start
