@@ -75,7 +75,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 2000 # which epoch to start from
+        epoch_start = 4000 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         batch_size = 256 #TODO: 64
     learning_rate = 2e-4 
 
-    epochs =  4000 - epoch_start
+    epochs =  8000 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -152,19 +152,19 @@ if __name__ == "__main__":
     if not(variational):
         if not(mixture):
             # create the model
-            unsupervised_model, convolutional = create_model(model_name)
+            unsupervised_model, convolutional = create_model(model_name,num_channels=num_channels)
 
             # modify the model to act as a classifier
-            model = modify_model_for_classification(unsupervised_model,model_size,convolutional,freeze=False,
+            model = modify_model_for_classification(unsupervised_model,model_size,num_classes=num_classes,convolutional=convolutional,freeze=False,
                                                     img_height=img_height,img_width=img_width,
                                                     num_channels=num_channels, layer_id=layer_id, pooling=pooling,
                                                     classify_same_image=classify_same_image)
             model.to(device)
         else:
-            model, convolutional = create_model(model_name, model_size_creation, classify_same_image=classify_same_image)
+            model, convolutional = create_model(model_name, model_size_creation, classify_same_image=classify_same_image, num_channels=num_channels, num_classes=num_classes)
             model.to(device)
     else:
-        model, convolutional = create_model(model_name, classify_same_image=classify_same_image)
+        model, convolutional = create_model(model_name, classify_same_image=classify_same_image, num_channels=num_channels, num_classes=num_classes)
         model.prior.loc = model.prior.loc.to(device) 
         model.prior.scale = model.prior.scale.to(device) 
 
