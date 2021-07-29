@@ -16,6 +16,7 @@ if __name__ == "__main__":
     random.seed(1234)
     dataset = "SVHN"
 
+    """
     #####  K-nearest neighbour #####
     print("KNN, LR and SVM")
 
@@ -59,6 +60,7 @@ if __name__ == "__main__":
         with open(accuracies_dir_txt_SVM, 'a+') as f:
             text = str(num_samples) +", " + str(accuracies_SVM[i]) + "\n"
             f.write(text)
+    """
 
     ##### LeNet #####
     # use GPU if available
@@ -69,7 +71,7 @@ if __name__ == "__main__":
     model_name = "LeNet" + ("_dropout" if dropout else "")  # one of ["CNP", "ConvCNP", "ConvCNPXL"]
     print(model_name)
 
-    cheat_validation= False # use a large validation set even if the trainign data is small
+    cheat_validation= True# use a large validation set even if the trainign data is small
 
     # for continued supervised training
     train = True
@@ -83,7 +85,7 @@ if __name__ == "__main__":
 
 
     # training parameters
-    num_training_samples = [10,20,40,60,80,100,600,1000,3000]
+    num_training_samples = [100, 200, 400, 600, 800, 1000, 6000, 10000, 30000]
 
     for model_size in ["small","medium","large"]:
         for i,num_samples in enumerate(num_training_samples):
@@ -107,11 +109,11 @@ if __name__ == "__main__":
             model.to(device)
 
             # define the directories
-            model_save_dir = ["saved_models/MNIST/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/", model_name, "/", model_name, "_",model_size, "", "E", ".pth"]
-            train_loss_dir_txt = "saved_models/MNIST/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
-            validation_loss_dir_txt = "saved_models/MNIST/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size +  "_validation.txt"
-            loss_dir_plot = "saved_models/MNIST/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/"+ model_name + "/loss/" + model_name + "_" + model_size + ".svg"
-            accuracies_dir_txt = "saved_models/MNIST/supervised" + ("_cheat_validation/" if cheat_validation else "/") + "accuracies/" + model_name + "_" + model_size + ".txt"
+            model_save_dir = ["saved_models/" + dataset + "/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/", model_name, "/", model_name, "_",model_size, "", "E", ".pth"]
+            train_loss_dir_txt = "saved_models/" + dataset + "/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size + "_train.txt"
+            validation_loss_dir_txt = "saved_models/" + dataset + "/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/" + model_name + "/loss/" + model_name + "_" + model_size +  "_validation.txt"
+            loss_dir_plot = "saved_models/" + dataset + "/supervised" + ("_cheat_validation/" if cheat_validation else "/") + str(num_samples) + "S/"+ model_name + "/loss/" + model_name + "_" + model_size + ".svg"
+            accuracies_dir_txt = "saved_models/" + dataset + "/supervised" + ("_cheat_validation/" if cheat_validation else "/") + "accuracies/" + model_name + "_" + model_size + ".txt"
 
             # create directories for the checkpoints and loss files if they don't exist yet
             dir_to_create = "".join(model_save_dir[:3]) + "loss/"
