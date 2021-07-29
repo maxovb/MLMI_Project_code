@@ -12,7 +12,7 @@ from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
 from CNPs.modify_model_for_classification import modify_model_for_classification
 from Utils.data_loader import load_joint_data_as_generator
-from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer, InfoWriter
+from Utils.helper_results import test_model_accuracy_with_best_checkpoint, LossWriter, plot_losses_from_loss_writer, InfoWriter, evaluate_model_full_accuracy
 from Utils.helpers_train import GradNorm
 
 def parseArguments():
@@ -23,9 +23,12 @@ def parseArguments():
     parser.add_argument("n", help="Number of labelled samples", type=int)
 
     # Optional arguments
+    parser.add_argument("-P","--percentage",help="Percentage of the unlabelled set to use", type=float,default=1.0)
+    parser.add_argument("-RL","--regressionloss",help="Use the regression loss", type=str, default="True")
     parser.add_argument("-CL", "--consitencyloss", help="Use consistency loss", type=str, default="False")
     parser.add_argument("-ET", "--extratask", help="Use extra classification task", type=str, default="False")
     parser.add_argument("-GN", "--gradnorm", help="Use grad norm", type=str, default="False")
+    parser.add_argument("-R","--ratiodivide",help="Value by which to divide the ratio for the grad loss",type=float,default=1)
 
     # Parse arguments
     args = parser.parse_args()
@@ -38,21 +41,23 @@ if __name__ == "__main__":
 
     # pass the arguments
     args = parseArguments()
-
     num_samples = args.n
     assert int(num_samples) == float(num_samples), "The number of samples should be an integer but was given " + str(float(sys.argv[1]))
 
+    regression_loss = args.regressionloss.lower() == "true"
     consistency_regularization = args.consitencyloss.lower() == "true"
     classify_same_image = args.extratask.lower() == "true"
     grad_norm = args.gradnorm.lower() == "true"
+    R = args.ratiodivide
 
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # percentage of unlabelled imagesc
-    percentage_unlabelled_set = 0.25/4
+    # percentage of unlabelled images
+    percentage_unlabelled_set = args.percentage
 
     for data_version in range(1,11):
+
         # type of model
         model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
         model_size = "medium_dropout" # one of ["LR","small","medium","large"]
@@ -60,28 +65,27 @@ if __name__ == "__main__":
 
         semantics = True # use the ConvCNP and CNP pre-trained with blocks of context pixels, i.e. carry more semantics
         weight_ratio = True # weight the loss with the ratio of context pixels present in the image
-        #consistency_regularization = False # whether to use consistency regularization or not
-        #grad_norm = False # whether to use GradNorm to balance the losses
-        #classify_same_image = False # whether to augment the tarinign with an extra task where the model discriminates between two disjoint set of context pixels as coming from the same image or not
+    
         validation_split = 0.1
         min_context_points = 2
 
         # for continued supervised training
         train = True
-        load = True
+        load = False
         save = False
         evaluate = True
         if load:
-            epoch_start = 100 # which epoch to start from
+            epoch_start = 4000 # which epoch to start from
         else:
             epoch_start = 0
 
         if percentage_unlabelled_set < 0.25:
-            batch_size = 16
+            batch_size = 256 #16
         else:
-            batch_size = 64
-        learning_rate = 2e-4
-        epochs = 400 - epoch_start
+            batch_size = 256 #TODO: 64
+        learning_rate = 2e-4 
+
+        epochs =  1600 - epoch_start
         save_freq = 20
 
         if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -125,17 +129,17 @@ if __name__ == "__main__":
                     alpha = 1
                     alpha_validation = 1
                 else:
-                    alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
+                    alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
                     alpha_validation = 1
             else:
                 if grad_norm:
                     alpha = 1
                     alpha_validation = 1
                 else:
-                    alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
+                    alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
                     alpha_validation = 1
         else:
-            alpha = 1 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples
+            alpha = 1 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
             alpha_validation = 1
         
         # load the supervised set
@@ -148,19 +152,19 @@ if __name__ == "__main__":
         if not(variational):
             if not(mixture):
                 # create the model
-                unsupervised_model, convolutional = create_model(model_name)
+                unsupervised_model, convolutional = create_model(model_name,num_channels=num_channels)
 
                 # modify the model to act as a classifier
-                model = modify_model_for_classification(unsupervised_model,model_size,convolutional,freeze=False,
+                model = modify_model_for_classification(unsupervised_model,model_size,num_classes=num_classes,convolutional=convolutional,freeze=False,
                                                         img_height=img_height,img_width=img_width,
                                                         num_channels=num_channels, layer_id=layer_id, pooling=pooling,
                                                         classify_same_image=classify_same_image)
                 model.to(device)
             else:
-                model, convolutional = create_model(model_name, model_size_creation, classify_same_image=classify_same_image)
+                model, convolutional = create_model(model_name, model_size_creation, classify_same_image=classify_same_image, num_channels=num_channels, num_classes=num_classes)
                 model.to(device)
         else:
-            model, convolutional = create_model(model_name, classify_same_image=classify_same_image)
+            model, convolutional = create_model(model_name, classify_same_image=classify_same_image, num_channels=num_channels, num_classes=num_classes)
             model.prior.loc = model.prior.loc.to(device) 
             model.prior.scale = model.prior.scale.to(device) 
 
@@ -173,42 +177,71 @@ if __name__ == "__main__":
         """
         num_losses = 2
         theoretical_minimum_loss = [- img_width * img_height * num_channels * math.log(1/(math.sqrt(2*math.pi)*0.01))] # reconstruction loss
+        losses_name = ["Regression"]
+        acronym_losses = ["rec_loss"]
+        initial_loss = [0]
         if consistency_regularization:
             num_losses += 1
             theoretical_minimum_loss.append(-math.log(2))
+            losses_name.append("Consistency")
+            acronym_losses.append("cons_loss")
+            initial_loss.append(0)
         if classify_same_image:
             num_losses += 1
             theoretical_minimum_loss.append(0)
+            losses_name.append("Extra classification task")
+            acronym_losses.append("loss_discriminator")
+            initial_loss.append(0.3)
+
         theoretical_minimum_loss.append(0) # cross-entropy
+        losses_name.append("Supervised")
+        acronym_losses.append("sup_loss")
+        initial_loss.append(1.3)
 
         ratios = [1 for _ in range(num_losses)]
-        ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples
+        ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples / R
+
+        if not(regression_loss):
+            ratios[0] = 0
 
         if grad_norm:
+            if load:
+                initial_task_loss = np.array(initial_loss)
+            else:
+                initial_task_loss = None
             gamma = 1.5 # hyper-parameter for grad_norm
-            grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss)
+            grad_norm_iterator = GradNorm(model,gamma,ratios,theoretical_minimum_loss,losses_name=losses_name,initial_task_loss=initial_task_loss,regression_loss=regression_loss)
         else:
             grad_norm_iterator = None
 
         # define the directories
-        experiment_dir_list = ["saved_models/MNIST/joint" + ("_semantics" if semantics else "_") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
+        experiment_dir_list = ["saved_models/MNIST/joint_" + str(R) + "R" + ("_semantics" if semantics else "") + ("_no_rec" if not(regression_loss) else "")  + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + str(num_samples) + "S/", model_name, "/"]
         experiment_dir_txt = "".join(experiment_dir_list)
         info_dir_txt = experiment_dir_txt + "information.txt"
         model_save_dir = experiment_dir_list + [model_name,"_",model_size,"-","","E" + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else ""),".pth"]
         visualisation_dir = experiment_dir_list[:-1] + ["/visualisation/",model_name,"_","","E_","","C.svg"]
         gradnorm_dir_txt = experiment_dir_txt + "grad_norm/"
-        accuracies_dir_txt = "saved_models/MNIST/joint" + ("_semantics" if semantics else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+        accuracies_dir_txt = "saved_models/MNIST/joint_" + str(R) + "R" +("_semantics" if semantics else "") + ("_no_rec" if not(regression_loss) else "") + ("_cons" if consistency_regularization else "") + ("_GN_" + str(gamma) + "" if grad_norm else "") + ("_ET/" if classify_same_image else "/") + "accuracies/" + str(percentage_unlabelled_set) + "P_" + str(data_version) + "V/" + model_name + "_" + model_size + ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "") + ".txt"
+
 
         train_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
                                 ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
                                 + "_train_","",".txt"]
-        validation_losses_dir_txt = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
+        validation_losses_dir_list = [experiment_dir_txt + "loss/" + model_name + "_" + model_size +
                                     ("_" + str(layer_id) + "L_" + pooling if layer_id and pooling else "_")
                                     + "_validation_", "", ".txt"]
 
+        # for evaluating the true model accuracy at the saved checkpoints
+        loss_train_full_accuracies_dir_list = train_losses_dir_list.copy()
+        loss_train_full_accuracies_dir_list[1] = "full_accuracy"
+        loss_train_full_accuracies_dir_txt = "".join(loss_train_full_accuracies_dir_list)
+        loss_validation_full_accuracies_dir_list = validation_losses_dir_list.copy()
+        loss_validation_full_accuracies_dir_list[1] = "full_accuracy"
+        loss_validation_full_accuracies_dir_txt = "".join(loss_validation_full_accuracies_dir_list)
+
         # create the loss_writers
         train_loss_writer = LossWriter(train_losses_dir_list)
-        validation_loss_writer = LossWriter(validation_losses_dir_txt)
+        validation_loss_writer = LossWriter(validation_losses_dir_list)
 
         # create the info_writer
         info_writer = InfoWriter(info_dir_txt)
@@ -237,7 +270,7 @@ if __name__ == "__main__":
             model.load_state_dict(torch.load(load_dir,map_location=device))
         else:
             # if train from scratch, check if a loss file already exists
-            assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt(["joint_loss"])
+            assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
         if train:
             t0 = time.time()
@@ -249,10 +282,14 @@ if __name__ == "__main__":
                         std_y=std_y, parallel=parallel, weight_ratio=weight_ratio,
                         consistency_regularization=consistency_regularization,
                         grad_norm_iterator=grad_norm_iterator, gradnorm_dir_txt=gradnorm_dir_txt,
-                        classify_same_image=classify_same_image)
+                        classify_same_image=classify_same_image, regression_loss=regression_loss)
             t = time.time() - t0
             info_writer.update_time(t)
-            plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer)
+            plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
+            evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
+                                        convolutional=convolutional)
+            evaluate_model_full_accuracy(model, experiment_dir_txt, loss_validation_full_accuracies_dir_txt, validation_data,
+                                        device, convolutional=convolutional)
 
         if save:
             save_dir = model_save_dir.copy()
@@ -266,7 +303,7 @@ if __name__ == "__main__":
             os.makedirs(dir_to_create, exist_ok=True)
 
             # compute the accuracy
-            num_context_points = 28 * 28
+            num_context_points = img_height * img_width * num_channels
             accuracy = test_model_accuracy_with_best_checkpoint(model,model_save_dir,validation_loss_writer.obtain_loss_dir_txt("accuracy"),test_data,device,convolutional=convolutional,num_context_points=num_context_points, save_freq=save_freq, is_CNP=True, best="max")
             print("Number of samples:",num_samples,"Test accuracy: ", accuracy)
 
