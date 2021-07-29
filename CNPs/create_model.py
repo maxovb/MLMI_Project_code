@@ -26,7 +26,7 @@ def create_model(model_name, model_size=None, classify_same_image=False, num_cha
 
         # parameters
         encoder_layer_widths = [2 + num_channels, 128, 128, 128]
-        decoder_layer_widths = [2, 128, 128, 128, 128, 2]
+        decoder_layer_widths = [2, 128, 128, 128, 128, 2 * num_channels]
 
         # create the model
         model = CNP(encoder_layer_widths, decoder_layer_widths)
