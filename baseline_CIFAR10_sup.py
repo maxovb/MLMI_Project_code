@@ -14,7 +14,7 @@ from Utils.helper_results import test_model_accuracy_with_best_checkpoint, plot_
 
 if __name__ == "__main__":
     random.seed(1234)
-    dataset = "SVHN"
+    dataset = "CIFAR10"
 
     #####  K-nearest neighbour #####
     print("KNN, LR and SVM")
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     ks = [1,2,3,5,7,10]
     cs = [1e-2,1,1e2,1e4,1e6,1e8,1e10]
     max_iter = 1000
-    num_training_samples = [100, 200, 400, 600, 800, 1000, 6000, 10000, 30000]
+    num_training_samples = [400, 800, 1600, 2400, 3200, 4000, 24000, 40000]
     optimal_k = np.zeros(len(num_training_samples))
     accuracies_knn = np.zeros(len(num_training_samples))
     optimal_c = np.zeros(len(num_training_samples))

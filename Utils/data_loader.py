@@ -403,8 +403,8 @@ def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=Fal
         y = training_data.labels
         y_test = test_data.labels
     elif dataset == "CIFAR10":
-        y = training_data.targets
-        y_test = test_data.targets
+        y = np.array(training_data.targets)
+        y_test = np.array(test_data.targets)
 
     # shuffle the data ordering (only shuffles rows in the matrix)
     shuffler = np.random.permutation(X.shape[0])
