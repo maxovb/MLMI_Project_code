@@ -169,7 +169,7 @@ def train_CNP_unsup(train_data,model,epochs, model_save_dir, train_loss_dir_txt,
 def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, validation_data = None, validation_loss_dir_txt = "", convolutional=False, augment_missing = False, is_CNP = True, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu')):
     min_percentage_missing_pixels = 0.75
 
-    img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
+    img_height, img_width, num_channels = train_data.dataset[0][0].shape[0], train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
 
     # pre-allocate memory to store the losses
     avg_train_loss_per_epoch = []
@@ -190,10 +190,10 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
         for batch_idx, (data, target) in enumerate(iterator):
             target = target.to(device)
             if augment_missing:
-                num_context_points = np.random.randint(int(min_percentage_missing_pixels * img_height * img_width),
-                                                       int(img_height * img_width))
+                num_context_points = np.random.randint(int(min_percentage_missing_pixels * img_height * img_width * num_channels),
+                                                       int(img_height * img_width * num_channels))
             else:
-                num_context_points = img_height * img_width
+                num_context_points = img_height * img_width * num_channels
             if is_CNP:
                 if convolutional:
                     mask, context_img = image_processor(data, num_context_points, convolutional=convolutional,

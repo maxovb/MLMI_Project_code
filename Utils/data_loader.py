@@ -131,11 +131,11 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,che
         )
 
     if dataset in "MNIST":
-        num_classes = max(training_data.dataset.targets).item() + 1
+        num_classes = max(training_data.targets).item() + 1
     elif dataset == "SVHN":
-        num_classes = max(training_data.dataset.labels).item() + 1
+        num_classes = max(training_data.labels).item() + 1
     elif dataset == "CIFAR10":
-        num_classes = max(training_data.dataset.targets) + 1
+        num_classes = max(training_data.targets) + 1
 
     assert num_training_samples % num_classes == 0, "The number of training samples ("  + str(num_training_samples) \
                                                   +") must be divisible by the number of classes (" + str(num_classes)\
@@ -177,7 +177,7 @@ def load_supervised_data_as_generator(batch_size=64,num_training_samples=100,che
 
     # get img_width and height
     num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
-    return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels
+    return train_dataloader, validation_dataloader, test_dataloader, img_height, img_width, num_channels, num_classes
 
 def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validation_split=None, percentage_unlabelled_set=1, data_version=0, dataset="MNIST"):
 
@@ -336,32 +336,75 @@ def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validat
     num_channels, img_height, img_width = train_dataloader.dataset[0][0].shape[0], train_dataloader.dataset[0][0].shape[1], train_dataloader.dataset[0][0].shape[2]
     return train_dataloader, validation_dataloader, test_dataloader, num_classes, num_unlabelled, img_height, img_width, num_channels
 
-def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=False):
+def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=False,dataset="MNIST"):
 
     # load the data
-    training_data = datasets.MNIST(
+    if dataset == "MNIST":
+        training_data = datasets.MNIST(
+                root="data",
+                train=True,
+                download=True,
+                transform=ToTensor(),
+            )
+
+        test_data = datasets.MNIST(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+            )
+
+    elif dataset == "SVHN":
+        training_data = datasets.SVHN(
+            root="data",
+            split="train",
+            download=True,
+            transform=ToTensor(),
+        )
+
+        # Download test data from open datasets.
+        test_data = datasets.SVHN(
+            root="data",
+            split="test",
+            download=True,
+            transform=ToTensor(),
+        )
+
+    elif dataset == "CIFAR10":
+        training_data = datasets.CIFAR10(
             root="data",
             train=True,
             download=True,
             transform=ToTensor(),
         )
 
-    test_data = datasets.MNIST(
-        root="data",
-        train=False,
-        download=True,
-        transform=ToTensor(),
-    )
+        # Download test data from open datasets.
+        test_data = datasets.CIFAR10(
+            root="data",
+            train=False,
+            download=True,
+            transform=ToTensor(),
+        )
 
     # convert the data to numpy matrices
-    X = training_data.data.numpy()
-    total_nbr_samples, img_height,img_width = X.shape
-    X = X.reshape(total_nbr_samples, img_height * img_width)
-    y = training_data.targets.numpy()
-    X_test = test_data.data.numpy()
-    total_nbr_test_samples, img_height_test, img_width_test = X_test.shape
-    X_test = X_test.reshape(total_nbr_test_samples, img_height_test * img_width_test )
-    y_test = test_data.targets.numpy()
+    X = training_data.data
+    total_nbr_samples, img_height,img_width = X.shape[0], X.shape[2], X.shape[3]
+    if len(X.shape) == 4:
+        num_channels = X.shape[1]
+
+    X = X.reshape(total_nbr_samples, -1)
+    X_test = test_data.data
+    total_nbr_test_samples, img_height_test, img_width_test = X_test.shape[0], X_test.shape[2], X_test.shape[3]
+    X_test = X_test.reshape(total_nbr_test_samples, -1)
+    if dataset == "MNIST" :
+        y = training_data.targets
+        y_test = test_data.targets
+    elif dataset == "SVHN":
+        y = training_data.labels
+        y_test = test_data.labels
+    elif dataset == "CIFAR10":
+        y = training_data.targets
+        y_test = test_data.targets
 
     # shuffle the data ordering (only shuffles rows in the matrix)
     shuffler = np.random.permutation(X.shape[0])
@@ -369,7 +412,13 @@ def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=Fal
     y = y[shuffler]
 
     # get the number of training and validation samples per class
-    num_classes = max(training_data.targets).item() + 1
+    if dataset in "MNIST":
+        num_classes = max(training_data.targets).item() + 1
+    elif dataset == "SVHN":
+        num_classes = max(training_data.labels).item() + 1
+    elif dataset == "CIFAR10":
+        num_classes = max(training_data.targets) + 1
+
     assert num_training_samples % num_classes == 0, "The number of training samples (" + str(num_training_samples) \
                                                     + ") must be divisible by the number of classes (" + str(
         num_classes) \
@@ -391,8 +440,8 @@ def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=Fal
         indices_per_class[label].append(i)
 
     # create the validation and test matrices with the right amount of training and validation samples
-    X_train = np.zeros((num_training_samples,img_height * img_width))
-    X_validation = np.zeros((num_validation_samples,img_height * img_width))
+    X_train = np.zeros((num_training_samples,img_height * img_width * num_channels))
+    X_validation = np.zeros((num_validation_samples,img_height * img_width * num_channels))
     y_train = np.zeros((num_training_samples))
     y_validation = np.zeros((num_validation_samples))
 
