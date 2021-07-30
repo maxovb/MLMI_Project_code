@@ -45,6 +45,7 @@ class ModifiedLeNet5(nn.Module):
 
     def forward(self, x):
         x = self.feature_extractor(x)
+        x = torch.mean(x,dim=[-2,-1])
         x = torch.flatten(x, 1)
         logits = self.classifier(x)
         probs = nn.Softmax(logits)
