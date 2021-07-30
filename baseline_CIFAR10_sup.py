@@ -59,7 +59,7 @@ if __name__ == "__main__":
         with open(accuracies_dir_txt_SVM, 'a+') as f:
             text = str(num_samples) +", " + str(accuracies_SVM[i]) + "\n"
             f.write(text)
-
+    
     ##### LeNet #####
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
 
     # training parameters
-    num_training_samples = [100, 200, 400, 600, 800, 1000, 6000, 10000, 30000]
+    num_training_samples = [400, 800, 1600, 2400, 3200, 4000, 24000, 40000]
 
     for model_size in ["small","medium","large"]:
         for i,num_samples in enumerate(num_training_samples):
