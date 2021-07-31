@@ -7,6 +7,7 @@ import sys
 import math
 import time
 import argparse
+from scipy.stats import hypergeom
 from torchsummary import summary
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
@@ -121,6 +122,19 @@ if __name__ == "__main__":
 
         # training parameters
         num_training_samples = [10,20,40,60,80,100,600,1000,3000]
+        
+        # load the supervised set
+        out = load_joint_data_as_generator(batch_size,num_samples,
+                                        validation_split = 0.1,
+                                        percentage_unlabelled_set = percentage_unlabelled_set,
+                                        data_version = data_version)
+        train_data, validation_data, test_data, num_classes, num_unlabelled, img_height, img_width, num_channels = out
+
+        # weighting of the supervised task
+        rv = hypergeom(num_unlabelled + num_samples, num_samples, batch_size)
+        num_batches = math.ceil((num_unlabelled + num_samples)/batch_size)
+        expected_num_batches_with_sup = num_batches * (1 - rv.pmf(0))
+        ratio_of_batches_with_labelled_data_to_without = num_batches/expected_num_batches_with_sup
 
         # hyper-parameters
         if not(variational):
@@ -129,25 +143,18 @@ if __name__ == "__main__":
                     alpha = 1
                     alpha_validation = 1
                 else:
-                    alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
+                    alpha = ratio_of_batches_with_labelled_data_to_without / R
                     alpha_validation = 1
             else:
                 if grad_norm:
                     alpha = 1
                     alpha_validation = 1
                 else:
-                    alpha = (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
+                    alpha = ratio_of_batches_with_labelled_data_to_without / R
                     alpha_validation = 1
         else:
-            alpha = 1 * (60000 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
+            alpha = ratio_of_batches_with_labelled_data_to_without / R
             alpha_validation = 1
-        
-        # load the supervised set
-        out = load_joint_data_as_generator(batch_size,num_samples,
-                                        validation_split = 0.1,
-                                        percentage_unlabelled_set = percentage_unlabelled_set,
-                                        data_version = data_version)
-        train_data, validation_data, test_data, num_classes, num_unlabelled, img_height, img_width, num_channels = out
 
         if not(variational):
             if not(mixture):
