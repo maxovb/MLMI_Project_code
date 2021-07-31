@@ -181,7 +181,7 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         for i in range(images.shape[0]):
             image = images[i]
             label = labels[i]
-            if not selected_classes[label]:
+            if label != -1 and not selected_classes[label]:
                 images_to_plot[label] = (image,label)
                 found += 1
                 selected_classes[label] = True

@@ -72,11 +72,11 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = False
+    load = True
     save = False
     evaluate = True
     if load:
-        epoch_start = 4000 # which epoch to start from
+        epoch_start = 100 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     learning_rate = 2e-4 
 
     epochs =  700 - epoch_start
-    save_freq = 20
+    save_freq = 1
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     initial_loss.append(1.3)
 
     ratios = [1 for _ in range(num_losses)]
-    ratios[-1] = (60000 * percentage_unlabelled_set * (1 - validation_split)) / num_samples / R
+    ratios[-1] = ratio_of_batches_with_labelled_data_to_without / R
 
     if not(regression_loss):
         ratios[0] = 0
