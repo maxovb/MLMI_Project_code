@@ -76,7 +76,7 @@ if __name__ == "__main__":
     save = False
     evaluate = True
     if load:
-        epoch_start = 100 # which epoch to start from
+        epoch_start = 1140 # which epoch to start from
     else:
         epoch_start = 0
 
@@ -86,8 +86,8 @@ if __name__ == "__main__":
         batch_size = 256 #TODO: 64
     learning_rate = 2e-4 
 
-    epochs =  700 - epoch_start
-    save_freq = 1
+    epochs =  1400 - epoch_start
+    save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
         layer_id = -1
@@ -280,6 +280,7 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
     if train:
+        """
         t0 = time.time()
         train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
                     validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
@@ -293,6 +294,7 @@ if __name__ == "__main__":
         t = time.time() - t0
         info_writer.update_time(t)
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
+        """
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
                                      convolutional=convolutional)
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_validation_full_accuracies_dir_txt, validation_data,
