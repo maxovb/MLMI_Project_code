@@ -1,5 +1,6 @@
 import os
 import pickle
+from sklearn.utils import validation
 import torch
 from torchvision import datasets
 from torch.utils.data import DataLoader
@@ -465,22 +466,25 @@ def load_supervised_data_as_matrix(num_training_samples=100,cheat_validation=Fal
 
 def load_joint_data_as_matrix(batch_size=64,num_labelled_samples=100, validation_split=None, percentage_unlabelled_set=1, data_version=0, dataset="MNIST"):
     train_dataloader, validation_dataloader, test_dataloader, num_classes, num_unlabelled, img_height, img_width, num_channels = load_joint_data_as_generator(1,
-                                                                                                                                                              num_labelled_samples,
-                                                                                                                                                              validation_split,
-                                                                                                                                                              percentage_unlabelled_set,
-                                                                                                                                                              data_version,
+                                                                                                                                                              num_labelled_samples=num_labelled_samples,
+                                                                                                                                                              validation_split=validation_split,
+                                                                                                                                                              percentage_unlabelled_set=percentage_unlabelled_set,
+                                                                                                                                                              data_version=data_version,
                                                                                                                                                               dataset=dataset)
     X_train = np.array([x[0][0,0].cpu().numpy() for x in train_dataloader])
     X_train = np.reshape(X_train, (X_train.shape[0], -1))
     y_train = np.array([x[1][0].cpu().numpy() for x in train_dataloader])
 
-    X_validation= np.array([x[0][0, 0].cpu().numpy() for x in train_dataloader])
-    X_validation = np.reshape(X_validation, (X_validation.shape[0], -1))
-    y_validation = np.array([x[1][0].cpu().numpy() for x in train_dataloader])
+    if validation_split:
+        X_validation= np.array([x[0][0, 0].cpu().numpy() for x in validation_dataloader])
+        X_validation = np.reshape(X_validation, (X_validation.shape[0], -1))
+        y_validation = np.array([x[1][0].cpu().numpy() for x in validation_dataloader])
+    else:
+        X_validation, y_validation = None, None
 
-    X_test = np.array([x[0][0, 0].cpu().numpy() for x in train_dataloader])
+    X_test = np.array([x[0][0, 0].cpu().numpy() for x in test_dataloader])
     X_test = np.reshape(X_test, (X_test.shape[0], -1))
-    y_test = np.array([x[1][0].cpu().numpy() for x in train_dataloader])
+    y_test = np.array([x[1][0].cpu().numpy() for x in test_dataloader])
 
     return X_train,y_train,X_validation,y_validation,X_test,y_test
 
