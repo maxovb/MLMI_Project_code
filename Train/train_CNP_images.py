@@ -315,6 +315,9 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
     threshold = 1 / 3
 
     for i in range(epochs):
+
+        if plt.get_fignums():
+            plt.close('all')
             
         print("Epoch:", i + epoch_start + 1)
         model.train()

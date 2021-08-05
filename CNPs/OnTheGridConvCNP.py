@@ -42,6 +42,8 @@ class OnTheGridConvCNP(nn.Module):
         super(OnTheGridConvCNP, self).__init__()
 
         self.is_gmm = is_gmm
+        self.is_variational = is_variational
+        assert self.is_gmm and self.is_variational, "Cannot use both GMM and variational"
         self.classify_same_image = classify_same_image
 
         self.encoder = OnTheGridConvCNPEncoder(num_input_channels,num_of_filters,kernel_size_first_convolution)

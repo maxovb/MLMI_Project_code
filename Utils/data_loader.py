@@ -259,7 +259,7 @@ def load_joint_data_as_generator(batch_size=64,num_labelled_samples=100, validat
         training_data = data
 
     if dataset in "MNIST":
-        num_classes = max(training_data.targets).item() + 1
+        num_classes = max(training_data.dataset.targets).item() + 1
     elif dataset == "SVHN":
         num_classes = max(training_data.dataset.labels).item() + 1
     elif dataset == "CIFAR10":

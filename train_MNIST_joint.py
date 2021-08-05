@@ -60,7 +60,7 @@ if __name__ == "__main__":
     data_version = args.dataversion
 
     # type of model
-    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         batch_size = 256 #TODO: 64
     learning_rate = 2e-4 
 
-    epochs =  1400 - epoch_start
+    epochs =  2000 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -280,7 +280,6 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
     if train:
-        """
         t0 = time.time()
         train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
                     validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
@@ -294,7 +293,6 @@ if __name__ == "__main__":
         t = time.time() - t0
         info_writer.update_time(t)
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
-        """
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
                                      convolutional=convolutional)
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_validation_full_accuracies_dir_txt, validation_data,
