@@ -65,6 +65,7 @@ class NP(nn.Module):
         # TODO: fix the dimension here, check that samples should not be on another dimension
         mean, std = self.latent_network(torch.cat(num_samples * [r], dim=0), one_hot)
 
+
         # sample from the continuous latent
         if self.deterministic:
             z = mean

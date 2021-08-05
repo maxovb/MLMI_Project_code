@@ -296,6 +296,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
 def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, validation_data = None, validation_loss_writer=None, visualisation_dir = None, semantics=False, convolutional=False, variational=False, min_context_points = 2, report_freq = 100, learning_rate=1e-3, weight_decay=1e-5, save_freq = 10, n_best_checkpoint = None, epoch_start = 0, device=torch.device('cpu'), alpha=None, alpha_validation=None, num_samples_expectation=None, std_y=None, parallel=False, weight_ratio=False, consistency_regularization=False, grad_norm_iterator=None, gradnorm_dir_txt="", classify_same_image=False, regression_loss=True):
 
     img_height, img_width = train_data.dataset[0][0].shape[1], train_data.dataset[0][0].shape[2]
+    is_variational = model.is_variational
 
     # define the optimizer
     opt = torch.optim.Adam(model.parameters(),
@@ -344,7 +345,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
             if convolutional:
                 mask, context_img, num_context_points, num_target_points = image_processor(data, num_context_points, convolutional=convolutional,
                                                                                            semantic_blocks=semantic_blocks, device=device, return_num_points=True,
-                                                                                           disjoint_half=classify_same_image)
+                                                                                           disjoint_half=classify_same_image, is_variational=is_variational)
 
                 if weight_ratio:
                     scale_sup = num_context_points/num_target_points
@@ -419,7 +420,8 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                 if convolutional:
                     mask, context_img, num_context_points, num_target_points = image_processor(data, num_context_points, convolutional=convolutional,
                                                                                                semantic_blocks=semantic_blocks, device=device,
-                                                                                               return_num_points = True, disjoint_half=classify_same_image)
+                                                                                               return_num_points = True, disjoint_half=classify_same_image,
+                                                                                               is_variational = is_variational)
                     data = data.to(device)
 
                     if weight_ratio:
