@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import time
 
-def image_processor(data,num_context_points,convolutional=False,semantic_blocks=None,device=torch.device('cpu'), return_num_points=False, disjoint_half=False):
+def image_processor(data,num_context_points,convolutional=False,semantic_blocks=None,device=torch.device('cpu'), return_num_points=False, disjoint_half=False, is_variational=False):
     """ Process the image to generate the context and target points
 
     Args:
@@ -13,6 +13,7 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
         device (torch.device): device to load the tensors on, i.e. CPU or GPU
         return_num_points (bool): whether to return the number of context and target points
         disjoint_half (bool): whether to return two sets of disjoint context pixels for the first and the second half of the batch dimension (to use for discriminating if two context sets are from the same image)
+        is_variational (bool): if used in the variational way, then first half is context and second half is full images
     Returns:
         if convolutional == False:
             x_context (tensor): x values of the context points (batch,num_context,input_dim_x)
@@ -101,6 +102,10 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
             second_half_image_context = inverse_masks * data.to(device)
             masks = torch.cat([masks,inverse_masks])
             image_context = torch.cat([image_context,second_half_image_context])
+
+        if is_variational:
+            masks = torch.cat([masks,torch.ones(masks.size, device = masks.device)],dim=0)
+            image_context = toch.cat([image_context,data],dim=0)
 
         if return_num_points:
             num_context_points = torch.sum(masks[0]).item()
