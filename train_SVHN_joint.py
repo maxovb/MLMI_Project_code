@@ -7,6 +7,7 @@ import sys
 import math
 import time
 import argparse
+from scipy.stats import hypergeom
 from torchsummary import summary
 from Train.train_CNP_images import train_joint
 from CNPs.create_model import  create_model
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     data_version = args.dataversion
 
     # type of model
-    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_VAR" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
@@ -112,38 +113,18 @@ if __name__ == "__main__":
 
     mixture = False
     model_size_creation = None
-    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked"]:
-        mixture = True
+    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked","UNetCNP_VAR"]:
+        if "GMM" in model_name:
+            mixture = True
+        if "VAR" in model_name:
+            variational = True
         model_size_creation = model_size
 
     print(model_name, model_size)
     print("CL",consistency_regularization,"GN",grad_norm,"ET",classify_same_image)
     print("n",num_samples)
 
-    # training parameters
-    num_training_samples = [10,20,40,60,80,100,600,1000,3000]
-
-    # hyper-parameters
-    if not(variational):
-        if mixture:
-            if grad_norm:
-                alpha = 1
-                alpha_validation = 1
-            else:
-                alpha = (73257 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
-                alpha_validation = 1
-        else:
-            if grad_norm:
-                alpha = 1
-                alpha_validation = 1
-            else:
-                alpha = (73257 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
-                alpha_validation = 1
-    else:
-        alpha = 1 * (73257 * percentage_unlabelled_set * (1-validation_split))/num_samples / R
-        alpha_validation = 1
-    
-    # load the supervised set
+     # load the supervised set
     out = load_joint_data_as_generator(batch_size,num_samples,
                                        validation_split = 0.1,
                                        percentage_unlabelled_set = percentage_unlabelled_set,
@@ -169,10 +150,44 @@ if __name__ == "__main__":
                                                 num_classes=num_classes)
             model.to(device)
     else:
-        model, convolutional = create_model(model_name, classify_same_image=classify_same_image,
+        model, convolutional = create_model(model_name, model_size=model_size_creation, classify_same_image=classify_same_image,
                                             num_channels=num_channels, num_classes=num_classes)
-        model.prior.loc = model.prior.loc.to(device) 
-        model.prior.scale = model.prior.scale.to(device) 
+        model.to(device)
+        if not(convolutional):
+            model.prior.loc = model.prior.loc.to(device) 
+            model.prior.scale = model.prior.scale.to(device) 
+
+    # weighting of the supervised task
+    rv = hypergeom(num_unlabelled + num_samples, num_samples, batch_size)
+    num_batches = math.ceil((num_unlabelled + num_samples)/batch_size)
+    expected_num_batches_with_sup = num_batches * (1 - rv.pmf(0))
+    ratio_of_batches_with_labelled_data_to_without = num_batches/expected_num_batches_with_sup
+
+
+    # hyper-parameters
+    if variational:
+        if convolutional:
+            alpha = 1
+            alpha_validation = 1
+        else:
+            alpha = ratio_of_batches_with_labelled_data_to_without / R
+            alpha_validation = 1
+    else:
+        if mixture:
+            if grad_norm:
+                alpha = 1
+                alpha_validation = 1
+            else:
+                alpha = ratio_of_batches_with_labelled_data_to_without / R
+                alpha_validation = 1
+        else:
+            if grad_norm:
+                alpha = 1
+                alpha_validation = 1
+            else:
+                alpha = ratio_of_batches_with_labelled_data_to_without / R
+                alpha_validation = 1
+    
 
     # print a summary of the model
     num_losses = 2

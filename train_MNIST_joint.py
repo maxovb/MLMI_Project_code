@@ -122,9 +122,6 @@ if __name__ == "__main__":
     print(model_name, model_size)
     print("CL",consistency_regularization,"GN",grad_norm,"ET",classify_same_image)
     print("n",num_samples)
-
-    # training parameters
-    num_training_samples = [10,20,40,60,80,100,600,1000,3000]
     
     # load the supervised set
     out = load_joint_data_as_generator(batch_size,num_samples,
@@ -133,11 +130,6 @@ if __name__ == "__main__":
                                        data_version = data_version)
     train_data, validation_data, test_data, num_classes, num_unlabelled, img_height, img_width, num_channels = out
 
-    # weighting of the supervised task
-    rv = hypergeom(num_unlabelled + num_samples, num_samples, batch_size)
-    num_batches = math.ceil((num_unlabelled + num_samples)/batch_size)
-    expected_num_batches_with_sup = num_batches * (1 - rv.pmf(0))
-    ratio_of_batches_with_labelled_data_to_without = num_batches/expected_num_batches_with_sup
 
     if not(variational):
         if not(mixture):
@@ -159,6 +151,12 @@ if __name__ == "__main__":
         if not(convolutional):
             model.prior.loc = model.prior.loc.to(device)
             model.prior.scale = model.prior.scale.to(device)
+
+    # weighting of the supervised task
+    rv = hypergeom(num_unlabelled + num_samples, num_samples, batch_size)
+    num_batches = math.ceil((num_unlabelled + num_samples)/batch_size)
+    expected_num_batches_with_sup = num_batches * (1 - rv.pmf(0))
+    ratio_of_batches_with_labelled_data_to_without = num_batches/expected_num_batches_with_sup
 
 
     # hyper-parameters
