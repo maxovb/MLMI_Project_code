@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     mixture = False
     model_size_creation = None
-    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked"]:
+    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked","UNetCNP_VAR"]:
         if "GMM" in model_name:
             mixture = True
         if "VAR" in model_name:
@@ -284,7 +284,6 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
     if train:
-        """
         t0 = time.time()
         train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
                     validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
@@ -298,7 +297,6 @@ if __name__ == "__main__":
         t = time.time() - t0
         info_writer.update_time(t)
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
-        """
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
                                      convolutional=convolutional)
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_validation_full_accuracies_dir_txt, validation_data,

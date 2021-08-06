@@ -17,8 +17,8 @@ def create_model(model_name, model_size=None, classify_same_image=False, num_cha
     #TODO: change model name to UNetCNP_restrained  
 
     assert model_name in ["CNP", "ConvCNP", "ConvCNPXL", "UNetCNP", "UNetCNP_restrained", "NP_UG",
-                          "UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked"]\
-                         , "model name: " + model_name + ", not supported"
+                          "UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked",
+                          "UNetCNP_VAR"], "model name: " + model_name + ", not supported"
 
     convolutional = False
 

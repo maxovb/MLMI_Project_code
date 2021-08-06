@@ -39,6 +39,10 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
         data = data[:batch_size//2]
         same_mask = True
 
+    if is_variational:
+        assert batch_size % 2 == 0, "If using variational, the batch size should be a multiple of 2 because it should repeat twice all images"
+        data = data[:batch_size // 2]
+
     # normalise pixel values
     if torch.max(data) > 1:
         data = data / 255.0
@@ -104,8 +108,8 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
             image_context = torch.cat([image_context,second_half_image_context])
 
         if is_variational:
-            masks = torch.cat([masks,torch.ones(masks.size, device = masks.device)],dim=0)
-            image_context = toch.cat([image_context,data],dim=0)
+            masks = torch.cat([masks,torch.ones(masks.shape, device = masks.device)],dim=0)
+            image_context = torch.cat([image_context,data],dim=0)
 
         if return_num_points:
             num_context_points = torch.sum(masks[0]).item()

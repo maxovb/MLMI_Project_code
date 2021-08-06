@@ -230,10 +230,13 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
                     img1, img2 = mean, std
 
             else:
-                sample1, probs = model(mask,context_img).detach().cpu().numpy()
-                sample2, probs = model(mask,context_img).detach().cpu().numpy()
+                mean, std, logits, probs = model(mask,context_img).detach().cpu().numpy()
+                _, class_sampled = torch.max(probs[0])
+                class_sampled = class_sampled.item()
+                mean = mean[0,class_sampled].detach().cpu().numpy()
+                std = std[0, class_sampled].detach().cpu().numpy()
                 probabilities_to_plot = probs[0].detach().cpu()
-                img1, img2 = sample1, sample2
+                img1, img2 = mean, std
             context_img = context_points_image_from_mask(mask, context_img)
         else:
             x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
@@ -266,7 +269,7 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         if include_class_predictions:
             # get the colors of the bars (red for the one we sampled from)
             colors_bar = ["blue" for _ in range(num_classes)]
-            if model.is_gmm:
+            if model.is_gmm or model.is_variational:
                 colors_bar[class_sampled] = "red"
 
             ax[row+4, col].bar(range(num_classes),probabilities_to_plot,color=colors_bar)

@@ -44,7 +44,7 @@ class OnTheGridConvCNP(nn.Module):
 
         self.is_gmm = is_gmm
         self.is_variational = is_variational
-        assert self.is_gmm and self.is_variational, "Cannot use both GMM and variational"
+        assert not(self.is_gmm and self.is_variational), "Cannot use both GMM and variational"
         self.classify_same_image = classify_same_image
 
         self.encoder = OnTheGridConvCNPEncoder(num_input_channels,num_of_filters,kernel_size_first_convolution)
@@ -59,8 +59,9 @@ class OnTheGridConvCNP(nn.Module):
 
         self.decoder = OnTheGridConvCNPDecoder(num_of_filters,num_dense_layers, num_units_dense_layer,num_output_channels,is_gmm=is_gmm)
 
-        if self.is_gmm:
+        if self.is_gmm or self.is_variational:
             self.num_classes = num_classes
+
 
     def forward(self,mask,context_image,return_params_variational=False):
         """Forward pass through the on-the-grid ConvCNP
@@ -76,7 +77,7 @@ class OnTheGridConvCNP(nn.Module):
 
         encoder_output = self.encoder(mask,context_image)
 
-        if not(self.is_gmm):
+        if not(self.is_gmm) and not(self.is_variational):
             x = self.CNN(encoder_output)
             mean, std = self.decoder(x)
             return mean, std
@@ -85,10 +86,13 @@ class OnTheGridConvCNP(nn.Module):
                 x, logits, probs, probs_same = self.CNN(encoder_output)
                 mean, std = self.decoder(x)
                 return mean, std, logits, probs, probs_same
-            elif self.is_variational and return_params_variational:
+            elif self.is_variational:
                 x, logits, probs, mean_z, std_z = self.CNN(encoder_output,return_params_variational=return_params_variational)
                 mean, std = self.decoder(x)
-                return mean, std, logits, probs, mean_z, std_z
+                if return_params_variational:
+                    return mean, std, logits, probs, mean_z, std_z
+                else:
+                    return mean, std, logits, probs
             else:
                 x, logits, probs = self.CNN(encoder_output)
                 mean, std = self.decoder(x)
@@ -109,7 +113,7 @@ class OnTheGridConvCNP(nn.Module):
 
         return obj.item() # report the loss as a float
 
-    def joint_train_step(self, mask, context_img, target_label, target_img, opt,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1, grad_norm_iterator=None):
+    def joint_train_step(self, mask, context_img, target_label, target_img, opt,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1, grad_norm_iterator=None, regression_loss=False):
         # computing the losses
         #obj, joint_loss, sup_loss, unsup_loss, accuracy, total = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
         obj, losses = self.joint_loss(mask, context_img, target_label, target_img, alpha=alpha, scale_sup=scale_sup, scale_unsup=scale_unsup, consistency_regularization=consistency_regularization, num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
@@ -151,40 +155,42 @@ class OnTheGridConvCNP(nn.Module):
 
         # general objective
         joint_loss = 0
+        unsup_loss = 0
 
         if not (all_labelled):
             # split to obtain the unlabelled samples
             mask_unlabelled = mask[unlabelled_indices]
             context_img_unlabelled = context_img[unlabelled_indices]
             target_img_unlabelled = target_img[unlabelled_indices]
-            probs_unlabelled = probs[unlabelled_indices]
 
+            # unlabelled batch size
+            batch_size_unlabelled = mask_unlabelled.shape[0]
 
             mean, std, logits, probs, mean_z, std_z = self(mask_unlabelled,context_img_unlabelled,return_params_variational=True)
 
             mean = torch.unsqueeze(mean,dim=1)
-            mean = mean.reshape(mean.shape[0] // self.num_classes, self.num_classes, mean.shape[1], mean.shape[2],mean.shape[3])
+            mean = mean.reshape(self.num_classes,mean.shape[0] // self.num_classes, mean.shape[1], mean.shape[2],mean.shape[3]).permute(1,0,2,3,4)
             std = torch.unsqueeze(std, dim=1)
-            std = std.reshape(std.shape[0] // self.num_classes, self.num_classes, std.shape[1], std.shape[2], std.shape[3])
+            std = std.reshape(self.num_classes,std.shape[0] // self.num_classes, std.shape[1], std.shape[2],std.shape[3]).permute(1,0,2,3,4)
 
             mean_z = torch.unsqueeze(mean_z, dim=1)
-            mean_z = mean.reshape(mean_z.shape[0] // self.num_classes, self.num_classes, mean_z.shape[1], mean_z.shape[2], mean_z.shape[3])
+            mean_z = mean_z.reshape(self.num_classes,mean_z.shape[0] // self.num_classes, mean_z.shape[1], mean_z.shape[2],mean_z.shape[3]).permute(1,0,2,3,4)
             std_z = torch.unsqueeze(std_z, dim=1)
-            std_z = std.reshape(std_z.shape[0] // self.num_classes, self.num_classes, std_z.shape[1], std._zshape[2], std_z.shape[3])
+            std_z = std_z.reshape(self.num_classes, std_z.shape[0] // self.num_classes, std_z.shape[1], std_z.shape[2], std_z.shape[3]).permute(1,0,2,3,4)
 
-            target_img_unlabelled_repeated = torch.unsqueeze(target_img_unlabelled_repeated,dim=1).repeat(1,self.num_classes,1,1,1)
+            target_img_unlabelled_repeated = torch.unsqueeze(target_img_unlabelled,dim=1).repeat(1,self.num_classes,1,1,1)
 
             assert mean.shape[0] % 2 == 0, "the batch size should be a multiple of 2, one half for ctx only and one half for ctx and target"
             n = mean.shape[0] // 2
-            mean = mean[:n]
-            std = std[:n]
-            target_img_unlabelled_repeated = target_img_unlabelled_repeated[:n]
-            mean_z_ctxt = mean_z[n:]
-            std_z_ctxt = std_z[n:]
-            mean_z_trgt = mean_z[:n]
-            std_z_trgt= std_z[:n]
-            probs_trgt = probs[:n]
-            probs_ctxt = probs[n:]
+            mean = mean[n:]
+            std = std[n:]
+            target_img_unlabelled_repeated = target_img_unlabelled_repeated[n:]
+            mean_z_ctxt = mean_z[:n]
+            std_z_ctxt = std_z[:n]
+            mean_z_trgt = mean_z[n:]
+            std_z_trgt= std_z[n:]
+            probs_trgt = probs[n:]
+            probs_ctxt = probs[:n]
 
             rec_loss = torch.sum(probs_trgt * self.loss(mean,std,target_img_unlabelled_repeated),dim=(0,1))
 
@@ -194,9 +200,10 @@ class OnTheGridConvCNP(nn.Module):
 
             cat_ctxt = Categorical(probs_ctxt)
             cat_trgt = Categorical(probs_trgt)
-            kl_probs_loss = torch.sum(kl_divergence(cat_trgt,cat_ctxt),dim=(0,1))
+            kl_probs_loss = torch.sum(kl_divergence(cat_trgt,cat_ctxt))
 
             joint_loss += - (rec_loss + kl_z_loss + kl_probs_loss)
+            unsup_loss += joint_loss
 
         if not (all_unlabelled):
 
@@ -206,33 +213,36 @@ class OnTheGridConvCNP(nn.Module):
             target_img_labelled = target_img[labelled_indices]
             target_labelled_only = target_label[labelled_indices]
 
+            # unlabelled batch size
+            batch_size_labelled = mask_labelled.shape[0]
+
             mean, std, logits, probs, mean_z, std_z = self(mask_labelled, context_img_labelled,return_params_variational=True)
 
             probs_forced = torch.nn.functional.one_hot(target_labelled_only.type(torch.int64), num_classes=self.num_classes)
 
             mean = torch.unsqueeze(mean, dim=1)
-            mean = mean.reshape(mean.shape[0] // self.num_classes, self.num_classes, mean.shape[1], mean.shape[2], mean.shape[3])
+            mean = mean.reshape(self.num_classes, mean.shape[0] // self.num_classes, mean.shape[1], mean.shape[2],mean.shape[3]).permute(1, 0, 2, 3, 4)
             std = torch.unsqueeze(std, dim=1)
-            std = std.reshape(std.shape[0] // self.num_classes, self.num_classes, std.shape[1], std.shape[2],std.shape[3])
+            std = std.reshape(self.num_classes, std.shape[0] // self.num_classes, std.shape[1], std.shape[2],std.shape[3]).permute(1, 0, 2, 3, 4)
 
             mean_z = torch.unsqueeze(mean_z, dim=1)
-            mean_z = mean.reshape(mean_z.shape[0] // self.num_classes, self.num_classes, mean_z.shape[1],ean_z.shape[2], mean_z.shape[3])
+            mean_z = mean_z.reshape(self.num_classes, mean_z.shape[0] // self.num_classes, mean_z.shape[1],mean_z.shape[2], mean_z.shape[3]).permute(1, 0, 2, 3, 4)
             std_z = torch.unsqueeze(std_z, dim=1)
-            std_z = std.reshape(std_z.shape[0] // self.num_classes, self.num_classes, std_z.shape[1], std._zshape[2],std_z.shape[3])
+            std_z = std_z.reshape(self.num_classes, std_z.shape[0] // self.num_classes, std_z.shape[1], std_z.shape[2],std_z.shape[3]).permute(1, 0, 2, 3, 4)
 
-            target_img_labelled_repeated = torch.unsqueeze(target_img_labelled_repeated, dim=1).repeat(1,self.num_classes,1, 1, 1)
+            target_img_labelled_repeated = torch.unsqueeze(target_img_labelled, dim=1).repeat(1,self.num_classes,1, 1, 1)
 
             assert mean.shape[0] % 2 == 0, "the batch size should be a multiple of 2, one half for ctx only and one half for ctx and target"
             n = mean.shape[0] // 2
-            mean = mean[:n]
-            std = std[:n]
-            target_img_labelled_repeated = target_img_labelled_repeated[:n]
-            mean_z_ctxt = mean_z[n:]
-            std_z_ctxt = std_z[n:]
-            mean_z_trgt = mean_z[:n]
-            std_z_trgt = std_z[:n]
-            probs_trgt = probs[:n]
-            probs_ctxt = probs[n:]
+            mean = mean[n:]
+            std = std[n:]
+            target_img_labelled_repeated = target_img_labelled_repeated[n:]
+            mean_z_ctxt = mean_z[:n]
+            std_z_ctxt = std_z[:n]
+            mean_z_trgt = mean_z[n:]
+            std_z_trgt = std_z[n:]
+            probs_trgt = probs[n:]
+            probs_ctxt = probs[:n]
 
             rec_loss = torch.sum(probs_forced * self.loss(mean, std, target_img_labelled_repeated), dim=(0,1))
 
@@ -241,53 +251,33 @@ class OnTheGridConvCNP(nn.Module):
             kl_z_loss = torch.sum(probs_forced * torch.sum(kl_divergence(dist_trgt, dist_ctxt), dim=(2, 3, 4)), dim=(0,1))
 
             criterion = nn.CrossEntropyLoss(reduction="sum")
-            classification_logp = - criterion(probs_ctxt, target_labelled_only.type(torch.long))
+            classification_logp = - criterion(probs_ctxt, target_labelled_only[:n].type(torch.long))
 
-            sup_loss = -classification_logp
-            unsup_loss = -(joint_loss + rec_loss + kl_z_loss)
+            sup_loss = (-classification_logp/batch_size_labelled).item()
             joint_loss +=  - (rec_loss + kl_z_loss + classification_logp)
+            unsup_loss += - (rec_loss + kl_z_loss)
 
-            _, predicted = torch.max(probs, dim=1)
+            _, predicted = torch.max(probs[:n], dim=1)
             total = len(target_labelled_only)
             if total != 0:
-                accuracy = ((predicted == target_labelled_only).sum()).item() / total
+                accuracy = ((predicted == target_labelled_only[:n]).sum()).item() / total
         else:
             total = 0
             accuracy = 0
             sup_loss = 0
 
-        losses = {"joint_loss":joint_loss,
+        unsup_loss /= batch_size
+        joint_loss /= batch_size
+
+        losses = {"joint_loss":joint_loss.item(),
                   "accuracy":accuracy,
                   "total":total,
-                  "sup_loss":sup_loss.item(),
+                  "sup_loss":sup_loss,
                   "unsup_loss":unsup_loss.item()}
 
         obj = joint_loss
 
         return obj, losses
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def joint_gmm_loss(self,mask,context_img,target_label,target_img,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1, grad_norm_iterator=None):
 
@@ -742,10 +732,16 @@ class OnTheGridConvCNPUNet(nn.Module):
         self.h_up = nn.ModuleList([])
         for j in range(num_down_blocks-1,-1,-1):
             if j == 0: # no skip connection at the top
-                if max_size:
-                    num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size)
+                if self.is_variational:
+                    if max_size:
+                        num_in = min((2 ** (j)) * num_of_filters, max_size)
+                    else:
+                        num_in = (2 ** (j)) * num_of_filters
                 else:
-                    num_in = (2 ** (j + 1)) * num_of_filters
+                    if max_size:
+                        num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size)
+                    else:
+                        num_in = (2 ** (j + 1)) * num_of_filters
                 self.h_up.append(ConvBlock(num_in , num_in_filters//2, kernel_size_CNN, num_convolutions_per_block,
                                            is_residual = False))
             else:
@@ -771,7 +767,7 @@ class OnTheGridConvCNPUNet(nn.Module):
         for k in range(num_down_blocks+1):
             self.connections.append(torch.nn.Identity())
 
-        if is_gmm:
+        if is_gmm or self.is_variational:
             assert num_classes and classifier_layer_widths, "num classes and classifier layers widths should be defined if using the GMM version of the UNetCNP"
             self.num_classes = num_classes
 
@@ -913,22 +909,20 @@ class OnTheGridConvCNPUNet(nn.Module):
         layers = []
         x, layers = self.down(input, layers=layers)
 
-        # Bottleneck
-        x = self.h_bottom(x)
-
         if self.is_variational:
-            classes = np.ones(x.shape[0] * self.num_classes)
+            x_before_sampling = x
+            classes = torch.ones(x.shape[0] * self.num_classes)
             for i in range(self.num_classes):
-                classes[i*self.num_classes:(i+1)*self.num_classes] = i
-            one_hot = torch.nn.functional.one_hot(classes, num_classes=self.num_classes).to(x.device)
-            one_hot = torch.unsqueeze(torch.unsqueeze(one_hot,axis=-2),axis=-2)
-            one_hot = one_hot.repeat(1,x.shape[-3],x.shape[-2],1)
+                classes[i*x.shape[0]:(i+1)*x.shape[0]] = i
+            one_hot = torch.nn.functional.one_hot(classes.type(torch.int64), num_classes=self.num_classes).to(x.device)
+            one_hot = torch.unsqueeze(torch.unsqueeze(one_hot,axis=-1),axis=-1)
+            one_hot = one_hot.repeat(1,1,x.shape[-2],x.shape[-1])
             x_repeated = torch.cat([x] * self.num_classes,dim=0)
-            combined = torch.cat((x,one_hot),dim=1)
+            combined = torch.cat((x_repeated,one_hot),dim=1)
 
-            assert x_repeated.shape[-1] != 1, "Wrong shape"
             x = self.h_bottom(combined)
-            mean_z, std_z = x.split(x, x.shape[-1] // 2, dim=1)
+            mean_z, log_std_z = x.split(split_size=x.shape[1] // 2, dim=1)
+            std_z = torch.exp(log_std_z)
             sample = GaussianSampler()(mean_z,std_z)
             x = sample
         else:
@@ -938,15 +932,20 @@ class OnTheGridConvCNPUNet(nn.Module):
         x = self.connections[self.num_down_blocks](x)
 
         # classifier if GMM type
-        if self.is_gmm:
+        if self.is_gmm or self.is_variational:
             # classify
-            if self.classify_same_image:
-                logits, probs, prob_same_image = self.classify(x)
+            if self.is_variational:
+                x_to_classify = x_before_sampling
             else:
-                logits, probs = self.classify(x)
+                x_to_classify = x
+            if self.classify_same_image:
+                logits, probs, prob_same_image = self.classify(x_to_classify)
+            else:
+                logits, probs = self.classify(x_to_classify)
 
-            # expand and concatenate with the possible classes
-            x = self.expand_and_concatenate_with_all_classes(x)
+            if self.is_gmm:
+                # expand and concatenate with the possible classes
+                x = self.expand_and_concatenate_with_all_classes(x)
 
         layers.append(x)
 
@@ -959,15 +958,15 @@ class OnTheGridConvCNPUNet(nn.Module):
         else:
             raise RuntimeError("Wrong variable type of layer_id, shoudl be int or list but was given ") + str(type(layer_id))
 
-        if not(self.is_gmm):
-            return output_layers
-        elif self.is_variational and return_params_variational:
-            output_layers, logits, probs, mean_z, std_z
-        else:
+        if self.is_gmm:
             if self.classify_same_image:
                 return output_layers, logits, probs, prob_same_image
             else:
                 return output_layers, logits, probs
+        elif self.is_variational and return_params_variational:
+            return output_layers, logits, probs, mean_z, std_z
+        else:
+            return output_layers
 
     def get_last_shared_layer(self):
         return self.h_bottom

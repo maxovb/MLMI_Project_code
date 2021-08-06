@@ -324,7 +324,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
 
             target = target.to(device)
 
-            if consistency_regularization or classify_same_image:
+            if consistency_regularization or classify_same_image or is_variational:
                 num_sets_of_context = 2
                 repeat_size_target = [1] * len(target.shape)
                 repeat_size_target[0] = num_sets_of_context
@@ -400,7 +400,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
 
                 target = target.to(device)
 
-                if consistency_regularization or classify_same_image:
+                if consistency_regularization or classify_same_image or is_variational:
                     repeat_size_target = [1] * len(target.shape)
                     repeat_size_target[0] = num_sets_of_context
                     repeat_size_target = tuple(repeat_size_target)
