@@ -399,7 +399,7 @@ class OnTheGridConvCNP(nn.Module):
                 total_discr += total_discriminator_local
                 num_correct_discr += total_discriminator_local * accuracy_discriminator_local
         else:
-            sup_loss = torch.zeros(1,device=mean.device)[0] * float('nan')
+            sup_loss = torch.zeros(1,device=mask.device)[0] * float('nan')
             total = 0
             accuracy = 0
 

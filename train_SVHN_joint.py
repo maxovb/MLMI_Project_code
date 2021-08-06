@@ -60,7 +60,7 @@ if __name__ == "__main__":
     data_version = args.dataversion
 
     # type of model
-    model_name = "UNetCNP" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = False
     if load:
@@ -81,12 +81,12 @@ if __name__ == "__main__":
         epoch_start = 0
 
     if percentage_unlabelled_set < 0.25:
-        batch_size = 256 #16
+        batch_size = 16 #16
     else:
         batch_size = 64 #TODO: 64
     learning_rate = 2e-4 
 
-    epochs = 1560 - epoch_start
+    epochs = 2000 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
