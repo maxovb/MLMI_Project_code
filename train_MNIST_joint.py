@@ -83,7 +83,7 @@ if __name__ == "__main__":
     if percentage_unlabelled_set < 0.25:
         batch_size = 16 #16
     else:
-        batch_size = 256 #TODO: 64
+        batch_size = 64 #TODO: 64
     learning_rate = 2e-4 
 
     epochs =  2000 - epoch_start
