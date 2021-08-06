@@ -109,7 +109,7 @@ def image_processor(data,num_context_points,convolutional=False,semantic_blocks=
 
         if is_variational:
             masks = torch.cat([masks,torch.ones(masks.shape, device = masks.device)],dim=0)
-            image_context = torch.cat([image_context,data],dim=0)
+            image_context = torch.cat([image_context,data.to(masks.device)],dim=0)
 
         if return_num_points:
             num_context_points = torch.sum(masks[0]).item()

@@ -86,7 +86,7 @@ if __name__ == "__main__":
         batch_size = 256 #TODO: 64
     learning_rate = 2e-4 
 
-    epochs =  1400 - epoch_start
+    epochs =  2000 - epoch_start
     save_freq = 20
 
     if model_name in ["ConvCNP", "ConvCNPXL"]:
@@ -139,26 +139,6 @@ if __name__ == "__main__":
     expected_num_batches_with_sup = num_batches * (1 - rv.pmf(0))
     ratio_of_batches_with_labelled_data_to_without = num_batches/expected_num_batches_with_sup
 
-    # hyper-parameters
-    if not(variational):
-        if mixture:
-            if grad_norm:
-                alpha = 1
-                alpha_validation = 1
-            else:
-                alpha = ratio_of_batches_with_labelled_data_to_without / R
-                alpha_validation = 1
-        else:
-            if grad_norm:
-                alpha = 1
-                alpha_validation = 1
-            else:
-                alpha = ratio_of_batches_with_labelled_data_to_without / R
-                alpha_validation = 1
-    else:
-        alpha = ratio_of_batches_with_labelled_data_to_without / R
-        alpha_validation = 1
-
     if not(variational):
         if not(mixture):
             # create the model
@@ -175,9 +155,35 @@ if __name__ == "__main__":
             model.to(device)
     else:
         model, convolutional = create_model(model_name, model_size_creation, classify_same_image=classify_same_image, num_channels=num_channels, num_classes=num_classes)
+        model.to(device)
         if not(convolutional):
             model.prior.loc = model.prior.loc.to(device)
             model.prior.scale = model.prior.scale.to(device)
+
+
+    # hyper-parameters
+    if variational:
+        if convolutional:
+            alpha = 1
+            alpha_validation = 1
+        else:
+            alpha = ratio_of_batches_with_labelled_data_to_without / R
+            alpha_validation = 1
+    else:
+        if mixture:
+            if grad_norm:
+                alpha = 1
+                alpha_validation = 1
+            else:
+                alpha = ratio_of_batches_with_labelled_data_to_without / R
+                alpha_validation = 1
+        else:
+            if grad_norm:
+                alpha = 1
+                alpha_validation = 1
+            else:
+                alpha = ratio_of_batches_with_labelled_data_to_without / R
+                alpha_validation = 1
 
     # print a summary of the model
     """

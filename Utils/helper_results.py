@@ -230,13 +230,13 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
                     img1, img2 = mean, std
 
             else:
-                mean, std, logits, probs = model(mask,context_img).detach().cpu().numpy()
-                _, class_sampled = torch.max(probs[0])
+                mean, std, logits, probs = model(mask,context_img)
+                _, class_sampled = torch.max(probs,dim=1)
                 class_sampled = class_sampled.item()
-                mean = mean[0,class_sampled].detach().cpu().numpy()
-                std = std[0, class_sampled].detach().cpu().numpy()
+                mean = mean[class_sampled].detach().cpu().numpy()
+                std = std[class_sampled].detach().cpu().numpy()
                 probabilities_to_plot = probs[0].detach().cpu()
-                img1, img2 = mean, std
+                img1, img2 = mean[np.newaxis,:,:,:], std[np.newaxis,:,:,:]
             context_img = context_points_image_from_mask(mask, context_img)
         else:
             x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
@@ -498,13 +498,14 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
     num_rows = math.ceil(num_plots / num_cols)
 
     plot_dir = plot_dir.split("average")[0] + "overview.svg"
-
     fig, ax = plt.subplots(num_rows, min(num_cols,num_plots), figsize=(num_cols * 5, num_rows * 5))
-    if num_rows == 1:
-        ax = ax[None, :]
-    elif num_cols == 1:
-        ax = ax[:, None]
 
+    if num_rows != 1 or num_plots != 1:
+        if num_rows == 1:
+            ax = ax[None, :]
+        elif num_cols == 1:
+            ax = ax[:, None]
+ 
     current_col = -1
     current_row = 0
     for i,loss_dir in enumerate(list_loss_dir_txt_subplots):
@@ -512,7 +513,10 @@ def plot_losses_from_loss_writer(train_loss_writer,validation_loss_writer=None):
         if current_col > num_cols-1:
             current_row += 1
             current_col = 0
-        plot_loss(loss_dir, plot_dir, y_label=y_label_subplots[i],ax=ax[current_row,current_col])
+        if len(list_loss_dir_txt_subplots) == 1:
+            plot_loss(loss_dir, plot_dir, y_label=y_label_subplots[i],ax=ax)
+        else:
+            plot_loss(loss_dir, plot_dir, y_label=y_label_subplots[i],ax=ax[current_row,current_col])
 
     fig.savefig(plot_dir)
     plt.close(fig)

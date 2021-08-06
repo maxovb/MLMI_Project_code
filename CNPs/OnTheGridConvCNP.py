@@ -2,6 +2,7 @@ import random
 import numpy as np
 import torch
 from torch import nn
+from torch._C import device
 import torch.nn.functional as F
 from torch.distributions import Categorical
 from torch.distributions.kl import kl_divergence
@@ -9,7 +10,7 @@ from torch.distributions import Categorical, Normal
 from torchsummary import summary
 from CNPs.model_part import discriminate_same_image
 from Utils.helpful_functions import nansum
-from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf, discriminator_logp, consistency_loss
+from Utils.helper_loss import gaussian_logpdf, mixture_of_gaussian_logpdf, discriminator_logp, consistency_loss, js_divergence
 
 
 
@@ -87,19 +88,21 @@ class OnTheGridConvCNP(nn.Module):
                 mean, std = self.decoder(x)
                 return mean, std, logits, probs, probs_same
             elif self.is_variational:
-                x, logits, probs, mean_z, std_z = self.CNN(encoder_output,return_params_variational=return_params_variational)
-                mean, std = self.decoder(x)
                 if return_params_variational:
+                    x, logits, probs, mean_z, std_z = self.CNN(encoder_output,return_params_variational=return_params_variational)
+                    mean, std = self.decoder(x)
                     return mean, std, logits, probs, mean_z, std_z
                 else:
+                    x, logits, probs = self.CNN(encoder_output,return_params_variational=return_params_variational)
+                    mean, std = self.decoder(x)
                     return mean, std, logits, probs
             else:
                 x, logits, probs = self.CNN(encoder_output)
                 mean, std = self.decoder(x)
                 return mean, std, logits, probs
 
-    def loss(self,mean,std,target):
-        obj = -gaussian_logpdf(target, mean, std, 'batched_mean')
+    def loss(self,mean,std,target,reduction="batched_mean"):
+        obj = -gaussian_logpdf(target, mean, std, reduction)
         return obj
 
     def train_step(self,mask,context_image,target,opt):
@@ -126,7 +129,7 @@ class OnTheGridConvCNP(nn.Module):
 
         return losses
     
-    def joint_loss(self,mask,context_img,target_label,target_img,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1, grad_norm_iterator=None):
+    def joint_loss(self,mask,context_img,target_label,target_img,alpha=1,scale_sup=1,scale_unsup=1, consistency_regularization=False, num_sets_of_context=1, grad_norm_iterator=None, regression_loss=False):
         if self.is_gmm:
             return self.joint_gmm_loss(mask,context_img,target_label,target_img,alpha,scale_sup=scale_sup,scale_unsup=scale_unsup,consistency_regularization=consistency_regularization,num_sets_of_context=num_sets_of_context, grad_norm_iterator=grad_norm_iterator)
         elif self.is_variational:
@@ -156,6 +159,7 @@ class OnTheGridConvCNP(nn.Module):
         # general objective
         joint_loss = 0
         unsup_loss = 0
+        rec_losses = 0
 
         if not (all_labelled):
             # split to obtain the unlabelled samples
@@ -192,7 +196,8 @@ class OnTheGridConvCNP(nn.Module):
             probs_trgt = probs[n:]
             probs_ctxt = probs[:n]
 
-            rec_loss = torch.sum(probs_trgt * self.loss(mean,std,target_img_unlabelled_repeated),dim=(0,1))
+            rec_loss = torch.sum(probs_trgt * torch.sum(self.loss(mean,std,target_img_unlabelled_repeated,reduction=None),dim=(2,3,4)),dim=(0,1))
+            rec_losses += rec_loss
 
             dist_ctxt = Normal(loc=mean_z_ctxt, scale=std_z_ctxt)
             dist_trgt = Normal(loc=mean_z_trgt, scale=std_z_trgt)
@@ -200,10 +205,9 @@ class OnTheGridConvCNP(nn.Module):
 
             cat_ctxt = Categorical(probs_ctxt)
             cat_trgt = Categorical(probs_trgt)
-            kl_probs_loss = torch.sum(kl_divergence(cat_trgt,cat_ctxt))
+            kl_probs_loss = torch.sum(kl_divergence(cat_trgt,cat_ctxt)) # torch.sum(js_divergence(probs_ctxt,probs_trgt,reduction=None))
 
-            joint_loss += - (rec_loss + kl_z_loss + kl_probs_loss)
-            unsup_loss += joint_loss
+            unsup_loss += rec_loss + kl_z_loss + kl_probs_loss
 
         if not (all_unlabelled):
 
@@ -243,39 +247,66 @@ class OnTheGridConvCNP(nn.Module):
             std_z_trgt = std_z[n:]
             probs_trgt = probs[n:]
             probs_ctxt = probs[:n]
+            logits_ctxt = logits[:n]
 
-            rec_loss = torch.sum(probs_forced * self.loss(mean, std, target_img_labelled_repeated), dim=(0,1))
+            rec_loss =  torch.sum(probs_forced[n:] * torch.sum(self.loss(mean, std, target_img_labelled_repeated,reduction=None),dim=(2,3,4)), dim=(0,1))
+            rec_losses += rec_loss
 
             dist_ctxt = Normal(loc=mean_z_ctxt, scale=std_z_ctxt)
             dist_trgt = Normal(loc=mean_z_trgt, scale=std_z_trgt)
-            kl_z_loss = torch.sum(probs_forced * torch.sum(kl_divergence(dist_trgt, dist_ctxt), dim=(2, 3, 4)), dim=(0,1))
+
+            kl_z_loss = torch.sum(probs_forced[:n] * torch.sum(kl_divergence(dist_trgt, dist_ctxt), dim=(2, 3, 4)), dim=(0,1))
 
             criterion = nn.CrossEntropyLoss(reduction="sum")
-            classification_logp = - criterion(probs_ctxt, target_labelled_only[:n].type(torch.long))
+            classification_logp = criterion(logits_ctxt, target_labelled_only[:n].type(torch.long))
 
-            sup_loss = (-classification_logp/batch_size_labelled).item()
-            joint_loss +=  - (rec_loss + kl_z_loss + classification_logp)
-            unsup_loss += - (rec_loss + kl_z_loss)
+            unsup_loss += (rec_loss + kl_z_loss)
+            sup_loss = (classification_logp/batch_size_labelled)
 
             _, predicted = torch.max(probs[:n], dim=1)
-            total = len(target_labelled_only)
+            total = len(target_labelled_only[:n])
             if total != 0:
                 accuracy = ((predicted == target_labelled_only[:n]).sum()).item() / total
         else:
             total = 0
             accuracy = 0
-            sup_loss = 0
-
+            sup_loss = torch.zeros(1,device=mask.device)[0]
+        
         unsup_loss /= batch_size
-        joint_loss /= batch_size
+        rec_losses /= batch_size
+
+        unsup_task_loss = [unsup_loss]
+        sup_task_loss = [sup_loss]
+        task_loss = torch.stack(unsup_task_loss + sup_task_loss)
+        unsup_task_loss = torch.stack(unsup_task_loss)
+        sup_task_loss = torch.stack(sup_task_loss)
+
+        if not (hasattr(self, "task_weights")):
+            self.task_weights = torch.ones(len(task_loss), device=unsup_loss.device).float()
+        if alpha != 1:
+            self.task_weights[-1] = alpha
+
+        # weights
+        n_unsup = len(unsup_task_loss)
+        self.task_weights_unsup = self.task_weights[:n_unsup]
+        self.task_weights_sup = self.task_weights[n_unsup:]
+
+        unsup_loss = torch.sum(unsup_task_loss)
+        sup_loss = torch.sum(sup_task_loss)
+        joint_loss = nansum(task_loss)
+
+        obj = nansum(torch.mul(self.task_weights, task_loss))
+
+        if grad_norm_iterator:
+            assert alpha == 1, "alpha should be 1 when using grad norm"
+            grad_norm_iterator.store_norm(task_loss)
 
         losses = {"joint_loss":joint_loss.item(),
+                  "rec_loss":rec_losses.item(),
                   "accuracy":accuracy,
                   "total":total,
-                  "sup_loss":sup_loss,
+                  "sup_loss":sup_loss.item(),
                   "unsup_loss":unsup_loss.item()}
-
-        obj = joint_loss
 
         return obj, losses
 
@@ -739,7 +770,7 @@ class OnTheGridConvCNPUNet(nn.Module):
                         num_in = (2 ** (j)) * num_of_filters
                 else:
                     if max_size:
-                        num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size)
+                        num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size) 
                     else:
                         num_in = (2 ** (j + 1)) * num_of_filters
                 self.h_up.append(ConvBlock(num_in , num_in_filters//2, kernel_size_CNN, num_convolutions_per_block,
@@ -752,14 +783,14 @@ class OnTheGridConvCNPUNet(nn.Module):
                         num_in = min((2 ** (j+1)) * num_of_filters, 2 * max_size) + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
                         num_out = min((2 ** (j-1)) * num_of_filters, max_size)
                     else:
-                        num_in = min((2 ** (j)) * num_of_filters, max_size) + (num_classes if (is_gmm and j == num_down_blocks - 1) else 0)
+                        num_in = min((2 ** (j)) * num_of_filters, max_size) + (num_classes if ((is_gmm  or self.is_variational) and j == num_down_blocks - 1) else 0) 
                         num_out = min((2 ** (j - 1)) * num_of_filters, max_size)
                 else:
                     if has_residual_connection:
                         num_in = (2 ** (j + 1)) * num_of_filters + (num_classes if (is_gmm and j == num_down_blocks-1) else 0)
                         num_out = (2 ** (j-1)) * num_of_filters
                     else:
-                        num_in = (2 ** (j)) * num_of_filters + (num_classes if (is_gmm and j == num_down_blocks - 1) else 0)
+                        num_in = (2 ** (j)) * num_of_filters + (num_classes if ((is_gmm or self.is_variational) and j == num_down_blocks - 1) else 0)
                         num_out = (2 ** (j - 1)) * num_of_filters
                 self.h_up.append(ConvBlock(num_in, num_out, kernel_size_CNN,num_convolutions_per_block,is_residual = False))
 
@@ -921,8 +952,9 @@ class OnTheGridConvCNPUNet(nn.Module):
             combined = torch.cat((x_repeated,one_hot),dim=1)
 
             x = self.h_bottom(combined)
-            mean_z, log_std_z = x.split(split_size=x.shape[1] // 2, dim=1)
-            std_z = torch.exp(log_std_z)
+
+            mean_z, std_z = x.split(split_size=x.shape[1] // 2, dim=1)
+            std_z = 0.001 + 0.999 * nn.functional.softplus(std_z)
             sample = GaussianSampler()(mean_z,std_z)
             x = sample
         else:
@@ -946,6 +978,8 @@ class OnTheGridConvCNPUNet(nn.Module):
             if self.is_gmm:
                 # expand and concatenate with the possible classes
                 x = self.expand_and_concatenate_with_all_classes(x)
+            if self.is_variational:
+                x = torch.cat((x,one_hot),dim=1)
 
         layers.append(x)
 
@@ -963,13 +997,19 @@ class OnTheGridConvCNPUNet(nn.Module):
                 return output_layers, logits, probs, prob_same_image
             else:
                 return output_layers, logits, probs
-        elif self.is_variational and return_params_variational:
-            return output_layers, logits, probs, mean_z, std_z
+        elif self.is_variational:
+            if return_params_variational:
+                return output_layers, logits, probs, mean_z, std_z
+            else:
+                return output_layers, logits, probs
         else:
             return output_layers
 
     def get_last_shared_layer(self):
-        return self.h_bottom
+        if self.is_variational:
+            return self.h_down[-1]
+        else:
+            return self.h_bottom
 
 
 class OnTheGridConvCNPDecoder(nn.Module):

@@ -159,6 +159,8 @@ def js_divergence(probs_set1, probs_set2, reduction="mean"):
         div = 0.5 * torch.mean(loss)
     elif reduction == "sum":
         div = 0.5 * torch.sum(loss)
+    elif reduction == None:
+        div = 0.5 * loss
     else:
         raise NotImplementedError("reduction for JS divergence is implemented only with mean (default) and sum")
     return div
