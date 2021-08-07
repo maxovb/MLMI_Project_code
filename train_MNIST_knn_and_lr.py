@@ -58,22 +58,19 @@ if __name__ == "__main__":
     # use GPU if available
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    num_training_samples = [10, 20, 40, 60, 80, 100, 600, 1000, 3000]
+    num_training_samples = [100]#[10, 20, 40, 60, 80, 100, 600, 1000, 3000]
     batch_size = 64
 
     random.seed(1234)
 
     for data_version in range(10,20):
         # create the model
-        model_name = "CNP" # now in for loop
-        pooling = "" # now in for loop
         semantics = True
         cheat_validation = False
-        for model_name in ["ConvCNP"]:#["CNP","ConvCNP","UNetCNP"]:
+        for model_name in ["CNP"]:#["CNP","ConvCNP","UNetCNP"]:
             
             epoch_unsup = 400
 
-            pooling = ""#"flatten"
             model, convolutional = load_unsupervised_model(model_name, epoch_unsup, semantics=semantics, device=device)
 
             # get the number of layers possible to investigate
@@ -129,7 +126,7 @@ if __name__ == "__main__":
 
                     for i, num_samples in enumerate(num_training_samples):
 
-                        train_data, valid_data, test_data, img_height, img_widt, num_channels = load_supervised_data_as_generator(batch_size=batch_size, num_training_samples=num_samples, cheat_validation=cheat_validation)
+                        train_data, valid_data, test_data, img_height, img_widt, num_channels, num_classes = load_supervised_data_as_generator(batch_size=batch_size, num_training_samples=num_samples, cheat_validation=cheat_validation)
 
                         X_train, y_train, X_validation, y_validation = transform_data_to_representation(model_extract_r, [train_data, valid_data], convolutional)
                         if num_samples == num_training_samples[0]:
@@ -138,8 +135,8 @@ if __name__ == "__main__":
                         else:
                             X_test, y_test = copy
 
-                        accuracies_knn[layer_id,i], optimal_k[layer_id,i] = KNN_classifier(X_train,y_train,X_validation,y_validation,X_test,y_test)
-                        accuracies_lr[layer_id,i], optimal_c[layer_id,i] = LR_classifier(X_train, y_train, X_validation, y_validation, X_test, y_test)
+                        #accuracies_knn[layer_id,i], optimal_k[layer_id,i] = KNN_classifier(X_train,y_train,X_validation,y_validation,X_test,y_test)
+                        #accuracies_lr[layer_id,i], optimal_c[layer_id,i] = LR_classifier(X_train, y_train, X_validation, y_validation, X_test, y_test)
                         accuracies_svm[layer_id, i], optimal_c_svm[layer_id, i] = SVM_classifier(X_train, y_train, X_validation, y_validation, X_test, y_test)
                 
                 # create directory if it doesn't exist yet
@@ -147,6 +144,7 @@ if __name__ == "__main__":
                 os.makedirs(dir_to_create, exist_ok=True)
 
                 for j in range(len(num_training_samples)):
+                    """
                     # KNN
                     num_samples = num_training_samples[j]
                     vals = [str(x) for x in accuracies_knn[:,j]]
@@ -159,6 +157,7 @@ if __name__ == "__main__":
                     txt_line = str(num_samples) + ", " + " ".join(vals) + "\n"
                     with open(accuracies_dir_txt_lr, 'a+') as f:
                         f.write(txt_line)
+                    """
 
                     # SVM
                     vals = [str(x) for x in accuracies_svm[:, j]]
