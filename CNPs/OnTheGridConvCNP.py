@@ -193,21 +193,25 @@ class OnTheGridConvCNP(nn.Module):
             std_z_ctxt = std_z[:n]
             mean_z_trgt = mean_z[n:]
             std_z_trgt= std_z[n:]
-            probs_trgt = probs[n:]
-            probs_ctxt = probs[:n]
+            probs_trgt1 = probs[n:]
+            probs_ctxt1 = probs[:n]
 
-            rec_loss = torch.sum(probs_trgt * torch.sum(self.loss(mean,std,target_img_unlabelled_repeated,reduction=None),dim=(2,3,4)),dim=(0,1))
+            rec_loss = torch.sum(probs_trgt1 * torch.sum(self.loss(mean,std,target_img_unlabelled_repeated,reduction=None),dim=(2,3,4)),dim=(0,1))
             rec_losses += rec_loss
 
             dist_ctxt = Normal(loc=mean_z_ctxt, scale=std_z_ctxt)
             dist_trgt = Normal(loc=mean_z_trgt, scale=std_z_trgt)
-            kl_z_loss = torch.sum(probs_trgt * torch.sum(kl_divergence(dist_trgt, dist_ctxt),dim=(2,3,4)), dim=(0,1))
+            kl_z_loss1 = torch.sum(probs_trgt1 * torch.sum(kl_divergence(dist_trgt, dist_ctxt),dim=(2,3,4)), dim=(0,1))
 
-            cat_ctxt = Categorical(probs_ctxt)
-            cat_trgt = Categorical(probs_trgt)
-            kl_probs_loss = torch.sum(kl_divergence(cat_trgt,cat_ctxt)) # torch.sum(js_divergence(probs_ctxt,probs_trgt,reduction=None))
+            # for numerical issues
+            probs_ctxt1 = probs_ctxt1 + 1e-10 
+            probs_trgt1 = probs_trgt1 + 1e-10 
 
-            unsup_loss += rec_loss + kl_z_loss + kl_probs_loss
+            cat_ctxt = Categorical(probs_ctxt1)
+            cat_trgt = Categorical(probs_trgt1)
+            kl_probs_loss = torch.sum(kl_divergence(cat_trgt,cat_ctxt)) #torch.sum(js_divergence(probs_ctxt1,probs_trgt1,reduction=None)) 
+
+            unsup_loss += rec_loss + kl_z_loss1 + kl_probs_loss
 
         if not (all_unlabelled):
 
@@ -245,8 +249,8 @@ class OnTheGridConvCNP(nn.Module):
             std_z_ctxt = std_z[:n]
             mean_z_trgt = mean_z[n:]
             std_z_trgt = std_z[n:]
-            probs_trgt = probs[n:]
-            probs_ctxt = probs[:n]
+            probs_trgt2 = probs[n:]
+            probs_ctxt2 = probs[:n]
             logits_ctxt = logits[:n]
 
             rec_loss =  torch.sum(probs_forced[n:] * torch.sum(self.loss(mean, std, target_img_labelled_repeated,reduction=None),dim=(2,3,4)), dim=(0,1))
@@ -255,12 +259,12 @@ class OnTheGridConvCNP(nn.Module):
             dist_ctxt = Normal(loc=mean_z_ctxt, scale=std_z_ctxt)
             dist_trgt = Normal(loc=mean_z_trgt, scale=std_z_trgt)
 
-            kl_z_loss = torch.sum(probs_forced[:n] * torch.sum(kl_divergence(dist_trgt, dist_ctxt), dim=(2, 3, 4)), dim=(0,1))
+            kl_z_loss2 = torch.sum(probs_forced[:n] * torch.sum(kl_divergence(dist_trgt, dist_ctxt), dim=(2, 3, 4)), dim=(0,1))
 
             criterion = nn.CrossEntropyLoss(reduction="sum")
             classification_logp = criterion(logits_ctxt, target_labelled_only[:n].type(torch.long))
 
-            unsup_loss += (rec_loss + kl_z_loss)
+            unsup_loss += (rec_loss + kl_z_loss2)
             sup_loss = (classification_logp/batch_size_labelled)
 
             _, predicted = torch.max(probs[:n], dim=1)
@@ -294,6 +298,16 @@ class OnTheGridConvCNP(nn.Module):
         unsup_loss = torch.sum(unsup_task_loss)
         sup_loss = torch.sum(sup_task_loss)
         joint_loss = nansum(task_loss)
+
+        if joint_loss.item() == float("inf"):
+            print("Fail, infinity join loss !")
+            if not(all_labelled):
+                print("kl_z_loss1",kl_z_loss1.item())
+                print("kl_probs_loss",kl_probs_loss.item())
+                print("probs_ctxt1",probs_ctxt1)
+                print("probs_trgt1",probs_trgt1)
+            if not(all_unlabelled):
+                print("kl_z_loss2",kl_z_loss2.item())
 
         obj = nansum(torch.mul(self.task_weights, task_loss))
 
