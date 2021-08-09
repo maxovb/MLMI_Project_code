@@ -18,6 +18,7 @@ def plot_accuracy_vs_layer_num_with_std(accuracies, layer_numbers, std_accuracie
     plt.xlabel("Layer Number", fontsize=15)
     plt.ylabel("Accuracy", fontsize=15)
     plt.ylim([0, 1])
+    plt.xticks(layer_numbers)
     plt.savefig(acc_dir_plot)
 
 
@@ -79,13 +80,13 @@ if __name__ == "__main__":
                     num_layers = 9
                 elif "Conv" in model_name:
                     num_layers = 4
-                num_data_versions = (10 if pooling == "average" else 3)
+                num_data_versions = (10 if pooling == "average" and model_name == "UNetCNP" else 3)
                 acc_versions = np.zeros((num_data_versions,num_layers))
                 n = 0
                 list_mean = []
                 list_std = []
                 for semantics in [False,True]:
-                    labels = ["Uniform","Semantic blocks"]
+                    labels = ["Uniform","Semantic"]
                     for i,data_version in enumerate(range(10,10 + num_data_versions)):
                         accuracies_dir_txt = "../saved_models/MNIST/supervised" + ("_semantics" if semantics else "") \
                                              + "/accuracies/" + str(data_version) + "V/" + classification_model_name + "_on_r_" + model_name + "_" + pooling + \
@@ -102,14 +103,17 @@ if __name__ == "__main__":
                         accuracies_array = np.array(accuracies)
 
                         accuracies_array = accuracies_array.T
-                        acc_versions[i,:] = accuracies_array[5]
+                        if pooling == "flatten" and model_name == "ConvCNP":
+                            acc_versions[i, :] = accuracies_array[0]
+                        else:
+                            acc_versions[i,:] = accuracies_array[5]
 
                     mean_accuracies = np.mean(acc_versions,axis=0)
                     std_accuracies = np.std(acc_versions,axis=0)
                     layer_numbers = list(range(num_layers))
 
                     list_mean.append(mean_accuracies)
-                    list_std.append(std_accuracies * 1.5)
+                    list_std.append(std_accuracies * (1.5 if (pooling == "average" and model_name == "UNetCNP") else 1))
 
 
                 plot_accuracy_vs_layer_num_with_std(list_mean, list(range(len(accuracies))), list_std, acc_dir_plot, labels=labels)

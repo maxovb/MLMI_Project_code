@@ -154,7 +154,7 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=
         plt.savefig(loss_dir_plot)
         plt.close(fig)
 
-def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False):
+def qualitative_evaluation_images(model, data, num_context_points, device, save_dir, convolutional=False, semantic_blocks=None, variational=False, include_class_predictions=False, show_label=True, n_restrict=None, gen_title=None):
 
     # number of images to show per class
     if include_class_predictions:
@@ -192,18 +192,40 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
             break
 
     # num of columns and rows in the subplot
-    num_cols = num_classes
-    num_rows = num_img_per_class * math.ceil(num_classes/num_cols)
+    if n_restrict:
+        if type(n_restrict) == int:
+            num = 1
+        else:
+            num = n_restrict[1] - n_restrict[0]
+    else:
+        num = num_classes
+    num_classes_shown = num
+    num_cols = num_classes_shown
+    num_rows = num_img_per_class * math.ceil(num_classes_shown/num_cols)
 
     # use subplots to visualize all images together
-    fig, ax = plt.subplots(num_rows,num_cols,figsize=(num_cols,num_rows))
+    if show_label:
+        multiply_figsize_width = 1.1
+    else:
+        multiply_figsize_width = 1
+    fig, ax = plt.subplots(num_rows,num_cols,figsize=(multiply_figsize_width * num_cols, num_rows))
     plt.subplots_adjust(wspace=0.01,hspace=0.01)
 
     # initialize the row and column position in the subplot
     row = 0
     col = 0
 
-    for (image,label) in images_to_plot:
+    if n_restrict == None:
+        n = num_classes
+        iterator = images_to_plot[:n]
+    else:
+        if type(n_restrict) == int:
+            n = n_restrict
+            iterator = images_to_plot[:n]
+        else:
+            iterator = images_to_plot[n_restrict[0]:n_restrict[1]]
+
+    for (image,label) in iterator:
         data = image.unsqueeze(0) # add the batch dimension
         label = label.unsqueeze(0)
         if convolutional:
@@ -241,7 +263,7 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
         else:
             x_context, y_context, x_target, y_target = image_processor(data, num_context_points, convolutional, semantic_blocks=semantic_blocks, device=device)
             if not(variational):
-                if not(model.is_gmm):
+                if True:#not(model.is_gmm):
                     mean,std = model(x_context,y_context,x_target)
                     mean = mean.detach().cpu().numpy().reshape((-1, img_width,img_height,num_channels))
                     std = std.detach().cpu().numpy().reshape((-1, img_width, img_height, num_channels))
@@ -260,11 +282,10 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
                 img1, img2 = sample1, sample2
             context_img = format_context_points_image(x_context,y_context,img_height,img_width)
 
-
-        ax[row,col].imshow(data[0].permute(1,2,0).detach().cpu().numpy())
-        ax[row+1,col].imshow(context_img[0])
-        ax[row+2,col].imshow(img1[0]) # mean for CNP and sample 1 for NP
-        ax[row+3,col].imshow(img2[0]) # std for CNP and sample 1 for NP
+        ax[row, col].imshow(data[0].permute(1, 2, 0).detach().cpu().numpy())
+        ax[row + 1, col].imshow(context_img[0])
+        ax[row + 2, col].imshow(img1[0])  # mean for CNP and sample 1 for NP
+        ax[row + 3, col].imshow(img2[0])  # std for CNP and sample 1 for NP
 
         if include_class_predictions:
             # get the colors of the bars (red for the one we sampled from)
@@ -278,7 +299,6 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
             ax[row + 4, col].set_yticks([])
             ax[row + 4, col].set_ylim(0,1)
 
-
         row += num_img_per_class
 
         if row >= num_rows:
@@ -286,9 +306,21 @@ def qualitative_evaluation_images(model, data, num_context_points, device, save_
             col += 1
 
     # remove the axes
-    for idx1 in range(num_rows-1):
+    for idx1 in range(num_rows - (1 if include_class_predictions else 0)):
         for idx2 in range(num_cols):
-            ax[idx1,idx2].set_axis_off()
+            #ax[idx1,idx2].set_axis_off()
+            ax[idx1,idx2].get_xaxis().set_ticks([])
+            ax[idx1, idx2].get_yaxis().set_ticks([])
+
+    if show_label:
+        col = 0
+        ax[row,col].set_ylabel("Target",fontsize=14)
+        ax[row+1, col].set_ylabel("Context", fontsize=14)
+        ax[row+2, col].set_ylabel("Mean", fontsize=14)
+        ax[row+3, col].set_ylabel("Std", fontsize=14)
+
+    if gen_title:
+        fig.suptitle(gen_title,fontsize=14)
 
     plt.tight_layout()
     plt.savefig(save_dir)
