@@ -67,7 +67,7 @@ if __name__ == "__main__":
         # create the model
         semantics = True
         cheat_validation = False
-        for model_name in ["CNP"]:#["CNP","ConvCNP","UNetCNP"]:
+        for model_name in ["UNetCNP"]:#["CNP","ConvCNP","UNetCNP"]:
             
             epoch_unsup = 400
 
