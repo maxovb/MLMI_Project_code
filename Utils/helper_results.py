@@ -1,11 +1,13 @@
 from Utils.data_processor import image_processor, format_context_points_image, context_points_image_from_mask
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 import numpy as np
 import os
 import json
 import torch
 import math
 import random
+from scipy.ndimage.filters import uniform_filter1d
 
 def test_model_accuracy(model,test_data,device,convolutional=False,num_context_points=784,is_CNP=True):
     sum, total = 0,0
@@ -116,7 +118,10 @@ def find_optimal_epoch_number(validation_loss_dir_txt, save_freq=20, window_size
     return epoch
 
 
-def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=None,ax=None):
+def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss", ylim = None, styles=None,ax=None,running_avg=False,groups=None):
+
+    labels_init = labels
+
     l = len(list_loss_dir_txt)
     losses = [[] for _ in range(l)]
     for i,filename in enumerate(list_loss_dir_txt):
@@ -133,22 +138,65 @@ def plot_loss(list_loss_dir_txt,loss_dir_plot,labels=None,y_label="Loss",styles=
     else:
         ax_given = True
 
+    alpha = 1
+    if groups:
+        alpha = 10/groups
+        colors = ["C0","C1","C2"]
+        labels = ["Without GradNorm", "With GradNorm"]
 
-    for i in range(l):
-        if styles != None:
-            ax.plot(np.arange(1, len(losses[i]) + 1), losses[i], styles[i])
+    for i in range((l//groups if groups else l)):
+        losses_to_plot = np.array(losses[i])
+        if running_avg:
+            losses_to_plot = uniform_filter1d(losses_to_plot,20,mode="nearest")
+        if groups:
+
+            losses_to_plot = np.array(losses[i*groups:i*groups+groups])
+            std_to_plot = np.std(losses_to_plot, axis=0)
+            std_to_plot = uniform_filter1d(std_to_plot, 20, mode="nearest")
+            losses_to_plot = np.mean(losses_to_plot,axis=0)
+            losses_to_plot = uniform_filter1d(losses_to_plot, 20, mode="nearest")
+
+            #j = i // groups
+            j = i
+            line_style = "-"
+            if labels_init == "valid also show dashed":
+                labels[j] = None
+                line_style = "--"
+            if i % groups == 0:
+                ax.plot(np.arange(1, len(losses_to_plot) + 1), losses_to_plot, line_style, color=colors[j], alpha=alpha, label=labels[j])
+                ax.fill_between(np.arange(1, len(losses_to_plot) + 1), losses_to_plot - std_to_plot, losses_to_plot + std_to_plot, color=colors[j], alpha=alpha/4)
+            else:
+                ax.plot(np.arange(1, len(losses_to_plot) + 1), losses_to_plot, line_style, color=colors[j], alpha=alpha, label=labels[j])
+                ax.fill_between(np.arange(1, len(losses_to_plot) + 1), losses_to_plot - std_to_plot, losses_to_plot + std_to_plot, color=colors[j], alpha=alpha / 4)
+            if labels_init == "valid also show dashed":
+                black_dashed_line = mlines.Line2D([], [], linewidth=2, linestyle="--", dashes=(3.7, 2), color='black', label="Validation")
+                black_solid_line = mlines.Line2D([], [], linewidth=2, linestyle="-", color='black', label="Training")
+                blue_solid_line = mlines.Line2D([], [], linewidth=2, linestyle="-", color='C0', label="Without GradNorm")
+                pumpkin_solid_line = mlines.Line2D([], [], linewidth=2, linestyle="-", color='C1', label="With GradNorm")
+
+                ax.legend(handles=[black_dashed_line,black_solid_line,blue_solid_line,pumpkin_solid_line],fontsize=15)
         else:
-            ax.plot(np.arange(1, len(losses[i]) + 1), losses[i])
-    if labels == None:
-        if l == 2:
-            ax.legend(["Train loss", "Validation loss"])
+            if styles != None:
+                ax.plot(np.arange(1, len(losses_to_plot) + 1), losses_to_plot, styles[i])
+            else:
+                ax.plot(np.arange(1, len(losses_to_plot) + 1), losses_to_plot)
+    if groups:
+        if labels_init != "valid also show dashed":
+            ax.legend()
     else:
-        ax.legend(labels)
+        if labels == None:
+            if l == 2:
+                ax.legend(["Train loss", "Validation loss"])
+        else:
+            ax.legend(labels)
 
-    ax.set_xlabel("Epoch",fontsize=15)
-    ax.set_ylabel(y_label,fontsize=15)
+
+    ax.set_xlabel("Epoch",fontsize=15)#25)
+    ax.set_ylabel(y_label,fontsize=15)#25)
     if y_label != None and "accuracy" in y_label.lower():
         ax.set_ylim([0,1])
+    if ylim != None:
+        ax.set_ylim(ylim)
 
     if not(ax_given):
         plt.savefig(loss_dir_plot)

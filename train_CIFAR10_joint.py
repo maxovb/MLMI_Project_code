@@ -61,7 +61,7 @@ if __name__ == "__main__":
     data_version = args.dataversion
 
     # type of model
-    model_name = "UNetCNP_GMM" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
+    model_name = "UNetCNP_VAR" # one of ["CNP", "ConvCNP", "ConvCNPXL", "UnetCNP", "UnetCNP_restrained", "UNetCNP_GMM","UNetCNP_restrained_GMM"]
     model_size = "medium_dropout" # one of ["LR","small","medium","large"]
     block_connections = False  # whether to block the skip connections at the middle layers of the UNet
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # for continued supervised training
     train = True
-    load = True
+    load = False
     save = False
     evaluate = True
     if load:
@@ -113,8 +113,11 @@ if __name__ == "__main__":
 
     mixture = False
     model_size_creation = None
-    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked"]:
-        mixture = True
+    if model_name in ["UNetCNP_GMM","UNetCNP_restrained_GMM","UNetCNP_GMM_blocked","UNetCNP_restrained_GMM_blocked","UNetCNP_VAR"]:
+        if "GMM" in model_name:
+            mixture = True
+        if "VAR" in model_name:
+            variational = True
         model_size_creation = model_size
 
     print(model_name, model_size)
@@ -130,6 +133,31 @@ if __name__ == "__main__":
                                        percentage_unlabelled_set=percentage_unlabelled_set,
                                        data_version=data_version, dataset=dataset)
     train_data, validation_data, test_data, num_classes, num_unlabelled, img_height, img_width, num_channels = out
+
+    if not(variational):
+        if not(mixture):
+            # create the model
+            unsupervised_model, convolutional = create_model(model_name,num_channels=num_channels,
+                                                             num_classes=num_classes)
+
+            # modify the model to act as a classifier
+            model = modify_model_for_classification(unsupervised_model,model_size,num_classes=num_classes,
+                                                    convolutional=convolutional,freeze=False,
+                                                    img_height=img_height,img_width=img_width,
+                                                    num_channels=num_channels, layer_id=layer_id, pooling=pooling,
+                                                    classify_same_image=classify_same_image)
+            model.to(device)
+        else:
+            model, convolutional = create_model(model_name, model_size_creation,
+                                                classify_same_image=classify_same_image, num_channels=num_channels,
+                                                num_classes=num_classes)
+            model.to(device)
+    else:
+        model, convolutional = create_model(model_name, model_size_creation, classify_same_image=classify_same_image, num_channels=num_channels, num_classes=num_classes)
+        model.to(device)
+        if not(convolutional):
+            model.prior.loc = model.prior.loc.to(device)
+            model.prior.scale = model.prior.scale.to(device)
 
     # weighting of the supervised task
     rv = hypergeom(num_unlabelled + num_samples, num_samples, batch_size)
@@ -157,31 +185,6 @@ if __name__ == "__main__":
         alpha = ratio_of_batches_with_labelled_data_to_without / R
         alpha_validation = 1
 
-    if not(variational):
-        if not(mixture):
-            # create the model
-            unsupervised_model, convolutional = create_model(model_name,num_channels=num_channels,
-                                                             num_classes=num_classes)
-
-            # modify the model to act as a classifier
-            model = modify_model_for_classification(unsupervised_model,model_size,num_classes=num_classes,
-                                                    convolutional=convolutional,freeze=False,
-                                                    img_height=img_height,img_width=img_width,
-                                                    num_channels=num_channels, layer_id=layer_id, pooling=pooling,
-                                                    classify_same_image=classify_same_image)
-            model.to(device)
-        else:
-            model, convolutional = create_model(model_name, model_size_creation,
-                                                classify_same_image=classify_same_image, num_channels=num_channels,
-                                                num_classes=num_classes)
-            model.to(device)
-    else:
-        model, convolutional = create_model(model_name, classify_same_image=classify_same_image,
-                                            num_channels=num_channels, num_classes=num_classes)
-        model.prior.loc = model.prior.loc.to(device) 
-        model.prior.scale = model.prior.scale.to(device) 
-
-    # print a summary of the model
     num_losses = 2
     theoretical_minimum_loss = [- img_width * img_height * num_channels * math.log(1/(math.sqrt(2*math.pi)*0.01))] # reconstruction loss
     losses_name = ["Regression"]
@@ -280,7 +283,6 @@ if __name__ == "__main__":
         assert not(os.path.isfile(train_loss_writer.obtain_loss_dir_txt("joint_loss"))), "The corresponding unsupervised loss file already exists, please remove it to train from scratch: " + train_loss_writer.obtain_loss_dir_txt("joint_loss")
 
     if train:
-        """
         t0 = time.time()
         train_joint(train_data, model, epochs, model_save_dir, train_loss_writer, validation_data,
                     validation_loss_writer, visualisation_dir, semantics=semantics, convolutional=convolutional,
@@ -294,7 +296,6 @@ if __name__ == "__main__":
         t = time.time() - t0
         info_writer.update_time(t)
         plot_losses_from_loss_writer(train_loss_writer, validation_loss_writer)
-        """
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_train_full_accuracies_dir_txt, train_data, device,
                                      convolutional=convolutional)
         evaluate_model_full_accuracy(model, experiment_dir_txt, loss_validation_full_accuracies_dir_txt, validation_data,

@@ -190,6 +190,7 @@ if __name__ == "__main__":
     else:
         summary(model, [(784, 2), (784, 1), (784,2)])
     """
+    
     num_losses = 2
     theoretical_minimum_loss = [- img_width * img_height * num_channels * math.log(1/(math.sqrt(2*math.pi)*0.01))] # reconstruction loss
     losses_name = ["Regression"]
