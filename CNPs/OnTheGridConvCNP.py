@@ -173,14 +173,14 @@ class OnTheGridConvCNP(nn.Module):
             mean, std, logits, probs, mean_z, std_z = self(mask_unlabelled,context_img_unlabelled,return_params_variational=True)
 
             mean = torch.unsqueeze(mean,dim=1)
-            mean = mean.reshape(self.num_classes,mean.shape[0] // self.num_classes, mean.shape[1], mean.shape[2],mean.shape[3]).permute(1,0,2,3,4)
+            mean = mean.reshape(self.num_classes,mean.shape[0] // self.num_classes, mean.shape[2], mean.shape[3],mean.shape[4]).permute(1,0,4,2,3)
             std = torch.unsqueeze(std, dim=1)
-            std = std.reshape(self.num_classes,std.shape[0] // self.num_classes, std.shape[1], std.shape[2],std.shape[3]).permute(1,0,2,3,4)
+            std = std.reshape(self.num_classes,std.shape[0] // self.num_classes, std.shape[2], std.shape[3],std.shape[4]).permute(1,0,4,2,3)
 
             mean_z = torch.unsqueeze(mean_z, dim=1)
-            mean_z = mean_z.reshape(self.num_classes,mean_z.shape[0] // self.num_classes, mean_z.shape[1], mean_z.shape[2],mean_z.shape[3]).permute(1,0,2,3,4)
+            mean_z = mean_z.reshape(self.num_classes,mean_z.shape[0] // self.num_classes, mean_z.shape[2], mean_z.shape[3],mean_z.shape[4]).permute(1,0,2,3,4)
             std_z = torch.unsqueeze(std_z, dim=1)
-            std_z = std_z.reshape(self.num_classes, std_z.shape[0] // self.num_classes, std_z.shape[1], std_z.shape[2], std_z.shape[3]).permute(1,0,2,3,4)
+            std_z = std_z.reshape(self.num_classes, std_z.shape[0] // self.num_classes, std_z.shape[2], std_z.shape[3], std_z.shape[4]).permute(1,0,2,3,4)
 
             target_img_unlabelled_repeated = torch.unsqueeze(target_img_unlabelled,dim=1).repeat(1,self.num_classes,1,1,1)
 
@@ -228,15 +228,15 @@ class OnTheGridConvCNP(nn.Module):
 
             probs_forced = torch.nn.functional.one_hot(target_labelled_only.type(torch.int64), num_classes=self.num_classes)
 
-            mean = torch.unsqueeze(mean, dim=1)
-            mean = mean.reshape(self.num_classes, mean.shape[0] // self.num_classes, mean.shape[1], mean.shape[2],mean.shape[3]).permute(1, 0, 2, 3, 4)
+            mean = torch.unsqueeze(mean,dim=1)
+            mean = mean.reshape(self.num_classes,mean.shape[0] // self.num_classes, mean.shape[2], mean.shape[3],mean.shape[4]).permute(1,0,4,2,3)
             std = torch.unsqueeze(std, dim=1)
-            std = std.reshape(self.num_classes, std.shape[0] // self.num_classes, std.shape[1], std.shape[2],std.shape[3]).permute(1, 0, 2, 3, 4)
+            std = std.reshape(self.num_classes,std.shape[0] // self.num_classes, std.shape[2], std.shape[3],std.shape[4]).permute(1,0,4,2,3)
 
             mean_z = torch.unsqueeze(mean_z, dim=1)
-            mean_z = mean_z.reshape(self.num_classes, mean_z.shape[0] // self.num_classes, mean_z.shape[1],mean_z.shape[2], mean_z.shape[3]).permute(1, 0, 2, 3, 4)
+            mean_z = mean_z.reshape(self.num_classes,mean_z.shape[0] // self.num_classes, mean_z.shape[2], mean_z.shape[3],mean_z.shape[4]).permute(1,0,2,3,4)
             std_z = torch.unsqueeze(std_z, dim=1)
-            std_z = std_z.reshape(self.num_classes, std_z.shape[0] // self.num_classes, std_z.shape[1], std_z.shape[2],std_z.shape[3]).permute(1, 0, 2, 3, 4)
+            std_z = std_z.reshape(self.num_classes, std_z.shape[0] // self.num_classes, std_z.shape[2], std_z.shape[3], std_z.shape[4]).permute(1,0,2,3,4)
 
             target_img_labelled_repeated = torch.unsqueeze(target_img_labelled, dim=1).repeat(1,self.num_classes,1, 1, 1)
 
