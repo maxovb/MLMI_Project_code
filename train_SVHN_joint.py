@@ -75,9 +75,9 @@ if __name__ == "__main__":
     train = True
     load = False
     save = False
-    evaluate = False
+    evaluate = True
     if load:
-        epoch_start = 700 # which epoch to start from
+        epoch_start = 1560 # which epoch to start from
     else:
         epoch_start = 0
 
