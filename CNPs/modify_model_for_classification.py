@@ -75,8 +75,8 @@ def modify_model_for_classification(model,model_size, num_classes = 10, convolut
         if "dropout" in model_size:
             dropout = True
 
-        # create the model
-        classification_model = CNPClassifier(model, classification_head_layer_widths, dropout=dropout, classify_same_image=classify_same_image)
+        print(classification_head_layer_widths)
+        classification_model = CNPClassifier(model, classification_head_layer_widths, dropout=dropout)
 
         # freeze the weights from the original CNP
         if freeze:
