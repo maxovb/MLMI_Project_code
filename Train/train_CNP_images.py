@@ -209,7 +209,10 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
                 loss = model.train_step(data,target,opt)
 
             # store the loss
-            train_losses.append(loss)
+            if len(loss > 1):
+                train_losses.append(loss[0])
+            else:
+                train_losses.append(loss)
 
             if batch_idx == 0 or (batch_idx + 1) % report_freq == 0:  # report the loss
                 avg_train_loss = np.array(train_losses).mean()
@@ -382,7 +385,7 @@ def train_joint(train_data,model,epochs, model_save_dir, train_loss_writer, vali
                 iterator.refresh()  # to show immediately the update
 
         if grad_norm_iterator:
-            if i + epoch_start >= 100:
+            if i + epoch_start >= 300: #100
                 grad_norm_iterator.grad_norm_iteration()
             else:
                 grad_norm_iterator.scale_only_grad_norm_iteration()

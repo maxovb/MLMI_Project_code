@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     for freeze_weights in [False,True]:
         for model_name in [model_name]:#["CNP","ConvCNP"]:
-            for data_version in range(10):
+            for data_version in range(5):
                 for model_size in list_sizes:
                     print(model_name, model_size)
 
