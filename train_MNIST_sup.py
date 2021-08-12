@@ -72,23 +72,23 @@ if __name__ == "__main__":
                         if num_samples <= 60:
                             batch_size = 64
                             if model_size == "small":
-                                learning_rate = 5e-3
+                                learning_rate = 1e-3
                             else:
                                 learning_rate = 1e-3
-                            epochs = 400
+                            epochs = 600
                             save_freq = 5
                         elif num_samples <= 100:
                             batch_size = 64
                             if model_size == "small":
-                                learning_rate = 5e-3
+                                learning_rate = 1e-3
                             else:
                                 learning_rate = 1e-3
-                            epochs = 400
+                            epochs = 600
                             save_freq = 5
                         else:
                             batch_size = 64
                             learning_rate = 1e-3
-                            epochs = 200
+                            epochs = 300
                             save_freq = 5
 
                         # load the supervised set

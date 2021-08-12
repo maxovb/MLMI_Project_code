@@ -209,7 +209,7 @@ def train_sup(train_data,model,epochs, model_save_dir, train_loss_dir_txt, valid
                 loss = model.train_step(data,target,opt)
 
             # store the loss
-            if len(loss > 1):
+            if len(loss) > 1:
                 train_losses.append(loss[0])
             else:
                 train_losses.append(loss)
