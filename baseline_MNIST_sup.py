@@ -89,13 +89,13 @@ if __name__ == "__main__":
 
             if num_samples <= 200:
                 batch_size = 64
-                learning_rate = 5e-3
-                epochs = 200
+                learning_rate = 1e-3
+                epochs = 600
                 save_freq = 20
             else:
                 batch_size = 64
                 learning_rate = 1e-3
-                epochs = 200
+                epochs = 400
                 save_freq = 20
 
             # load the supervised set

@@ -1,3 +1,6 @@
 data/test_32x32.mat
 data/cifar-10-python.tar.gz
 data/train_32x32.mat
+saved_models/SVHN/joint_1R_semantics_cons_GN_1.5/1.0P_0V/1000S/UNetCNP
+saved_models/UNetCNP_restrained/
+saved_models/UNetCNP_restrained_semantics/
